@@ -37,5 +37,6 @@ extension Lint.Rule {
         Lint.Rule.Cardinal.Count(),
         Lint.Rule.Cardinal.Constructor(),
         Lint.Rule.RawValue.Chain(),
+        Lint.Rule.RawValue.BitPattern(),
     ]
 }
