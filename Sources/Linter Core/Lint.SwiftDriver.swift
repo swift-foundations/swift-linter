@@ -9,9 +9,11 @@
 //
 // ===----------------------------------------------------------------------===//
 
+internal import ASCII_Primitives
 internal import Environment
 internal import File_System
 internal import Manifest
+internal import Parser_Literal_Primitives
 internal import Process
 internal import URI_Standard
 
@@ -159,33 +161,37 @@ extension Lint.SwiftDriver {
     /// Parse a `// parent: <URL>` directive from the leading
     /// comment lines of a Lint.swift file at `path`.
     ///
-    /// Reads the file via swift-file-system, then delegates to
-    /// ``parseParentURLFromContent(_:)``. Reading is best-effort;
-    /// any I/O failure returns `nil` without throwing.
-    ///
-    /// TODO (commit #3.5): replace the hand-rolled scan in
-    /// ``parseParentURLFromContent(_:)`` with a parser-primitive
-    /// composition over `Span<UInt8>`, eliminating the intermediate
-    /// `Swift.String` allocation and the manual line-splitting
-    /// loop. The parser-primitive ecosystem (swift-parser-primitives
-    /// + swift-ascii-parser-primitives) provides Skip / Literal /
-    /// Take / OneOf / Filter primitives; the deferral isolates the
-    /// learning-curve of that API surface from the type-discipline
-    /// refactor in this commit.
+    /// Reads the file's bytes via swift-file-system and scans
+    /// directly over the borrowed `Span<UInt8>` per [IMPL-089] —
+    /// no intermediate `Swift.String` materialization. Reading is
+    /// best-effort; any I/O failure returns `nil` without throwing.
     internal static func parseParentURL(at path: File.Path) -> URI? {
-        let contents: Swift.String
         do {
-            let bytes: [UInt8] = try File(path).read.full { (span: Span<UInt8>) -> [UInt8] in
-                var array: [UInt8] = []
-                array.reserveCapacity(span.count)
-                for i in 0..<span.count { array.append(span[i]) }
-                return array
+            return try File(path).read.full { (span: Span<UInt8>) -> URI? in
+                var lineBuffer: [UInt8] = []
+                lineBuffer.reserveCapacity(128)
+                var lineCount = 0
+                for i in 0..<span.count {
+                    let byte = span[i]
+                    if byte == .ascii.lf {
+                        if let uri = parseParentDirective(in: lineBuffer[...]) {
+                            return uri
+                        }
+                        lineCount += 1
+                        if lineCount >= 30 { return nil }
+                        lineBuffer.removeAll(keepingCapacity: true)
+                    } else {
+                        lineBuffer.append(byte)
+                    }
+                }
+                if lineCount < 30 {
+                    return parseParentDirective(in: lineBuffer[...])
+                }
+                return nil
             }
-            contents = Swift.String(decoding: bytes, as: UTF8.self)
         } catch {
             return nil
         }
-        return parseParentURLFromContent(contents)
     }
 
     /// Parse a `// parent: <URL>` directive from a Lint.swift's
@@ -198,43 +204,91 @@ extension Lint.SwiftDriver {
     /// and parses cleanly, otherwise `nil`. Treats absent and
     /// malformed directives identically — the resolver's fall-back
     /// path is the same in both cases.
+    ///
+    /// Operates over `contents.utf8` (lazy byte view) per
+    /// [IMPL-089]; no intermediate `Substring` slice chain.
     internal static func parseParentURLFromContent(
         _ contents: Swift.String
     ) -> URI? {
-        var lineIndex = 0
-        for line in contents.split(separator: "\n", omittingEmptySubsequences: false) {
-            if lineIndex >= 30 { break }
-            lineIndex += 1
-            var stripped = line
-            while let first = stripped.first, first == " " || first == "\t" {
-                stripped = stripped.dropFirst()
+        var lineBuffer: [UInt8] = []
+        lineBuffer.reserveCapacity(128)
+        var lineCount = 0
+        for byte in contents.utf8 {
+            if byte == .ascii.lf {
+                if let uri = parseParentDirective(in: lineBuffer[...]) {
+                    return uri
+                }
+                lineCount += 1
+                if lineCount >= 30 { return nil }
+                lineBuffer.removeAll(keepingCapacity: true)
+            } else {
+                lineBuffer.append(byte)
             }
-            guard stripped.hasPrefix("// parent:") else { continue }
-            var rest = stripped.dropFirst("// parent:".count)
-            while let first = rest.first, first == " " || first == "\t" {
-                rest = rest.dropFirst()
-            }
-            let urlEnd = rest.firstIndex(where: { $0 == " " || $0 == "\t" || $0 == "\r" })
-                ?? rest.endIndex
-            let urlString = Swift.String(rest[rest.startIndex..<urlEnd])
-            guard urlString.hasPrefix("http://")
-                    || urlString.hasPrefix("https://")
-                    || urlString.hasPrefix("file://")
-            else { continue }
-            // Validate the URL parses as RFC 3986 via swift-uri-standard.
-            // Malformed URLs are silently skipped (treated as absent
-            // directive); the resolver's fall-back handles consumer-only
-            // configuration the same way.
-            let uri: URI
-            do {
-                uri = try URI(urlString)
-            } catch {
-                continue
-            }
-            return uri
+        }
+        if lineCount < 30 {
+            return parseParentDirective(in: lineBuffer[...])
         }
         return nil
     }
+
+    /// Per-line directive parse: skip leading horizontal whitespace,
+    /// match `// parent:` via ``Parser/Literal``, skip whitespace,
+    /// take URL bytes up to a whitespace boundary, validate scheme
+    /// (`http://` / `https://` / `file://`), then construct the
+    /// `URI` via swift-uri-standard. Returns `nil` on any mismatch.
+    @inline(__always)
+    private static func parseParentDirective(
+        in line: ArraySlice<UInt8>
+    ) -> URI? {
+        var input = Parser.Input.Bytes(Swift.Array(line))
+
+        // Skip leading horizontal whitespace.
+        while let first = input.first,
+              first == .ascii.space || first == .ascii.tab {
+            try? input.advance()
+        }
+
+        // Match "// parent:" literal via Parser.Literal.
+        do {
+            try (Parser.Literal<Parser.Input.Bytes>("// parent:")).parse(&input)
+        } catch {
+            return nil
+        }
+
+        // Skip whitespace after colon.
+        while let first = input.first,
+              first == .ascii.space || first == .ascii.tab {
+            try? input.advance()
+        }
+
+        // Take URL bytes until a whitespace boundary (space, tab, CR).
+        var urlBytes: [UInt8] = []
+        urlBytes.reserveCapacity(64)
+        while let first = input.first {
+            if first == .ascii.space || first == .ascii.tab || first == .ascii.cr {
+                break
+            }
+            urlBytes.append(first)
+            try? input.advance()
+        }
+
+        // Validate scheme prefix at byte level — only http / https / file
+        // are accepted for parent fetch.
+        guard urlBytes.starts(with: schemePrefixHTTP)
+              || urlBytes.starts(with: schemePrefixHTTPS)
+              || urlBytes.starts(with: schemePrefixFile)
+        else { return nil }
+
+        // URI parser is content-domain; final UTF-8 decode here is
+        // unavoidable to interface with swift-uri-standard's
+        // `init(_ value: some StringProtocol)`.
+        let urlString = Swift.String(decoding: urlBytes, as: UTF8.self)
+        return try? URI(urlString)
+    }
+
+    private static let schemePrefixHTTP:  [UInt8] = Swift.Array("http://".utf8)
+    private static let schemePrefixHTTPS: [UInt8] = Swift.Array("https://".utf8)
+    private static let schemePrefixFile:  [UInt8] = Swift.Array("file://".utf8)
 }
 
 // MARK: - URL fetch (with per-process memoization)
