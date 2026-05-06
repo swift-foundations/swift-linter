@@ -28,7 +28,7 @@ public import SwiftSyntax
 ///   §"Q3 — Deferred AST-rule unblocking matrix" — R5 is unblocked by this tool.
 extension Lint.Rule {
     public struct Unchecked: Lint.Rule.`Protocol` {
-        public static let id: Swift.String = "unchecked_call_site"
+        public static let id: Lint.Rule.ID = "unchecked_call_site"
 
         public let severity: Diagnostic.Severity
 
@@ -84,7 +84,7 @@ extension Lint.Rule.Unchecked {
                     column: location.column
                 ),
                 severity: severity,
-                identifier: Lint.Rule.Unchecked.id,
+                identifier: Lint.Rule.Unchecked.id.underlying,
                 message: Lint.Rule.Unchecked.message
             ))
             return .visitChildren

@@ -26,7 +26,7 @@ extension Lint.Configuration {
 extension Lint.Configuration.Loader {
     public static func load(
         from path: Swift.String,
-        knownRuleIDs: Set<Swift.String>
+        knownRuleIDs: Set<Lint.Rule.ID>
     ) throws(Lint.Configuration.Error) -> Lint.Configuration {
         let manager = FileManager.default
         guard manager.fileExists(atPath: path) else {
@@ -47,9 +47,9 @@ extension Lint.Configuration.Loader {
     public static func parse(
         text: Swift.String,
         path: Swift.String,
-        knownRuleIDs: Set<Swift.String>
+        knownRuleIDs: Set<Lint.Rule.ID>
     ) throws(Lint.Configuration.Error) -> Lint.Configuration {
-        var activated: Set<Swift.String> = []
+        var activated: Set<Lint.Rule.ID> = []
         var inRulesBlock = false
         for rawLine in text.split(separator: "\n", omittingEmptySubsequences: false) {
             let line = Swift.String(rawLine)
@@ -74,11 +74,11 @@ extension Lint.Configuration.Loader {
         return Lint.Configuration(activatedRuleIDs: activated)
     }
 
-    static func ruleID(from line: Swift.String) -> Swift.String? {
+    static func ruleID(from line: Swift.String) -> Lint.Rule.ID? {
         let trimmed = line.trimmed
         guard trimmed.hasPrefix("- ") else { return nil }
         let value = trimmed.dropFirst(2).trimmed
-        return value.isEmpty ? nil : value
+        return value.isEmpty ? nil : Lint.Rule.ID(value)
     }
 }
 

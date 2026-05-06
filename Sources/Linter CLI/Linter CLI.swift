@@ -42,7 +42,7 @@ struct SwiftLinter: ParsableCommand {
 
     func run() throws {
         let rules = Lint.Rule.builtIn
-        let knownRuleIDs: Set<String> = Set(rules.map { type(of: $0).id })
+        let knownRuleIDs: Set<Lint.Rule.ID> = Set(rules.map { type(of: $0).id })
         let configuration = try loadConfiguration(knownRuleIDs: knownRuleIDs)
         let findings = try Lint.Run.run(
             paths: paths,
@@ -55,7 +55,7 @@ struct SwiftLinter: ParsableCommand {
         }
     }
 
-    func loadConfiguration(knownRuleIDs: Set<String>) throws -> Lint.Configuration {
+    func loadConfiguration(knownRuleIDs: Set<Lint.Rule.ID>) throws -> Lint.Configuration {
         if let configPath {
             return try Lint.Configuration.Loader.load(from: configPath, knownRuleIDs: knownRuleIDs)
         }
