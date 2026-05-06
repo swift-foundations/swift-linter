@@ -37,13 +37,9 @@ extension Lint.Rule {
             self.severity = severity
         }
 
-        public func findings(
-            in source: Source.File,
-            tree: SourceFileSyntax,
-            converter: SourceLocationConverter
-        ) -> [Lint.Finding] {
-            let visitor = Visitor(source: source, severity: severity, converter: converter)
-            visitor.walk(tree)
+        public func findings(in source: Lint.Source.Parsed) -> [Lint.Finding] {
+            let visitor = Visitor(source: source.file, severity: severity, converter: source.converter)
+            visitor.walk(source.tree)
             return visitor.matches
         }
     }

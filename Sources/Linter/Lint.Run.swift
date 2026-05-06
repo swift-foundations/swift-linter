@@ -31,13 +31,9 @@ extension Lint.Run {
         for path in paths {
             let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: path)
             for sourcePath in sourcePaths {
-                let result = try parsedSource(at: sourcePath, manager: &manager)
+                let parsed = try parsedSource(at: sourcePath, manager: &manager)
                 for rule in activatedRules {
-                    findings.append(contentsOf: rule.findings(
-                        in: result.source,
-                        tree: result.tree,
-                        converter: result.converter
-                    ))
+                    findings.append(contentsOf: rule.findings(in: parsed))
                 }
             }
         }
@@ -47,7 +43,7 @@ extension Lint.Run {
     static func parsedSource(
         at path: Swift.String,
         manager: inout Source.Manager
-    ) throws(Error) -> ParsedSource {
+    ) throws(Error) -> Lint.Source.Parsed {
         let url = URL(fileURLWithPath: path)
         let data: Data
         do {
@@ -63,12 +59,6 @@ extension Lint.Run {
         let file = manager.file(for: id)
         let tree = Parser.parse(source: text)
         let converter = SourceLocationConverter(fileName: path, tree: tree)
-        return ParsedSource(source: file, tree: tree, converter: converter)
-    }
-
-    struct ParsedSource {
-        let source: Source.File
-        let tree: SourceFileSyntax
-        let converter: SourceLocationConverter
+        return Lint.Source.Parsed(file: file, tree: tree, converter: converter)
     }
 }

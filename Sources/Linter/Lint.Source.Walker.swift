@@ -16,10 +16,6 @@ public import Foundation
 /// Standard exclusions: `.build/`, `Carthage/`, `Pods/`, `*.docc/Resources/`,
 /// `.swiftpm/`, `.benchmarks/`. Hidden directories are skipped to avoid
 /// traversing `.git`.
-extension Lint {
-    public enum Source {}
-}
-
 extension Lint.Source {
     public enum Walker {}
 }

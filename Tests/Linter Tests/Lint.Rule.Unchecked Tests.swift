@@ -28,8 +28,8 @@ extension Lint.Rule.Unchecked.Test {
         let converter = SourceLocationConverter(fileName: file, tree: tree)
         var manager = Source.Manager()
         let id = manager.register(fileID: file, filePath: file, content: Array(source.utf8))
-        let sourceFile = manager.file(for: id)
-        return Lint.Rule.Unchecked().findings(in: sourceFile, tree: tree, converter: converter)
+        let parsed = Lint.Source.Parsed(file: manager.file(for: id), tree: tree, converter: converter)
+        return Lint.Rule.Unchecked().findings(in: parsed)
     }
 }
 
@@ -95,9 +95,9 @@ extension Lint.Rule.Unchecked.Test.Unit {
         let converter = SourceLocationConverter(fileName: "test.swift", tree: tree)
         var manager = Source.Manager()
         let id = manager.register(fileID: "test.swift", filePath: "test.swift", content: Array(source.utf8))
-        let sourceFile = manager.file(for: id)
+        let parsed = Lint.Source.Parsed(file: manager.file(for: id), tree: tree, converter: converter)
         let rule = Lint.Rule.Unchecked(severity: .error)
-        let findings = rule.findings(in: sourceFile, tree: tree, converter: converter)
+        let findings = rule.findings(in: parsed)
         let count = findings.count
         #expect(count == 1)
         if count == 1 {
