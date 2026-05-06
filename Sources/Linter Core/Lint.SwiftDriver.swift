@@ -12,6 +12,7 @@
 internal import Environment
 internal import File_System
 internal import Manifest
+internal import Process
 internal import URI_Standard
 
 /// Detects and evaluates a consumer's `Lint.swift` configuration
@@ -176,6 +177,169 @@ extension Lint.SwiftDriver {
             return uri
         }
         return nil
+    }
+}
+
+// MARK: - URL fetch (with per-process memoization)
+
+extension Lint.SwiftDriver {
+    /// Fetch the contents of a parent `URI`, memoizing within the
+    /// passed-through dictionary.
+    ///
+    /// Two backends:
+    ///
+    /// - `file://<path>` — read the local file directly via
+    ///   swift-file-system using the URI's typed `path` accessor
+    ///   (no manual scheme manipulation; no subprocess overhead).
+    /// - `http://`, `https://` — invoke `curl -fsSL <uri.value> -o
+    ///   <temp>` via ``Process/Spawn/run(_:)``; read the temp file;
+    ///   delete it.
+    ///
+    /// Memoization is per-process and keyed on the `URI`. Same URI
+    /// fetched twice in one chain resolution = one curl invocation.
+    /// In a monorepo CI fan-out, this caps each linter process at
+    /// O(unique parent URIs) requests rather than O(consumers ×
+    /// parents).
+    ///
+    /// Errors throw ``Lint/Run/Error/parentFetchFailed(url:exitCode:stderr:)``
+    /// for HTTP / read failures. The driver's resolver catches and
+    /// emits a warning + falls back to consumer-only Configuration
+    /// per supervisor block entry #5.
+    internal static func _fetchURL(
+        _ uri: URI,
+        memo: inout [URI: Swift.String]
+    ) throws(Lint.Run.Error) -> Swift.String {
+        if let cached = memo[uri] {
+            return cached
+        }
+        let content: Swift.String
+        if uri.scheme?.value == "file" {
+            content = try _readLocalFileForURL(uri)
+        } else {
+            content = try _fetchHTTPURL(uri)
+        }
+        memo[uri] = content
+        return content
+    }
+
+    /// Read a `file://`-scheme `URI` by routing through the URI's
+    /// typed `path` accessor (no manual scheme manipulation per
+    /// principal type-discipline review).
+    internal static func _readLocalFileForURL(
+        _ uri: URI
+    ) throws(Lint.Run.Error) -> Swift.String {
+        guard let uriPath = uri.path else {
+            throw .parentFetchFailed(url: uri, exitCode: -1, stderr: "URI has no path component")
+        }
+        // Reconstruct the filesystem path from URI.Path's typed
+        // segments + isAbsolute. URI.Path drops the percent-encoding
+        // surface; segments are decoded already. Joining with "/"
+        // and prepending "/" if absolute yields the conventional
+        // POSIX path string.
+        let pathString: Swift.String
+        if uriPath.isAbsolute {
+            pathString = "/" + uriPath.segments.joined(separator: "/")
+        } else {
+            pathString = uriPath.segments.joined(separator: "/")
+        }
+        do {
+            let filePath = try File.Path(pathString)
+            let bytes: [UInt8] = try File(filePath).read.full { (span: Span<UInt8>) -> [UInt8] in
+                var array: [UInt8] = []
+                array.reserveCapacity(span.count)
+                for i in 0..<span.count { array.append(span[i]) }
+                return array
+            }
+            return Swift.String(decoding: bytes, as: UTF8.self)
+        } catch {
+            throw .parentFetchFailed(url: uri, exitCode: -1, stderr: "\(error)")
+        }
+    }
+
+    /// Fetch an `http://` or `https://` `URI` by spawning
+    /// `curl -fsSL <uri.value> -o <temp>`, reading the temp file,
+    /// then deleting it.
+    internal static func _fetchHTTPURL(
+        _ uri: URI
+    ) throws(Lint.Run.Error) -> Swift.String {
+        let tempPath = _tempPathFor(url: uri)
+
+        let configuration = Process.Spawn.Configuration(
+            executable: "/usr/bin/curl",
+            arguments: ["-fsSL", uri.value, "-o", tempPath]
+        )
+
+        let status: Process.Status
+        do {
+            status = try Process.Spawn.run(configuration)
+        } catch {
+            throw .parentFetchFailed(url: uri, exitCode: -1, stderr: "spawn: \(error)")
+        }
+
+        guard case .exited(let code) = status, code == 0 else {
+            let exitCode: Int32
+            switch status {
+            case .exited(let c): exitCode = c
+            case .signaled(let s): exitCode = -s
+            case .stopped(let s): exitCode = -s
+            }
+            throw .parentFetchFailed(
+                url: uri,
+                exitCode: exitCode,
+                stderr: ""  // captured-stderr support deferred — see Lint.Run.Error doc
+            )
+        }
+
+        let content: Swift.String
+        do {
+            let filePath = try File.Path(tempPath)
+            let bytes: [UInt8] = try File(filePath).read.full { (span: Span<UInt8>) -> [UInt8] in
+                var array: [UInt8] = []
+                array.reserveCapacity(span.count)
+                for i in 0..<span.count { array.append(span[i]) }
+                return array
+            }
+            content = Swift.String(decoding: bytes, as: UTF8.self)
+        } catch {
+            throw .parentFetchFailed(url: uri, exitCode: 0, stderr: "read temp: \(error)")
+        }
+
+        // Best-effort cleanup; ignore errors (temp file is deterministically
+        // overwritten on next fetch of the same URI anyway).
+        _ = try? Process.Spawn.run(
+            Process.Spawn.Configuration(
+                executable: "/bin/rm",
+                arguments: ["-f", tempPath]
+            )
+        )
+
+        return content
+    }
+
+    /// Deterministic temp-file path for a given `URI`. Sanitizes the
+    /// URI's full string value via ``_sanitizeForPath(_:)`` so
+    /// distinct URIs never collide on the same temp path; identical
+    /// URIs (within or across processes) share a path, which is
+    /// harmless because the content is the same.
+    internal static func _tempPathFor(url uri: URI) -> Swift.String {
+        "/tmp/swift-linter-fetch-\(_sanitizeForPath(uri.value)).tmp"
+    }
+
+    /// Filename-safe form of an arbitrary string (alphanumerics +
+    /// `_-.` retained, everything else mapped to `_`). Deterministic;
+    /// same input → same output within and across processes.
+    internal static func _sanitizeForPath(_ string: Swift.String) -> Swift.String {
+        var sanitized = ""
+        for character in string {
+            if character.isLetter || character.isNumber
+                || character == "_" || character == "-" || character == "."
+            {
+                sanitized.append(character)
+            } else {
+                sanitized.append("_")
+            }
+        }
+        return sanitized
     }
 }
 
