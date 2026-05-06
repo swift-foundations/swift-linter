@@ -109,13 +109,11 @@ let package = Package(
             ]
         ),
         .target(
-            name: "Linter",
+            name: "Linter Core",
             dependencies: [
                 "Linter Rule Unchecked",
                 "Linter Rule Cardinal",
                 "Linter Rule RawValue",
-                "Linter Reporter Text",
-                "Linter Reporter SARIF",
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "File System", package: "swift-file-system"),
@@ -123,6 +121,17 @@ let package = Package(
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
                 .product(name: "SwiftOperators", package: "swift-syntax"),
+            ]
+        ),
+        .target(
+            name: "Linter",
+            dependencies: [
+                "Linter Core",
+                "Linter Reporter Text",
+                "Linter Reporter SARIF",
+                "Linter Rule Unchecked",
+                "Linter Rule Cardinal",
+                "Linter Rule RawValue",
             ]
         ),
         .executableTarget(
