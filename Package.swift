@@ -28,6 +28,10 @@ let package = Package(
             name: "Linter Reporter Text",
             targets: ["Linter Reporter Text"]
         ),
+        .library(
+            name: "Linter Reporter SARIF",
+            targets: ["Linter Reporter SARIF"]
+        ),
         .executable(
             name: "swift-linter",
             targets: ["Linter CLI"]
@@ -86,14 +90,12 @@ let package = Package(
             ]
         ),
         .target(
-            name: "Linter",
+            name: "Linter Reporter SARIF",
             dependencies: [
-                "Linter Rule Unchecked",
-                "Linter Rule Cardinal",
-                "Linter Rule RawValue",
                 "Linter Reporter Text",
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
+                .product(name: "JSON", package: "swift-json"),
                 .product(
                     name: "ISO 9945 Kernel Terminal",
                     package: "swift-iso-9945",
@@ -104,9 +106,19 @@ let package = Package(
                     package: "swift-windows-32",
                     condition: .when(platforms: [.windows])
                 ),
+            ]
+        ),
+        .target(
+            name: "Linter",
+            dependencies: [
+                "Linter Rule Unchecked",
+                "Linter Rule Cardinal",
+                "Linter Rule RawValue",
+                "Linter Reporter Text",
+                "Linter Reporter SARIF",
+                .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "File System", package: "swift-file-system"),
-                .product(name: "JSON", package: "swift-json"),
                 .product(name: "Manifest", package: "swift-manifest"),
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
