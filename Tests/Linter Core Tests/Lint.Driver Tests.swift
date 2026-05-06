@@ -18,121 +18,13 @@ import URI_Standard
 extension Lint.Driver {
     @Suite
     struct Test {
-        @Suite struct ParseParentURL {}
         @Suite struct ConfigurationFromManifest {}
         @Suite struct SanitizeForPath {}
         @Suite struct TempPathFor {}
     }
 }
 
-// MARK: - parseParentURLFromContent
-
-extension Lint.Driver.Test.ParseParentURL {
-    @Test
-    func `Absent directive returns nil`() {
-        let content = """
-        import Linter
-
-        let manifest = Lint.Manifest(enabledRuleIDs: [])
-        """
-        #expect(Lint.Driver.parseParentURLFromContent(content) == nil)
-    }
-
-    @Test
-    func `https URL is parsed`() throws {
-        let content = """
-        // parent: https://raw.githubusercontent.com/swift-institute/.github/main/Lint.swift
-        import Linter
-        let manifest = Lint.Manifest(enabledRuleIDs: [])
-        """
-        let expected = try URI(
-            "https://raw.githubusercontent.com/swift-institute/.github/main/Lint.swift"
-        )
-        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
-    }
-
-    @Test
-    func `http URL is parsed`() throws {
-        let content = "// parent: http://example.com/Lint.swift\n"
-        let expected = try URI("http://example.com/Lint.swift")
-        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
-    }
-
-    @Test
-    func `file URL is parsed`() throws {
-        let content = "// parent: file:///tmp/parent.swift\n"
-        let expected = try URI("file:///tmp/parent.swift")
-        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
-    }
-
-    @Test
-    func `Leading whitespace before directive is stripped`() throws {
-        let content = "    // parent: https://example.com/Lint.swift\n"
-        let expected = try URI("https://example.com/Lint.swift")
-        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
-    }
-
-    @Test
-    func `Tab-indented directive is parsed`() throws {
-        let content = "\t// parent: https://example.com/Lint.swift\n"
-        let expected = try URI("https://example.com/Lint.swift")
-        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
-    }
-
-    @Test
-    func `Unsupported scheme returns nil`() {
-        let content = "// parent: ftp://example.com/Lint.swift\n"
-        #expect(Lint.Driver.parseParentURLFromContent(content) == nil)
-    }
-
-    @Test
-    func `Malformed URL without scheme returns nil`() {
-        let content = "// parent: example.com/Lint.swift\n"
-        #expect(Lint.Driver.parseParentURLFromContent(content) == nil)
-    }
-
-    @Test
-    func `Directive past line 30 is ignored`() {
-        var lines: [Swift.String] = []
-        for _ in 0..<31 {
-            lines.append("// padding")
-        }
-        lines.append("// parent: https://example.com/Lint.swift")
-        let content = lines.joined(separator: "\n")
-        #expect(Lint.Driver.parseParentURLFromContent(content) == nil)
-    }
-
-    @Test
-    func `Directive at exactly line 30 is parsed`() throws {
-        var lines: [Swift.String] = []
-        for _ in 0..<29 {
-            lines.append("// padding")
-        }
-        lines.append("// parent: https://example.com/Lint.swift")
-        let content = lines.joined(separator: "\n")
-        let expected = try URI("https://example.com/Lint.swift")
-        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
-    }
-
-    @Test
-    func `Trailing whitespace after URL is dropped`() throws {
-        let content = "// parent: https://example.com/Lint.swift   \n"
-        let expected = try URI("https://example.com/Lint.swift")
-        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
-    }
-
-    @Test
-    func `First valid directive wins when multiple are present`() throws {
-        let content = """
-        // parent: https://first.example.com/Lint.swift
-        // parent: https://second.example.com/Lint.swift
-        """
-        let expected = try URI("https://first.example.com/Lint.swift")
-        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
-    }
-}
-
-// MARK: - _configuration(from:parent:)
+// MARK: - configuration(from:parent:)
 
 extension Lint.Driver.Test.ConfigurationFromManifest {
     @Test
