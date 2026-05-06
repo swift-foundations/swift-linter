@@ -55,16 +55,14 @@ struct SwiftLinter: ParsableCommand {
 
     /// Resolves the configuration to use for this run.
     ///
-    /// Phase 1.5 Item 5 v1: the Lint.swift evaluator is being landed in
-    /// step 4. Until then this CLI activates all built-in rules at their
-    /// default severity (matches the previous YAML-loader fallback shape).
-    /// Once step 4 lands, this resolves Lint.swift via `Lint.SwiftDriver`.
+    /// Phase 1.5 Item 5 v1: detection-only via `Lint.SwiftDriver`.
+    /// Lint.swift presence is acknowledged; full subprocess evaluation
+    /// is OQ-EV1 (Phase 2 v2). The v1-default Configuration activates
+    /// every `Lint.Rule.builtIn` rule at default severity, matching the
+    /// empirical canonical-tier2-derived shape.
     func resolveConfiguration() -> Lint.Configuration {
-        Lint.Configuration(rules: {
-            for rule in Lint.Rule.builtIn {
-                Lint.Rule.Configuration.enable(type(of: rule))
-            }
-        })
+        let consumerRoot = paths.first ?? "."
+        return Lint.SwiftDriver.resolveConfiguration(consumerPackageRoot: consumerRoot)
     }
 
     func emit(_ findings: [Lint.Finding]) {
