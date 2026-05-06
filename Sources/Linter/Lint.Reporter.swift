@@ -11,19 +11,22 @@
 
 public import Terminal_Primitives
 
+#if !os(Windows)
+public import ISO_9945_Kernel_Terminal
+#else
+public import Windows_32_Kernel_Terminal
+#endif
+
 /// Default text-format reporter — one `file:line:col: severity: identifier:
 /// message` line per finding.
 ///
 /// Format matches SwiftLint's textual shape so existing CI parsers / IDE
 /// problem-matchers detect findings without configuration changes.
 ///
-/// Phase 1.5: Reporter consumes `Terminal.Stream.Write` (the typed write
-/// surface from `swift-terminal-primitives`) instead of returning Strings.
-/// The CLI binds an emit closure at the I/O boundary; the L2 syscall
-/// callAsFunction extension on `Terminal.Stream.Write` is a future
-/// dispatch (see Open Question OQ-T2 in the Phase 1.5 HANDOFF). Until L2
-/// fills in the syscall, the CLI provides the emit via a Swift stdlib
-/// fallback — typed at the API surface, byte-emitting via the consumer.
+/// Phase 2 Stream C: Reporter writes directly to `Terminal.Stream.Write`
+/// via the L2 syscall extension (POSIX: `swift-iso-9945`; Windows:
+/// `swift-windows-32`). The earlier closure stand-in (Phase 1.5) was
+/// removed once OQ-T2 closed.
 extension Lint {
     public enum Reporter {}
 }
@@ -31,17 +34,17 @@ extension Lint {
 extension Lint.Reporter {
     /// Emit findings as text lines via the given write surface.
     ///
-    /// The `emit` parameter is a closure that performs the actual write.
-    /// Until `Terminal.Stream.Write` gains an L2 syscall extension,
-    /// consumers (e.g., the CLI) supply this closure at the I/O boundary
-    /// — typically wrapping `Swift.print(...)` or an equivalent FD write.
+    /// One line per finding, each terminated with a single `\n`. Errors
+    /// from the underlying syscall are silently dropped — the CLI's exit
+    /// path doesn't model output-stream failures, and partial output (a
+    /// truncated last line on a closed pipe) is the conventional behavior
+    /// for textual diagnostic emitters.
     public static func emit(
         findings: [Lint.Finding],
-        to write: Terminal.Stream.Write,
-        via emit: (Terminal.Stream.Write, Swift.String) -> Void
+        to write: Terminal.Stream.Write
     ) {
         for finding in findings {
-            emit(write, line(for: finding))
+            try? write((line(for: finding) + "\n").utf8)
         }
     }
 

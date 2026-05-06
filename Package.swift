@@ -20,6 +20,8 @@ let package = Package(
     dependencies: [
         .package(path: "../../swift-primitives/swift-linter-primitives"),
         .package(path: "../../swift-primitives/swift-terminal-primitives"),
+        .package(path: "../../swift-iso/swift-iso-9945"),
+        .package(path: "../../swift-microsoft/swift-windows-32"),
         .package(path: "../swift-file-system"),
         .package(path: "../swift-json"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", "602.0.0"..<"603.0.0"),
@@ -31,6 +33,16 @@ let package = Package(
             dependencies: [
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
+                .product(
+                    name: "ISO 9945 Kernel Terminal",
+                    package: "swift-iso-9945",
+                    condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .linux])
+                ),
+                .product(
+                    name: "Windows 32 Kernel Terminal",
+                    package: "swift-windows-32",
+                    condition: .when(platforms: [.windows])
+                ),
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "JSON", package: "swift-json"),
                 .product(name: "SwiftSyntax", package: "swift-syntax"),

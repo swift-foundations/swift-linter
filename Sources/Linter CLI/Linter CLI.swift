@@ -66,20 +66,14 @@ struct SwiftLinter: ParsableCommand {
     }
 
     func emit(_ findings: [Lint.Finding]) {
-        // The Reporter is parameterized over a typed write surface
-        // (Terminal.Stream.Write) plus a consumer-supplied emit closure.
-        // Until swift-terminal-primitives gains an L2 syscall extension
-        // for write, the CLI bridges via Swift.print at the I/O boundary
-        // (OQ-T2 in the Phase 1.5 HANDOFF). The typed surface still drives
-        // the API; the closure is the temporary syscall stand-in.
-        let writer: (Terminal.Stream.Write, String) -> Void = { _, line in
-            print(line)
-        }
+        // Phase 2 Stream C: emit directly via Terminal.Stream.Write's
+        // L2 syscall extension (POSIX: swift-iso-9945; Windows:
+        // swift-windows-32). OQ-T2 from Phase 1.5 is closed.
         switch format {
         case .text:
-            Lint.Reporter.emit(findings: findings, to: Terminal.Stream.stdout.write, via: writer)
+            Lint.Reporter.emit(findings: findings, to: Terminal.Stream.stdout.write)
         case .sarif:
-            Lint.Reporter.SARIF.emit(findings: findings, to: Terminal.Stream.stdout.write, via: writer)
+            Lint.Reporter.SARIF.emit(findings: findings, to: Terminal.Stream.stdout.write)
         }
     }
 }

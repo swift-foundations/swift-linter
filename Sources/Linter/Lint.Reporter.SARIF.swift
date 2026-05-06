@@ -12,6 +12,12 @@
 public import JSON
 public import Terminal_Primitives
 
+#if !os(Windows)
+public import ISO_9945_Kernel_Terminal
+#else
+public import Windows_32_Kernel_Terminal
+#endif
+
 /// SARIF 2.1.0 reporter — emits a single sarifLog object covering all
 /// findings from one run.
 ///
@@ -24,11 +30,9 @@ public import Terminal_Primitives
 /// clean; backed by RFC 8259). Builds a `JSON` value via the package's
 /// literal-rich API and serializes via `JSON.serialize(pretty:)`.
 ///
-/// Phase 1.5: report emits via `Terminal.Stream.Write` (the typed write
-/// surface from `swift-terminal-primitives`) plus a consumer-supplied
-/// emit closure, mirroring the text reporter's pattern. SARIF is a
-/// single-shot document (one JSON object per run) so the emit fires
-/// once with the full payload.
+/// Phase 2 Stream C: report writes directly to `Terminal.Stream.Write`
+/// via the L2 syscall extension. SARIF is a single-shot document (one
+/// JSON object per run) so the write fires once with the full payload.
 extension Lint.Reporter {
     public enum SARIF {}
 }
@@ -37,10 +41,9 @@ extension Lint.Reporter.SARIF {
     /// Emit a SARIF report via the given write surface.
     public static func emit(
         findings: [Lint.Finding],
-        to write: Terminal.Stream.Write,
-        via emit: (Terminal.Stream.Write, Swift.String) -> Void
+        to write: Terminal.Stream.Write
     ) {
-        emit(write, report(for: findings))
+        try? write((report(for: findings) + "\n").utf8)
     }
 
     /// Build the SARIF document as a String (testable; CLI uses `emit`).
