@@ -36,5 +36,6 @@ extension Lint.Rule {
         Lint.Rule.Unchecked(),
         Lint.Rule.Cardinal.Count(),
         Lint.Rule.Cardinal.Constructor(),
+        Lint.Rule.RawValue.Chain(),
     ]
 }
