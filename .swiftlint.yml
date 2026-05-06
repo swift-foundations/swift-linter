@@ -1,0 +1,4 @@
+parent_config: https://raw.githubusercontent.com/swift-primitives/.github/main/.swiftlint.yml
+
+disabled_rules:
+  - function_parameter_count
