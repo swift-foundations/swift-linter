@@ -75,24 +75,70 @@ extension Lint.SwiftDriver {
     }
 
     /// Resolve the configuration for the given consumer root.
+    ///
+    /// Walks the parent chain starting from the consumer's
+    /// `Lint.swift` (if present), then folds each layer's
+    /// ``Lint/Manifest`` into a layered ``Lint/Configuration`` via
+    /// `inheriting:` parent. Layer override semantics live in
+    /// ``Lint/Configuration/effectiveRules()``.
+    ///
+    /// Fall-back paths (per supervisor block entry #5):
+    /// - No `Lint.swift` at consumer root → defaults-everything.
+    /// - Consumer's `Lint.swift` evaluation fails → defaults-everything.
+    /// - Any parent fetch / eval / cycle / depth failure → emit a
+    ///   warning, drop the parent chain, return consumer-only
+    ///   Configuration.
     public static func resolveConfiguration(
         consumerPackageRoot: Swift.String
     ) -> Lint.Configuration {
-        guard lintSwiftPath(at: consumerPackageRoot) != nil else {
+        guard let consumerLintPathString = lintSwiftPath(at: consumerPackageRoot) else {
             return _defaultConfiguration()
         }
+        // Boundary conversion: lintSwiftPath returns the legacy
+        // Swift.String; _parseParentURL takes the typed File.Path.
+        let consumerLintPath: File.Path
         do {
-            let manifest = try Manifest.load(
+            consumerLintPath = try File.Path(consumerLintPathString)
+        } catch {
+            return _defaultConfiguration()
+        }
+        let consumerManifest: Lint.Manifest
+        do {
+            consumerManifest = try Manifest.load(
                 Lint.Manifest.self,
                 from: consumerPackageRoot,
                 named: "Lint.swift",
                 valueName: "manifest",
                 dependencies: _manifestDependencies()
             )
-            return _configuration(from: manifest)
         } catch {
             return _defaultConfiguration()
         }
+
+        // Single-tier path: no `// parent:` directive in consumer's
+        // Lint.swift → no parent chain to walk.
+        guard let firstParentURI = _parseParentURL(at: consumerLintPath) else {
+            return _configuration(from: consumerManifest, parent: nil)
+        }
+
+        // Walk parent chain. Per supervisor block entry #5, any
+        // failure (fetch, cycle, depth, eval) emits a warning and
+        // drops the chain — never propagates to the lint run.
+        var parentChain: [Lint.Manifest]
+        do {
+            parentChain = try _resolveParentChain(rootURL: firstParentURI)
+        } catch {
+            print("[swift-linter] WARN: parent chain resolution failed: \(error); proceeding with consumer-only configuration.")
+            return _configuration(from: consumerManifest, parent: nil)
+        }
+
+        // Fold parent chain into Configuration chain (parent-first)
+        // then layer the consumer's Configuration on top.
+        var current: Lint.Configuration? = nil
+        for manifest in parentChain {
+            current = _configuration(from: manifest, parent: current)
+        }
+        return _configuration(from: consumerManifest, parent: current)
     }
 }
 
@@ -362,20 +408,129 @@ extension Lint.SwiftDriver {
     /// not yet pluggable from the manifest); known IDs are enabled
     /// at the rule's default severity.
     ///
-    /// `disabledRuleIDs` are not honored by this single-tier helper;
-    /// the multi-tier resolver in commit #3 routes through a
-    /// `_configuration(from:parent:)` overload that translates
-    /// disabled IDs to `Lint.Rule.Configuration.disable(...)` entries.
-    internal static func _configuration(from manifest: Lint.Manifest) -> Lint.Configuration {
+    /// `parent` is the next-outer Configuration in the inheritance
+    /// chain (or `nil` for the root tier). The returned Configuration
+    /// inherits via `Lint.Configuration(inheriting: parent)`; layered
+    /// override semantics are computed by ``Lint/Configuration/effectiveRules()``.
+    ///
+    /// Each ID in `disabledRuleIDs` becomes a
+    /// `Lint.Rule.Configuration.disable(...)` entry at this layer,
+    /// overriding any parent enable for the same rule TYPE per
+    /// `effectiveRules()`'s "later layer wins" rule.
+    internal static func _configuration(
+        from manifest: Lint.Manifest,
+        parent: Lint.Configuration?
+    ) -> Lint.Configuration {
         let enabled = Set(manifest.enabledRuleIDs)
-        return Lint.Configuration(rules: {
-            for rule in Lint.Rule.builtIn {
-                let ruleID = type(of: rule).id
-                if enabled.contains(ruleID) {
-                    Lint.Rule.Configuration.enable(type(of: rule))
+        let disabled = Set(manifest.disabledRuleIDs)
+        return Lint.Configuration(
+            inheriting: parent,
+            rules: {
+                for rule in Lint.Rule.builtIn {
+                    let ruleID = type(of: rule).id
+                    if disabled.contains(ruleID) {
+                        Lint.Rule.Configuration.disable(type(of: rule))
+                    } else if enabled.contains(ruleID) {
+                        Lint.Rule.Configuration.enable(type(of: rule))
+                    }
                 }
+            },
+            excluded: manifest.excludedPaths
+        )
+    }
+
+    /// Walk the parent chain starting from `rootURL`, fetching each
+    /// parent's content and evaluating it via `Manifest.load`.
+    ///
+    /// Returns the chain in PARENT-FIRST order (root-most → tier
+    /// closest to consumer). The consumer's own `Lint.Manifest` is
+    /// not part of this chain — the resolver layers it on top.
+    ///
+    /// Cycle detection: visited URIs accumulate in a `Set<URI>` plus
+    /// an order-preserving `[URI]` for diagnostics; revisit produces
+    /// ``Lint/Run/Error/parentChainCycle(visited:at:)``. Depth
+    /// backstop at 16 produces ``Lint/Run/Error/parentChainTooDeep(depth:)``.
+    internal static func _resolveParentChain(
+        rootURL: URI
+    ) throws(Lint.Run.Error) -> [Lint.Manifest] {
+        var visited: Set<URI> = []
+        var visitedOrder: [URI] = []  // preserves chain order for diagnostics
+        var memo: [URI: Swift.String] = [:]
+        // Build child-to-root, reverse to parent-first at the end.
+        var chain: [Lint.Manifest] = []
+        var currentURI: URI? = rootURL
+        var depth = 0
+
+        while let uri = currentURI {
+            if visited.contains(uri) {
+                throw .parentChainCycle(visited: visitedOrder, at: uri)
             }
-        }, excluded: manifest.excludedPaths)
+            visited.insert(uri)
+            visitedOrder.append(uri)
+            depth += 1
+            if depth > 16 {
+                throw .parentChainTooDeep(depth: depth)
+            }
+            let content = try _fetchURL(uri, memo: &memo)
+            let manifest = try _evalParentManifest(content: content, url: uri)
+            chain.append(manifest)
+            currentURI = _parseParentURLFromContent(content)
+        }
+
+        chain.reverse()
+        return chain
+    }
+
+    /// Evaluate a fetched parent's `Lint.swift` content as a typed
+    /// `Lint.Manifest` value via `Manifest.load`.
+    ///
+    /// Materializes the content under
+    /// `/tmp/swift-linter-parent-eval-<sanitized-uri>/Lint.swift`,
+    /// then invokes `Manifest.load` against that as a fresh package
+    /// root. Each parent eval is a swift-build subprocess; only the
+    /// FETCH step is memoized (`Manifest.load` itself spawns a fresh
+    /// process per call).
+    internal static func _evalParentManifest(
+        content: Swift.String,
+        url uri: URI
+    ) throws(Lint.Run.Error) -> Lint.Manifest {
+        let tempDir = "/tmp/swift-linter-parent-eval-\(_sanitizeForPath(uri.value))"
+        let tempLintFile = tempDir + "/Lint.swift"
+
+        // Best-effort mkdir -p; failure surfaces as the subsequent write failure.
+        _ = try? Process.Spawn.run(
+            Process.Spawn.Configuration(
+                executable: "/bin/mkdir",
+                arguments: ["-p", tempDir]
+            )
+        )
+
+        do {
+            let filePath = try File.Path(tempLintFile)
+            try File(filePath).write.atomic(content)
+        } catch {
+            throw .parentFetchFailed(
+                url: uri,
+                exitCode: 0,
+                stderr: "write temp Lint.swift: \(error)"
+            )
+        }
+
+        do {
+            return try Manifest.load(
+                Lint.Manifest.self,
+                from: tempDir,
+                named: "Lint.swift",
+                valueName: "manifest",
+                dependencies: _manifestDependencies()
+            )
+        } catch {
+            throw .parentFetchFailed(
+                url: uri,
+                exitCode: 0,
+                stderr: "manifest.load: \(error)"
+            )
+        }
     }
 
     /// The dependency set the driver shim compiles against.
