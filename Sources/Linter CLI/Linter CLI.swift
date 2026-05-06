@@ -57,14 +57,17 @@ struct SwiftLinter: ParsableCommand {
 
     /// Resolves the configuration to use for this run.
     ///
-    /// Phase 1.5 Item 5 v1: detection-only via `Lint.SwiftDriver`.
-    /// Lint.swift presence is acknowledged; full subprocess evaluation
-    /// is OQ-EV1 (Phase 2 v2). The v1-default Configuration activates
-    /// every `Lint.Rule.builtIn` rule at default severity, matching the
-    /// empirical canonical-tier2-derived shape.
+    /// Phase 2 v2: full Manifest.load subprocess evaluation. When the
+    /// user passes `--lint-swift-path`, that explicit file path
+    /// overrides the default detection at `<paths.first>/Lint.swift`.
+    /// The driver falls back to a defaults-everything Configuration
+    /// when no manifest is reachable (per supervisor block entry #5).
     func resolveConfiguration() -> Lint.Configuration {
         let consumerRoot = paths.first ?? "."
-        return Lint.SwiftDriver.resolveConfiguration(consumerPackageRoot: consumerRoot)
+        return Lint.SwiftDriver.resolveConfiguration(
+            consumerPackageRoot: consumerRoot,
+            lintSwiftPathOverride: lintSwiftPath
+        )
     }
 
     func emit(_ findings: [Lint.Finding]) {

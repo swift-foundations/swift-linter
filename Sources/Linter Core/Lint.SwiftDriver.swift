@@ -95,20 +95,50 @@ extension Lint.SwiftDriver {
     /// `inheriting:` parent. Layer override semantics live in
     /// ``Lint/Configuration/effectiveRules()``.
     ///
+    /// `lintSwiftPathOverride` MAY supply an explicit path to a
+    /// `Lint.swift` outside the consumer's package root (e.g., when
+    /// linting a checked-out source tree against a manifest staged
+    /// elsewhere). When `nil` (the default), the driver detects
+    /// `Lint.swift` at `consumerPackageRoot` via
+    /// ``lintSwiftPath(at:)``.
+    ///
     /// Fall-back paths (per supervisor block entry #5):
-    /// - No `Lint.swift` at consumer root → defaults-everything.
+    /// - No `Lint.swift` at consumer root and no override → defaults-everything.
+    /// - Override path fails to validate as a `File.Path` → defaults-everything.
     /// - Consumer's `Lint.swift` evaluation fails → defaults-everything.
     /// - Any parent fetch / eval / cycle / depth failure → emit a
     ///   warning, drop the parent chain, return consumer-only
     ///   Configuration.
     public static func resolveConfiguration(
-        consumerPackageRoot: Swift.String
+        consumerPackageRoot: Swift.String,
+        lintSwiftPathOverride: Swift.String? = nil
     ) -> Lint.Configuration {
-        guard let consumerLintPathString = lintSwiftPath(at: consumerPackageRoot) else {
-            return defaultConfiguration()
+        // Decompose the path argument into (directory, filename) for
+        // Manifest.load and a typed File.Path for parseParentURL.
+        let consumerLintPathString: Swift.String
+        let manifestDirectory: Swift.String
+        let manifestFilename: Swift.String
+        if let override = lintSwiftPathOverride {
+            // Override mode: caller supplies the explicit Lint.swift path.
+            do {
+                let overridePath = try File.Path(override)
+                manifestDirectory = overridePath.parent.map { $0.description } ?? "."
+                manifestFilename = overridePath.components.last.map { $0.string } ?? "Lint.swift"
+            } catch {
+                return defaultConfiguration()
+            }
+            consumerLintPathString = override
+        } else {
+            // Detection mode: probe consumerPackageRoot/Lint.swift.
+            guard let detected = lintSwiftPath(at: consumerPackageRoot) else {
+                return defaultConfiguration()
+            }
+            consumerLintPathString = detected
+            manifestDirectory = consumerPackageRoot
+            manifestFilename = "Lint.swift"
         }
-        // Boundary conversion: lintSwiftPath returns the legacy
-        // Swift.String; parseParentURL takes the typed File.Path.
+        // Boundary conversion: the path string above feeds parseParentURL
+        // as a typed File.Path.
         let consumerLintPath: File.Path
         do {
             consumerLintPath = try File.Path(consumerLintPathString)
@@ -119,8 +149,8 @@ extension Lint.SwiftDriver {
         do {
             consumerManifest = try Manifest.load(
                 Lint.Manifest.self,
-                from: consumerPackageRoot,
-                named: "Lint.swift",
+                from: manifestDirectory,
+                named: manifestFilename,
                 valueName: "manifest",
                 dependencies: manifestDependencies()
             )
