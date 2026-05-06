@@ -24,6 +24,10 @@ let package = Package(
             name: "Linter Rule RawValue",
             targets: ["Linter Rule RawValue"]
         ),
+        .library(
+            name: "Linter Reporter Text",
+            targets: ["Linter Reporter Text"]
+        ),
         .executable(
             name: "swift-linter",
             targets: ["Linter CLI"]
@@ -65,11 +69,29 @@ let package = Package(
             ]
         ),
         .target(
+            name: "Linter Reporter Text",
+            dependencies: [
+                .product(name: "Linter Primitives", package: "swift-linter-primitives"),
+                .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
+                .product(
+                    name: "ISO 9945 Kernel Terminal",
+                    package: "swift-iso-9945",
+                    condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .linux])
+                ),
+                .product(
+                    name: "Windows 32 Kernel Terminal",
+                    package: "swift-windows-32",
+                    condition: .when(platforms: [.windows])
+                ),
+            ]
+        ),
+        .target(
             name: "Linter",
             dependencies: [
                 "Linter Rule Unchecked",
                 "Linter Rule Cardinal",
                 "Linter Rule RawValue",
+                "Linter Reporter Text",
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
                 .product(

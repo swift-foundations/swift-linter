@@ -9,6 +9,8 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import Linter_Primitives
+
 extension Lint.Reporter {
     /// The output format produced by a linter run.
     ///

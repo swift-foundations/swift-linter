@@ -9,6 +9,8 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import Linter_Primitives
+public import Linter_Reporter_Text
 public import JSON
 public import Terminal_Primitives
 

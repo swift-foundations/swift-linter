@@ -11,6 +11,7 @@
 
 public import ArgumentParser
 import Linter
+import Linter_Reporter_Text
 import Terminal_Primitives
 
 extension Lint.Reporter.Format: ExpressibleByArgument {}

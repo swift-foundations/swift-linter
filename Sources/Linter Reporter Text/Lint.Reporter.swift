@@ -9,6 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import Linter_Primitives
 public import Terminal_Primitives
 
 #if !os(Windows)
