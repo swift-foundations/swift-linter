@@ -9,6 +9,8 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import JSON
+
 /// SARIF 2.1.0 reporter — emits a single sarifLog object covering all
 /// findings from one run.
 ///
@@ -17,64 +19,56 @@
 ///
 /// Reference: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
 ///
-/// **Open Question (surfaced 2026-05-06)**: SARIF emission is hand-rolled
-/// string interpolation. If a higher-layer JSON encoding primitive becomes
-/// available (or `swift-coder-primitives` provides Codable + JSON
-/// orchestration), this reporter should compose it. For Phase 1, hand-rolled
-/// JSON keeps the dependency surface minimal.
+/// JSON serialization composes `swift-foundations/swift-json` (Foundation-
+/// clean; backed by RFC 8259). Builds a `JSON` value via the package's
+/// literal-rich API and serializes via `JSON.serialize(pretty:)`.
 extension Lint.Reporter {
     public enum SARIF {}
 }
 
 extension Lint.Reporter.SARIF {
     public static func report(for findings: [Lint.Finding]) -> Swift.String {
-        let runs = runs(for: findings)
-        return """
-        {
-          "version": "2.1.0",
-          "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cs01/schemas/sarif-schema-2.1.0.json",
-          "runs": \(runs)
-        }
-        """
+        let document = sarifLog(for: findings)
+        return document.serialize(pretty: true)
     }
 
-    static func runs(for findings: [Lint.Finding]) -> Swift.String {
-        let results = findings.map(result(for:)).joined(separator: ",\n")
-        return """
+    static func sarifLog(for findings: [Lint.Finding]) -> JSON {
         [
-          {
-            "tool": {
-              "driver": {
-                "name": "swift-linter",
-                "informationUri": "https://swift-institute.org",
-                "rules": []
-              }
-            },
-            "results": [
-        \(results)
-            ]
-          }
+            "version": "2.1.0",
+            "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cs01/schemas/sarif-schema-2.1.0.json",
+            "runs": [
+                [
+                    "tool": [
+                        "driver": [
+                            "name": "swift-linter",
+                            "informationUri": "https://swift-institute.org",
+                            "rules": [],
+                        ],
+                    ],
+                    "results": JSON.array(findings.map(result(for:))),
+                ],
+            ],
         ]
-        """
     }
 
-    static func result(for finding: Lint.Finding) -> Swift.String {
+    static func result(for finding: Lint.Finding) -> JSON {
         let pathOrID = finding.location.filePath ?? finding.location.fileID
-        return """
-              {
-                "ruleId": "\(escape(finding.ruleID))",
-                "level": "\(level(for: finding.severity))",
-                "message": { "text": "\(escape(finding.message))" },
-                "locations": [
-                  {
-                    "physicalLocation": {
-                      "artifactLocation": { "uri": "\(escape(pathOrID))" },
-                      "region": { "startLine": \(finding.location.line), "startColumn": \(finding.location.column) }
-                    }
-                  }
-                ]
-              }
-        """
+        return [
+            "ruleId": JSON(stringLiteral: finding.ruleID),
+            "level": JSON(stringLiteral: level(for: finding.severity)),
+            "message": ["text": JSON(stringLiteral: finding.message)],
+            "locations": [
+                [
+                    "physicalLocation": [
+                        "artifactLocation": ["uri": JSON(stringLiteral: pathOrID)],
+                        "region": [
+                            "startLine": JSON(integerLiteral: finding.location.line),
+                            "startColumn": JSON(integerLiteral: finding.location.column),
+                        ],
+                    ],
+                ],
+            ],
+        ]
     }
 
     static func level(for severity: Diagnostic.Severity) -> Swift.String {
@@ -84,21 +78,5 @@ extension Lint.Reporter.SARIF {
         case .note: "note"
         case .remark: "note"
         }
-    }
-
-    static func escape(_ string: Swift.String) -> Swift.String {
-        var result = ""
-        result.reserveCapacity(string.count)
-        for character in string {
-            switch character {
-            case "\"": result += "\\\""
-            case "\\": result += "\\\\"
-            case "\n": result += "\\n"
-            case "\r": result += "\\r"
-            case "\t": result += "\\t"
-            default: result.append(character)
-            }
-        }
-        return result
     }
 }

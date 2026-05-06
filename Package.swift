@@ -19,6 +19,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../../swift-primitives/swift-linter-primitives"),
+        .package(path: "../swift-json"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", "602.0.0"..<"603.0.0"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMajor(from: "1.5.0")),
     ],
@@ -27,6 +28,7 @@ let package = Package(
             name: "Linter",
             dependencies: [
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
+                .product(name: "JSON", package: "swift-json"),
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
             ]
