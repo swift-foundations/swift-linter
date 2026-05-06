@@ -47,6 +47,7 @@ let package = Package(
                 .product(name: "JSON", package: "swift-json"),
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftOperators", package: "swift-syntax"),
             ]
         ),
         .executableTarget(

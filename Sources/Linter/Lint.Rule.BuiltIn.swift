@@ -19,14 +19,21 @@
 /// **Phase 1 catalog**: R5 (`Lint.Rule.Unchecked` — `__unchecked:` at
 /// call sites only).
 ///
-/// **Phase 2+ additions** (per
-/// `swift-institute/Research/swiftsyntax-based-custom-linter-investigation.md`
-/// phasing): R1–R4 evasion cluster (cardinal_count_minus_one, etc.), R0
-/// positive enforcement of [CONV-016], `[API-IMPL-005]` per-path scoping,
-/// `[TEST-025]` file-context, complex multi-decl rules from
+/// **Phase 2 Stream A additions** (per
+/// `swift-institute/Research/swiftsyntax-based-custom-linter-investigation.md`):
+/// R1 (`Lint.Rule.Cardinal.Count` — `count - 1` and algebraic-flip
+/// equivalents), R2 (`Lint.Rule.Cardinal.Constructor` — `Cardinal(0)`
+/// / `Cardinal(1)`), R3 (`Lint.Rule.RawValue.Chain` — chained
+/// `.rawValue.X` member access), R4 (`Lint.Rule.RawValue.BitPattern`
+/// — `X(bitPattern: …rawValue)` integration-overload anti-pattern).
+///
+/// **Phase 2+ remaining**: R0 positive enforcement of [CONV-016],
+/// `[API-IMPL-005]` per-path scoping, `[TEST-025]` file-context,
+/// complex multi-decl rules from
 /// `mechanical-rule-tool-classification-swift-primitives.md`.
 extension Lint.Rule {
     public static let builtIn: [any Lint.Rule.`Protocol`] = [
         Lint.Rule.Unchecked(),
+        Lint.Rule.Cardinal.Count(),
     ]
 }
