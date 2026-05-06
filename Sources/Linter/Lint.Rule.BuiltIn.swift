@@ -16,6 +16,8 @@
 /// The CLI consumes this catalog without code changes; consumers who embed
 /// the library can extend or replace it.
 ///
+public import Linter_Rule_Unchecked
+
 /// **Phase 1 catalog**: R5 (`Lint.Rule.Unchecked` — `__unchecked:` at
 /// call sites only).
 ///

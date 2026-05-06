@@ -9,6 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import Linter_Primitives
 public import SwiftSyntax
 
 /// R5 — `__unchecked:` argument label appearing at a call site.

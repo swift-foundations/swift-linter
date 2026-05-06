@@ -12,6 +12,10 @@ let package = Package(
             name: "Linter",
             targets: ["Linter"]
         ),
+        .library(
+            name: "Linter Rule Unchecked",
+            targets: ["Linter Rule Unchecked"]
+        ),
         .executable(
             name: "swift-linter",
             targets: ["Linter CLI"]
@@ -29,8 +33,16 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "Linter Rule Unchecked",
+            dependencies: [
+                .product(name: "Linter Primitives", package: "swift-linter-primitives"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+            ]
+        ),
+        .target(
             name: "Linter",
             dependencies: [
+                "Linter Rule Unchecked",
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
                 .product(
