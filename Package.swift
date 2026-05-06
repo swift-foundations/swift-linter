@@ -191,6 +191,7 @@ let package = Package(
             dependencies: [
                 "Linter Core",
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
+                .product(name: "File System", package: "swift-file-system"),
                 .product(name: "URI Standard", package: "swift-uri-standard"),
             ]
         ),

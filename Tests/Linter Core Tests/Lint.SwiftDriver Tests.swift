@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 import Testing
+import File_System
 import Linter_Primitives
 import URI_Standard
 @testable import Linter_Core
@@ -198,10 +199,13 @@ extension Lint.SwiftDriver.Test.ConfigurationFromManifest {
     }
 
     @Test
-    func `Excluded paths are carried through to Configuration`() {
+    func `Excluded paths are carried through to Configuration`() throws {
         let manifest = Lint.Manifest(
             enabledRuleIDs: [],
-            excludedPaths: ["Tests/Fixtures", ".build"]
+            excludedPaths: [
+                try File.Path("Tests/Fixtures"),
+                try File.Path(".build"),
+            ]
         )
         let configuration = Lint.SwiftDriver._configuration(from: manifest, parent: nil)
         #expect(configuration.excluded == ["Tests/Fixtures", ".build"])

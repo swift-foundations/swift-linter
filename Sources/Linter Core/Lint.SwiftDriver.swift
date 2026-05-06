@@ -435,7 +435,7 @@ extension Lint.SwiftDriver {
                     }
                 }
             },
-            excluded: manifest.excludedPaths
+            excluded: manifest.excludedPaths.map { $0.description }
         )
     }
 

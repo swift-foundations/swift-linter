@@ -9,6 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import File_System
 public import JSON
 
 /// A serializable snapshot of a per-package linter configuration.
@@ -37,19 +38,23 @@ public import JSON
 ///   semantics.
 /// - ``excludedPaths`` — package-specific path-prefix exclusions
 ///   (the linter's source walker already excludes `.build/` etc.;
-///   this list adds extras). NOTE: this stays `[Swift.String]` for
-///   v2 because the institute's `File.Path` is ~Copyable and cannot
-///   live as the element type of a `[Path]`. When an Escapable Path
-///   variant lands at L1, this field migrates to that type.
+///   this list adds extras). Stored as `[File.Path]` from
+///   `swift-file-system` — `Paths.Path` is Copyable + Sendable +
+///   Hashable, fits stdlib `Array`, and provides typed path values
+///   end-to-end. Consumer-authored manifests construct entries via
+///   `try File.Path("Tests/Fixtures")` at the manifest call site.
 ///
 /// ## JSON wire format
 ///
 /// Despite the typed Swift API surface, the JSON wire format
 /// remains rule-IDs as bare strings — the serializer unwraps each
 /// `Lint.Rule.ID` to its raw `String` and the deserializer wraps
-/// each raw `String` back into a `Lint.Rule.ID`. A v2 consumer's
-/// Lint.swift authored against the typed surface produces wire-
-/// compatible output.
+/// each raw `String` back into a `Lint.Rule.ID`. Path values are
+/// serialized via `path.description` (CustomStringConvertible) and
+/// re-validated on deserialization via `try File.Path(string)`;
+/// invalid path strings surface as `JSON.Error.typeMismatch`. A
+/// v2 consumer's Lint.swift authored against the typed surface
+/// produces wire-compatible output.
 ///
 /// Tagged-generic `JSON.Serializable` conformance is NOT introduced
 /// here. The natural home (swift-linter-primitives at L1) cannot
@@ -68,12 +73,12 @@ extension Lint {
     public struct Manifest: Sendable {
         public let enabledRuleIDs: [Lint.Rule.ID]
         public let disabledRuleIDs: [Lint.Rule.ID]
-        public let excludedPaths: [Swift.String]
+        public let excludedPaths: [File.Path]
 
         public init(
             enabledRuleIDs: [Lint.Rule.ID],
             disabledRuleIDs: [Lint.Rule.ID] = [],
-            excludedPaths: [Swift.String] = []
+            excludedPaths: [File.Path] = []
         ) {
             self.enabledRuleIDs = enabledRuleIDs
             self.disabledRuleIDs = disabledRuleIDs
@@ -89,18 +94,28 @@ extension Lint.Manifest: JSON.Serializable {
         [
             "enabledRuleIDs": .array(value.enabledRuleIDs.map { .string($0.underlying) }),
             "disabledRuleIDs": .array(value.disabledRuleIDs.map { .string($0.underlying) }),
-            "excludedPaths": .array(value.excludedPaths.map { .string($0) })
+            "excludedPaths": .array(value.excludedPaths.map { .string($0.description) })
         ]
     }
 
     public static func deserialize(_ json: JSON) throws(JSON.Error) -> Self {
         let enabledRaw = try [Swift.String](json: json["enabledRuleIDs"])
         let disabledRaw = try [Swift.String](json: json["disabledRuleIDs"])
-        let excluded = try [Swift.String](json: json["excludedPaths"])
+        let excludedRaw = try [Swift.String](json: json["excludedPaths"])
+        let excludedPaths: [File.Path] = try excludedRaw.map { (string: Swift.String) throws(JSON.Error) -> File.Path in
+            do {
+                return try File.Path(string)
+            } catch {
+                throw JSON.Error.typeMismatch(
+                    expected: "File.Path string",
+                    got: "invalid path: \(string)"
+                )
+            }
+        }
         return Self(
             enabledRuleIDs: enabledRaw.map { Lint.Rule.ID($0) },
             disabledRuleIDs: disabledRaw.map { Lint.Rule.ID($0) },
-            excludedPaths: excluded
+            excludedPaths: excludedPaths
         )
     }
 }
