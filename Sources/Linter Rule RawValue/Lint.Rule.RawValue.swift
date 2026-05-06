@@ -9,6 +9,8 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import Linter_Primitives
+
 /// `rawValue`-misuse rule namespace.
 ///
 /// Concrete rules nest as `Lint.Rule.RawValue.X` and target drift away

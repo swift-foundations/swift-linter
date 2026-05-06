@@ -18,6 +18,7 @@
 ///
 public import Linter_Rule_Unchecked
 public import Linter_Rule_Cardinal
+public import Linter_Rule_RawValue
 
 /// **Phase 1 catalog**: R5 (`Lint.Rule.Unchecked` — `__unchecked:` at
 /// call sites only).

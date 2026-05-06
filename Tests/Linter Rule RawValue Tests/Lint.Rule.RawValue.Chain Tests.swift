@@ -12,7 +12,8 @@
 import Testing
 import SwiftSyntax
 import SwiftParser
-@testable import Linter
+import Linter_Primitives
+@testable import Linter_Rule_RawValue
 
 extension Lint.Rule.RawValue.Chain {
     @Suite

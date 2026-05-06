@@ -9,6 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import Linter_Primitives
 public import SwiftSyntax
 
 /// R3 — chained `.rawValue.X` member access.
