@@ -25,6 +25,10 @@ let package = Package(
             targets: ["Linter Rule RawValue"]
         ),
         .library(
+            name: "Linter Rule ResultBuilder",
+            targets: ["Linter Rule ResultBuilder"]
+        ),
+        .library(
             name: "Linter Reporter Text",
             targets: ["Linter Reporter Text"]
         ),
@@ -74,6 +78,13 @@ let package = Package(
             ]
         ),
         .target(
+            name: "Linter Rule ResultBuilder",
+            dependencies: [
+                .product(name: "Linter Primitives", package: "swift-linter-primitives"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+            ]
+        ),
+        .target(
             name: "Linter Reporter Text",
             dependencies: [
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
@@ -115,6 +126,7 @@ let package = Package(
                 "Linter Rule Unchecked",
                 "Linter Rule Cardinal",
                 "Linter Rule RawValue",
+                "Linter Rule ResultBuilder",
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "File System", package: "swift-file-system"),
@@ -134,6 +146,7 @@ let package = Package(
                 "Linter Rule Unchecked",
                 "Linter Rule Cardinal",
                 "Linter Rule RawValue",
+                "Linter Rule ResultBuilder",
             ]
         ),
         .executableTarget(
@@ -161,6 +174,13 @@ let package = Package(
             name: "Linter Rule RawValue Tests",
             dependencies: [
                 "Linter Rule RawValue",
+                .product(name: "SwiftParser", package: "swift-syntax"),
+            ]
+        ),
+        .testTarget(
+            name: "Linter Rule ResultBuilder Tests",
+            dependencies: [
+                "Linter Rule ResultBuilder",
                 .product(name: "SwiftParser", package: "swift-syntax"),
             ]
         ),

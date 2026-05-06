@@ -19,6 +19,7 @@
 public import Linter_Rule_Unchecked
 public import Linter_Rule_Cardinal
 public import Linter_Rule_RawValue
+public import Linter_Rule_ResultBuilder
 
 /// **Phase 1 catalog**: R5 (`Lint.Rule.Unchecked` — `__unchecked:` at
 /// call sites only).
@@ -42,5 +43,6 @@ extension Lint.Rule {
         Lint.Rule.Cardinal.Constructor(),
         Lint.Rule.RawValue.Chain(),
         Lint.Rule.RawValue.BitPattern(),
+        Lint.Rule.ResultBuilderForLoop(),
     ]
 }

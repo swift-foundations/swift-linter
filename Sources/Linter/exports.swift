@@ -15,3 +15,4 @@
 @_exported public import Linter_Rule_Unchecked
 @_exported public import Linter_Rule_Cardinal
 @_exported public import Linter_Rule_RawValue
+@_exported public import Linter_Rule_ResultBuilder
