@@ -9,9 +9,12 @@
 //
 // ===----------------------------------------------------------------------===//
 
-import ArgumentParser
+public import ArgumentParser
 import Linter
 import Terminal_Primitives
+
+extension Lint.Reporter.Format: ExpressibleByArgument {}
+extension Lint.Run.ExitPolicy: ExpressibleByArgument {}
 
 @main
 struct SwiftLinter: ParsableCommand {
@@ -31,14 +34,14 @@ struct SwiftLinter: ParsableCommand {
     @Argument(help: "Paths to lint (files or directories). Defaults to current directory.")
     var paths: [String] = ["."]
 
-    @Flag(name: .long, help: "Emit SARIF JSON instead of plain text.")
-    var sarif: Bool = false
+    @Option(name: .long, help: "Output format. Choices: text (default; SwiftLint-compatible textual lines), sarif (SARIF 2.1.0 JSON for CI artifact upload).")
+    var format: Lint.Reporter.Format = .text
 
     @Option(name: .long, help: "Path to .swift-linter.yml. Defaults to <path>/.swift-linter.yml.")
     var configPath: String?
 
-    @Flag(name: .long, help: "Exit with a non-zero status if any finding is severity:error.")
-    var strict: Bool = false
+    @Option(name: [.long, .customLong("strict")], help: "Exit policy. Choices: advisory (exit 0 always), strict (exit non-zero when any finding has severity:error). The legacy --strict flag is honored.")
+    var exitPolicy: Lint.Run.ExitPolicy = .advisory
 
     func run() throws {
         let rules = Lint.Rule.builtIn
@@ -50,7 +53,7 @@ struct SwiftLinter: ParsableCommand {
             rules: rules
         )
         emit(findings)
-        if strict && findings.contains(where: { $0.severity == .error }) {
+        if exitPolicy == .strict && findings.contains(where: { $0.severity == .error }) {
             throw ExitCode.failure
         }
     }
@@ -78,10 +81,11 @@ struct SwiftLinter: ParsableCommand {
         let writer: (Terminal.Stream.Write, String) -> Void = { _, line in
             print(line)
         }
-        if sarif {
+        switch format {
+        case .text:
+            Lint.Reporter.emit(findings: findings, to: Terminal.Stream.stdout.write, via: writer)
+        case .sarif:
             Lint.Reporter.SARIF.emit(findings: findings, to: Terminal.Stream.stdout.write, via: writer)
-            return
         }
-        Lint.Reporter.emit(findings: findings, to: Terminal.Stream.stdout.write, via: writer)
     }
 }
