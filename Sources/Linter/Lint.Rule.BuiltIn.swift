@@ -35,5 +35,6 @@ extension Lint.Rule {
     public static let builtIn: [any Lint.Rule.`Protocol`] = [
         Lint.Rule.Unchecked(),
         Lint.Rule.Cardinal.Count(),
+        Lint.Rule.Cardinal.Constructor(),
     ]
 }
