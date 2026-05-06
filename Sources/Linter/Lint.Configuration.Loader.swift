@@ -9,16 +9,16 @@
 //
 // ===----------------------------------------------------------------------===//
 
-public import struct Foundation.URL
-public import class Foundation.FileManager
-public import struct Foundation.Data
+public import File_System
 
 /// Hand-rolled minimal YAML loader for the linter's flat config schema.
 ///
-/// Supports a single tag — `rules:` — followed by a block-style list of rule
-/// IDs. Comments (`#`) and blank lines are skipped. No `parent_config:`
-/// chaining in Phase 1; full YAML compliance is deferred. When the chain
-/// arrives, this type is the natural place to host it.
+/// File reads compose `swift-file-system`'s `File.read.full { span in … }`
+/// (Foundation-clean). Supports a single tag — `rules:` — followed by a
+/// block-style list of rule IDs. Comments (`#`) and blank lines are
+/// skipped. No `parent_config:` chaining in Phase 1; full YAML compliance
+/// is deferred. When the chain arrives, this type is the natural place to
+/// host it.
 extension Lint.Configuration {
     public enum Loader {}
 }
@@ -28,18 +28,25 @@ extension Lint.Configuration.Loader {
         from path: Swift.String,
         knownRuleIDs: Set<Lint.Rule.ID>
     ) throws(Lint.Configuration.Error) -> Lint.Configuration {
-        let manager = FileManager.default
-        guard manager.fileExists(atPath: path) else {
-            throw .fileNotReadable(path: path)
-        }
-        let data: Data
+        let filePath: File.Path
         do {
-            data = try Data(contentsOf: URL(fileURLWithPath: path))
+            filePath = try File.Path(path)
         } catch {
             throw .fileNotReadable(path: path)
         }
-        guard let text = Swift.String(data: data, encoding: .utf8) else {
-            throw .malformed(path: path, reason: "non-UTF-8 file")
+        let file = File(filePath)
+        let text: Swift.String
+        do {
+            text = try file.read.full { (span: Span<UInt8>) in
+                var bytes: [UInt8] = []
+                bytes.reserveCapacity(span.count)
+                for i in 0..<span.count {
+                    bytes.append(span[i])
+                }
+                return Swift.String(decoding: bytes, as: UTF8.self)
+            }
+        } catch {
+            throw .fileNotReadable(path: path)
         }
         return try parse(text: text, path: path, knownRuleIDs: knownRuleIDs)
     }

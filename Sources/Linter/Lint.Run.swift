@@ -11,10 +11,14 @@
 
 public import SwiftSyntax
 public import SwiftParser
-public import struct Foundation.URL
-public import struct Foundation.Data
+public import File_System
 
 /// Run the linter against one or more paths.
+///
+/// File reads compose `swift-file-system`'s `File.read.full { span in … }`
+/// (Foundation-clean). The linter parses each file once via SwiftParser
+/// and runs every activated rule against the same tree (per the brief's
+/// memory + perf constraint).
 extension Lint {
     public enum Run {}
 }
@@ -44,21 +48,31 @@ extension Lint.Run {
         at path: Swift.String,
         manager: inout Source.Manager
     ) throws(Error) -> Lint.Source.Parsed {
-        let url = URL(fileURLWithPath: path)
-        let data: Data
+        let filePath: File.Path
         do {
-            data = try Data(contentsOf: url)
+            filePath = try File.Path(path)
         } catch {
             throw .fileNotReadable(path: path)
         }
-        guard let text = Swift.String(data: data, encoding: .utf8) else {
-            throw .nonUTF8(path: path)
+        let file = File(filePath)
+        let bytes: [UInt8]
+        do {
+            bytes = try file.read.full { (span: Span<UInt8>) in
+                var copy: [UInt8] = []
+                copy.reserveCapacity(span.count)
+                for i in 0..<span.count {
+                    copy.append(span[i])
+                }
+                return copy
+            }
+        } catch {
+            throw .fileNotReadable(path: path)
         }
-        let bytes = Array(text.utf8)
+        let text = Swift.String(decoding: bytes, as: UTF8.self)
         let id = manager.register(fileID: path, filePath: path, content: bytes)
-        let file = manager.file(for: id)
+        let sourceFile = manager.file(for: id)
         let tree = Parser.parse(source: text)
         let converter = SourceLocationConverter(fileName: path, tree: tree)
-        return Lint.Source.Parsed(file: file, tree: tree, converter: converter)
+        return Lint.Source.Parsed(file: sourceFile, tree: tree, converter: converter)
     }
 }

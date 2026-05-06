@@ -9,62 +9,56 @@
 //
 // ===----------------------------------------------------------------------===//
 
-public import Foundation
+public import File_System
 
-/// Recursively walks a directory, returning Swift source paths for linting.
+/// Recursively discovers Swift source files via `swift-file-system`'s
+/// glob support (Foundation-clean composition over
+/// `swift-glob-primitives`).
 ///
-/// Standard exclusions: `.build/`, `Carthage/`, `Pods/`, `*.docc/Resources/`,
-/// `.swiftpm/`, `.benchmarks/`. Hidden directories are skipped to avoid
-/// traversing `.git`.
+/// Standard exclusions: `.build/`, `Carthage/`, `Pods/`,
+/// `*.docc/Resources/`, `.swiftpm/`, `.benchmarks/`, `DerivedData/`.
 extension Lint.Source {
     public enum Walker {}
 }
 
 extension Lint.Source.Walker {
+    /// Patterns matched against entries in the search root.
+    ///
+    /// Include: every Swift file at any depth.
+    public static let includePatterns: [Swift.String] = [
+        "**/*.swift",
+    ]
+
+    /// Patterns excluded from the include set.
+    ///
+    /// Trailing `/**` matches every entry beneath the named directory at
+    /// any depth.
+    public static let excludePatterns: [Swift.String] = [
+        "**/.build/**",
+        "**/.swiftpm/**",
+        "**/.benchmarks/**",
+        "**/DerivedData/**",
+        "**/Carthage/**",
+        "**/Pods/**",
+        "**/*.docc/Resources/**",
+    ]
+
     public static func swiftSourcePaths(under root: Swift.String) -> [Swift.String] {
-        let manager = FileManager.default
-        var isDirectory: ObjCBool = false
-        guard manager.fileExists(atPath: root, isDirectory: &isDirectory) else {
+        // Single-file root: short-circuit; glob-on-file is degenerate.
+        if root.hasSuffix(".swift"), let _ = try? File.Path(root) {
+            return [root]
+        }
+        guard let directory = try? File.Directory(validating: root) else {
             return []
         }
-        guard isDirectory.boolValue else {
-            return root.hasSuffix(".swift") ? [root] : []
-        }
-        let url = URL(fileURLWithPath: root)
-        guard let enumerator = manager.enumerator(
-            at: url,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
+        guard let files = try? directory.glob.files(
+            include: includePatterns,
+            excluding: excludePatterns
         ) else {
             return []
         }
-        var results: [Swift.String] = []
-        for case let fileURL as URL in enumerator {
-            let path = fileURL.path
-            if isExcluded(path: path) {
-                if isDirectoryURL(fileURL) {
-                    enumerator.skipDescendants()
-                }
-                continue
-            }
-            guard !isDirectoryURL(fileURL), path.hasSuffix(".swift") else { continue }
-            results.append(path)
-        }
-        return results.sorted()
-    }
-
-    static func isDirectoryURL(_ url: URL) -> Bool {
-        (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
-    }
-
-    static let exclusions: [Swift.String] = [
-        "/.build/", "/Carthage/", "/Pods/",
-        ".docc/Resources/",
-        "/.swiftpm/", "/.benchmarks/",
-        "/DerivedData/",
-    ]
-
-    static func isExcluded(path: Swift.String) -> Bool {
-        exclusions.contains(where: path.contains)
+        return files
+            .map { Swift.String($0.path) }
+            .sorted()
     }
 }
