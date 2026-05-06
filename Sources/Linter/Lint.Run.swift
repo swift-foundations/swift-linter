@@ -24,19 +24,27 @@ extension Lint {
 }
 
 extension Lint.Run {
+    /// Run the linter against `paths` using `configuration`'s effective
+    /// (parent-merged, override-applied, disabled-dropped) rule set.
+    ///
+    /// Each effective entry instantiates its rule via the typed metatype
+    /// path: `entry.rule.init(severity: entry.severity ?? entry.rule.defaultSeverity)`.
+    /// No string-name lookup; identity flows through `.self`.
     public static func run(
         paths: [Swift.String],
-        configuration: Lint.Configuration,
-        rules: [any Lint.Rule.`Protocol`]
+        configuration: Lint.Configuration
     ) throws(Error) -> [Lint.Finding] {
-        let activatedRules = rules.filter { configuration.isActivated(type(of: $0).id) }
+        let activeRules: [any Lint.Rule.`Protocol`] = configuration.effectiveRules().map { entry in
+            let resolvedSeverity = entry.severity ?? entry.rule.defaultSeverity
+            return entry.rule.init(severity: resolvedSeverity)
+        }
         var manager = Source.Manager()
         var findings: [Lint.Finding] = []
         for path in paths {
             let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: path)
             for sourcePath in sourcePaths {
                 let parsed = try parsedSource(at: sourcePath, manager: &manager)
-                for rule in activatedRules {
+                for rule in activeRules {
                     findings.append(contentsOf: rule.findings(in: parsed))
                 }
             }

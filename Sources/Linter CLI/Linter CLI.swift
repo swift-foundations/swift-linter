@@ -26,8 +26,9 @@ struct SwiftLinter: ParsableCommand {
         be expressed as a regex on source text. Phase 1 ships R5 \
         (`__unchecked:` argument label at call sites only).
 
-        Reads `.swift-linter.yml` from the package root if present; \
-        otherwise activates all built-in rules at default severity.
+        Reads a `Lint.swift` typed-DSL config at the consumer package root \
+        (mirroring `Package.swift`); when absent, the CLI activates all \
+        built-in rules at default severity.
         """
     )
 
@@ -37,38 +38,33 @@ struct SwiftLinter: ParsableCommand {
     @Option(name: .long, help: "Output format. Choices: text (default; SwiftLint-compatible textual lines), sarif (SARIF 2.1.0 JSON for CI artifact upload).")
     var format: Lint.Reporter.Format = .text
 
-    @Option(name: .long, help: "Path to .swift-linter.yml. Defaults to <path>/.swift-linter.yml.")
-    var configPath: String?
+    @Option(name: .long, help: "Path to Lint.swift. Defaults to <path>/Lint.swift if present.")
+    var lintSwiftPath: String?
 
     @Option(name: [.long, .customLong("strict")], help: "Exit policy. Choices: advisory (exit 0 always), strict (exit non-zero when any finding has severity:error). The legacy --strict flag is honored.")
     var exitPolicy: Lint.Run.ExitPolicy = .advisory
 
     func run() throws {
-        let rules = Lint.Rule.builtIn
-        let knownRuleIDs: Set<Lint.Rule.ID> = Set(rules.map { type(of: $0).id })
-        let configuration = try loadConfiguration(knownRuleIDs: knownRuleIDs)
-        let findings = try Lint.Run.run(
-            paths: paths,
-            configuration: configuration,
-            rules: rules
-        )
+        let configuration = resolveConfiguration()
+        let findings = try Lint.Run.run(paths: paths, configuration: configuration)
         emit(findings)
         if exitPolicy == .strict && findings.contains(where: { $0.severity == .error }) {
             throw ExitCode.failure
         }
     }
 
-    func loadConfiguration(knownRuleIDs: Set<Lint.Rule.ID>) throws -> Lint.Configuration {
-        if let configPath {
-            return try Lint.Configuration.Loader.load(from: configPath, knownRuleIDs: knownRuleIDs)
-        }
-        for path in paths {
-            let candidate = "\(path)/.swift-linter.yml"
-            if let configuration = try? Lint.Configuration.Loader.load(from: candidate, knownRuleIDs: knownRuleIDs) {
-                return configuration
+    /// Resolves the configuration to use for this run.
+    ///
+    /// Phase 1.5 Item 5 v1: the Lint.swift evaluator is being landed in
+    /// step 4. Until then this CLI activates all built-in rules at their
+    /// default severity (matches the previous YAML-loader fallback shape).
+    /// Once step 4 lands, this resolves Lint.swift via `Lint.SwiftDriver`.
+    func resolveConfiguration() -> Lint.Configuration {
+        Lint.Configuration(rules: {
+            for rule in Lint.Rule.builtIn {
+                Lint.Rule.Configuration.enable(type(of: rule))
             }
-        }
-        return Lint.Configuration(activatedRuleIDs: knownRuleIDs)
+        })
     }
 
     func emit(_ findings: [Lint.Finding]) {

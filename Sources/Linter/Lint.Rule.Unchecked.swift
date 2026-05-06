@@ -29,6 +29,7 @@ public import SwiftSyntax
 extension Lint.Rule {
     public struct Unchecked: Lint.Rule.`Protocol` {
         public static let id: Lint.Rule.ID = "unchecked_call_site"
+        public static let defaultSeverity: Diagnostic.Severity = .warning
 
         public let severity: Diagnostic.Severity
 
