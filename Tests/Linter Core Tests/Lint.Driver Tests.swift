@@ -12,15 +12,12 @@
 import Testing
 import File_System
 import Linter_Primitives
-import URI_Standard
 @testable import Linter_Core
 
 extension Lint.Driver {
     @Suite
     struct Test {
         @Suite struct ConfigurationFromManifest {}
-        @Suite struct SanitizeForPath {}
-        @Suite struct TempPathFor {}
     }
 }
 
@@ -108,58 +105,5 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
         let manifest = Lint.Manifest(enabledRuleIDs: ["nonexistent_rule"])
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         #expect(configuration.effectiveRules().isEmpty)
-    }
-}
-
-// MARK: - sanitizeForPath
-
-extension Lint.Driver.Test.SanitizeForPath {
-    @Test
-    func `Alphanumerics are retained`() {
-        #expect(Lint.Driver.sanitizeForPath("abcXYZ123") == "abcXYZ123")
-    }
-
-    @Test
-    func `Underscore hyphen and dot are retained`() {
-        #expect(Lint.Driver.sanitizeForPath("a_b-c.d") == "a_b-c.d")
-    }
-
-    @Test
-    func `Slashes are replaced with underscores`() {
-        #expect(
-            Lint.Driver.sanitizeForPath("https://example.com/path/file.swift")
-            == "https___example.com_path_file.swift"
-        )
-    }
-
-    @Test
-    func `Distinct URLs produce distinct sanitized forms`() {
-        let urlA = "https://a.example.com/Lint.swift"
-        let urlB = "https://b.example.com/Lint.swift"
-        #expect(
-            Lint.Driver.sanitizeForPath(urlA)
-            != Lint.Driver.sanitizeForPath(urlB)
-        )
-    }
-}
-
-// MARK: - tempPathFor
-
-extension Lint.Driver.Test.TempPathFor {
-    @Test
-    func `Path uses tmp prefix and tmp suffix`() throws {
-        let uri = try URI("https://example.com/file.swift")
-        let path = Lint.Driver.tempPathFor(url: uri)
-        #expect(path.hasPrefix("/tmp/swift-linter-fetch-"))
-        #expect(path.hasSuffix(".tmp"))
-    }
-
-    @Test
-    func `Same URL produces same path`() throws {
-        let uri = try URI("https://example.com/Lint.swift")
-        #expect(
-            Lint.Driver.tempPathFor(url: uri)
-            == Lint.Driver.tempPathFor(url: uri)
-        )
     }
 }

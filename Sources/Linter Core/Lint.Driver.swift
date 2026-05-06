@@ -14,7 +14,6 @@ internal import File_System
 internal import Manifest_Loader
 internal import Manifest_Primitives
 internal import Manifest_Resolver
-internal import URI_Standard
 
 /// Detects and evaluates a consumer's `Lint.swift` configuration
 /// file via the ``Manifest_Loader/Manifest/load(_:configuration:)``
@@ -209,42 +208,3 @@ extension Lint.Driver {
     }
 }
 
-// MARK: - Phase 2.5 ecosystem-promotion candidates
-
-extension Lint.Driver {
-    /// Filename-safe form of an arbitrary string (alphanumerics +
-    /// `_-.` retained, everything else mapped to `_`). Deterministic;
-    /// same input → same output within and across processes.
-    ///
-    /// TODO (Phase 2.5b ecosystem-promotion): replace with
-    /// `Path.sanitized(from:)` from `swift-path-primitives` once that
-    /// ecosystem API lands. The Manifest Resolver carries its own
-    /// internal copy of this logic; this surface is retained here
-    /// only because tests assert against it; Phase 2.5b removes it
-    /// once the ecosystem replacement lands and the tests retarget.
-    internal static func sanitizeForPath(_ string: Swift.String) -> Swift.String {
-        var sanitized = ""
-        for character in string {
-            if character.isLetter || character.isNumber
-                || character == "_" || character == "-" || character == "."
-            {
-                sanitized.append(character)
-            } else {
-                sanitized.append("_")
-            }
-        }
-        return sanitized
-    }
-
-    /// Deterministic temp-file path for a given `URI`. Sanitizes the
-    /// URI's full string value via ``sanitizeForPath(_:)``.
-    ///
-    /// TODO (Phase 2.5b ecosystem-promotion): replace with
-    /// `File.Path.Temporary.deterministic(prefix:key:suffix:)` from
-    /// `swift-file-system` once that ecosystem API lands. The
-    /// Manifest Resolver no longer consumes this surface; retained
-    /// only for the existing tests, which Phase 2.5b retargets.
-    internal static func tempPathFor(url uri: URI) -> Swift.String {
-        "/tmp/swift-linter-fetch-\(sanitizeForPath(uri.value)).tmp"
-    }
-}
