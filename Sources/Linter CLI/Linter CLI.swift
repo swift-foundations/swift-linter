@@ -40,9 +40,7 @@ struct SwiftLinter: ParsableCommand {
     var strict: Bool = false
 
     func run() throws {
-        let rules: [any Lint.Rule.`Protocol`] = [
-            Lint.Rule.Unchecked(),
-        ]
+        let rules = Lint.Rule.builtIn
         let knownRuleIDs: Set<String> = Set(rules.map { type(of: $0).id })
         let configuration = try loadConfiguration(knownRuleIDs: knownRuleIDs)
         let findings = try Lint.Run.run(
