@@ -22,7 +22,7 @@ struct SwiftLinter: ParsableCommand {
         be expressed as a regex on source text. Phase 1 ships R5 \
         (`__unchecked:` argument label at call sites only).
 
-        Reads `.swift-primitives-lint.yml` from the package root if present; \
+        Reads `.swift-linter.yml` from the package root if present; \
         otherwise activates all built-in rules at default severity.
         """
     )
@@ -33,7 +33,7 @@ struct SwiftLinter: ParsableCommand {
     @Flag(name: .long, help: "Emit SARIF JSON instead of plain text.")
     var sarif: Bool = false
 
-    @Option(name: .long, help: "Path to .swift-primitives-lint.yml. Defaults to <path>/.swift-primitives-lint.yml.")
+    @Option(name: .long, help: "Path to .swift-linter.yml. Defaults to <path>/.swift-linter.yml.")
     var configPath: String?
 
     @Flag(name: .long, help: "Exit with a non-zero status if any finding is severity:error.")
@@ -59,7 +59,7 @@ struct SwiftLinter: ParsableCommand {
             return try Lint.Configuration.Loader.load(from: configPath, knownRuleIDs: knownRuleIDs)
         }
         for path in paths {
-            let candidate = "\(path)/.swift-primitives-lint.yml"
+            let candidate = "\(path)/.swift-linter.yml"
             if let configuration = try? Lint.Configuration.Loader.load(from: candidate, knownRuleIDs: knownRuleIDs) {
                 return configuration
             }
