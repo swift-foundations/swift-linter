@@ -9,6 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import Linter_Primitives
 public import SwiftSyntax
 public import SwiftOperators
 

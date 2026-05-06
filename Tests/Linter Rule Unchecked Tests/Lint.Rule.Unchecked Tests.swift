@@ -12,8 +12,8 @@
 import Testing
 import SwiftSyntax
 import SwiftParser
-@testable import Linter
-import Linter_Rule_Unchecked
+import Linter_Primitives
+@testable import Linter_Rule_Unchecked
 
 extension Lint.Rule.Unchecked {
     @Suite

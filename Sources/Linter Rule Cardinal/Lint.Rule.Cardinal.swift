@@ -9,6 +9,8 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import Linter_Primitives
+
 /// Cardinal-domain rule namespace.
 ///
 /// Concrete rules nest as `Lint.Rule.Cardinal.X` and target drift away

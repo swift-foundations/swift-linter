@@ -12,7 +12,8 @@
 import Testing
 import SwiftSyntax
 import SwiftParser
-@testable import Linter
+import Linter_Primitives
+@testable import Linter_Rule_Cardinal
 
 extension Lint.Rule.Cardinal.Count {
     @Suite
