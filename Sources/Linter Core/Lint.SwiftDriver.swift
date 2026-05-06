@@ -53,6 +53,17 @@ internal import URI_Standard
 /// in ``Lint/Rule/builtIn`` enabled at default severity). This
 /// matches the v1 invariant: the same R5 27-hit count holds even
 /// when the v2 evaluation surface is misconfigured.
+///
+/// ## NOTE — [IMPL-024] static-layer compound names
+///
+/// Internal static helpers in this file (`parseParentURLFromContent`,
+/// `readLocalFileForURL`, `fetchHTTPURL`, etc.) carry compound
+/// identifiers permitted at the static implementation layer per
+/// [IMPL-024]. These compounds are tolerable because the helpers are
+/// `internal`-only with no `public` widening planned at Phase 2.
+/// **Re-audit before any visibility widening to `package` / `public`:
+/// at the public boundary, [API-NAME-002] requires nested accessors
+/// and the compound names must be restructured.**
 extension Lint {
     public enum SwiftDriver {}
 }
@@ -92,15 +103,15 @@ extension Lint.SwiftDriver {
         consumerPackageRoot: Swift.String
     ) -> Lint.Configuration {
         guard let consumerLintPathString = lintSwiftPath(at: consumerPackageRoot) else {
-            return _defaultConfiguration()
+            return defaultConfiguration()
         }
         // Boundary conversion: lintSwiftPath returns the legacy
-        // Swift.String; _parseParentURL takes the typed File.Path.
+        // Swift.String; parseParentURL takes the typed File.Path.
         let consumerLintPath: File.Path
         do {
             consumerLintPath = try File.Path(consumerLintPathString)
         } catch {
-            return _defaultConfiguration()
+            return defaultConfiguration()
         }
         let consumerManifest: Lint.Manifest
         do {
@@ -109,16 +120,16 @@ extension Lint.SwiftDriver {
                 from: consumerPackageRoot,
                 named: "Lint.swift",
                 valueName: "manifest",
-                dependencies: _manifestDependencies()
+                dependencies: manifestDependencies()
             )
         } catch {
-            return _defaultConfiguration()
+            return defaultConfiguration()
         }
 
         // Single-tier path: no `// parent:` directive in consumer's
         // Lint.swift → no parent chain to walk.
-        guard let firstParentURI = _parseParentURL(at: consumerLintPath) else {
-            return _configuration(from: consumerManifest, parent: nil)
+        guard let firstParentURI = parseParentURL(at: consumerLintPath) else {
+            return configuration(from: consumerManifest, parent: nil)
         }
 
         // Walk parent chain. Per supervisor block entry #5, any
@@ -126,19 +137,19 @@ extension Lint.SwiftDriver {
         // drops the chain — never propagates to the lint run.
         var parentChain: [Lint.Manifest]
         do {
-            parentChain = try _resolveParentChain(rootURL: firstParentURI)
+            parentChain = try resolveParentChain(rootURL: firstParentURI)
         } catch {
             print("[swift-linter] WARN: parent chain resolution failed: \(error); proceeding with consumer-only configuration.")
-            return _configuration(from: consumerManifest, parent: nil)
+            return configuration(from: consumerManifest, parent: nil)
         }
 
         // Fold parent chain into Configuration chain (parent-first)
         // then layer the consumer's Configuration on top.
         var current: Lint.Configuration? = nil
         for manifest in parentChain {
-            current = _configuration(from: manifest, parent: current)
+            current = configuration(from: manifest, parent: current)
         }
-        return _configuration(from: consumerManifest, parent: current)
+        return configuration(from: consumerManifest, parent: current)
     }
 }
 
@@ -149,11 +160,11 @@ extension Lint.SwiftDriver {
     /// comment lines of a Lint.swift file at `path`.
     ///
     /// Reads the file via swift-file-system, then delegates to
-    /// ``_parseParentURLFromContent(_:)``. Reading is best-effort;
+    /// ``parseParentURLFromContent(_:)``. Reading is best-effort;
     /// any I/O failure returns `nil` without throwing.
     ///
     /// TODO (commit #3.5): replace the hand-rolled scan in
-    /// ``_parseParentURLFromContent(_:)`` with a parser-primitive
+    /// ``parseParentURLFromContent(_:)`` with a parser-primitive
     /// composition over `Span<UInt8>`, eliminating the intermediate
     /// `Swift.String` allocation and the manual line-splitting
     /// loop. The parser-primitive ecosystem (swift-parser-primitives
@@ -161,7 +172,7 @@ extension Lint.SwiftDriver {
     /// Take / OneOf / Filter primitives; the deferral isolates the
     /// learning-curve of that API surface from the type-discipline
     /// refactor in this commit.
-    internal static func _parseParentURL(at path: File.Path) -> URI? {
+    internal static func parseParentURL(at path: File.Path) -> URI? {
         let contents: Swift.String
         do {
             let bytes: [UInt8] = try File(path).read.full { (span: Span<UInt8>) -> [UInt8] in
@@ -174,7 +185,7 @@ extension Lint.SwiftDriver {
         } catch {
             return nil
         }
-        return _parseParentURLFromContent(contents)
+        return parseParentURLFromContent(contents)
     }
 
     /// Parse a `// parent: <URL>` directive from a Lint.swift's
@@ -187,7 +198,7 @@ extension Lint.SwiftDriver {
     /// and parses cleanly, otherwise `nil`. Treats absent and
     /// malformed directives identically — the resolver's fall-back
     /// path is the same in both cases.
-    internal static func _parseParentURLFromContent(
+    internal static func parseParentURLFromContent(
         _ contents: Swift.String
     ) -> URI? {
         var lineIndex = 0
@@ -251,7 +262,7 @@ extension Lint.SwiftDriver {
     /// for HTTP / read failures. The driver's resolver catches and
     /// emits a warning + falls back to consumer-only Configuration
     /// per supervisor block entry #5.
-    internal static func _fetchURL(
+    internal static func fetchURL(
         _ uri: URI,
         memo: inout [URI: Swift.String]
     ) throws(Lint.Run.Error) -> Swift.String {
@@ -260,9 +271,9 @@ extension Lint.SwiftDriver {
         }
         let content: Swift.String
         if uri.scheme?.value == "file" {
-            content = try _readLocalFileForURL(uri)
+            content = try readLocalFileForURL(uri)
         } else {
-            content = try _fetchHTTPURL(uri)
+            content = try fetchHTTPURL(uri)
         }
         memo[uri] = content
         return content
@@ -271,7 +282,7 @@ extension Lint.SwiftDriver {
     /// Read a `file://`-scheme `URI` by routing through the URI's
     /// typed `path` accessor (no manual scheme manipulation per
     /// principal type-discipline review).
-    internal static func _readLocalFileForURL(
+    internal static func readLocalFileForURL(
         _ uri: URI
     ) throws(Lint.Run.Error) -> Swift.String {
         guard let uriPath = uri.path else {
@@ -305,10 +316,10 @@ extension Lint.SwiftDriver {
     /// Fetch an `http://` or `https://` `URI` by spawning
     /// `curl -fsSL <uri.value> -o <temp>`, reading the temp file,
     /// then deleting it.
-    internal static func _fetchHTTPURL(
+    internal static func fetchHTTPURL(
         _ uri: URI
     ) throws(Lint.Run.Error) -> Swift.String {
-        let tempPath = _tempPathFor(url: uri)
+        let tempPath = tempPathFor(url: uri)
 
         let configuration = Process.Spawn.Configuration(
             executable: "/usr/bin/curl",
@@ -363,18 +374,30 @@ extension Lint.SwiftDriver {
     }
 
     /// Deterministic temp-file path for a given `URI`. Sanitizes the
-    /// URI's full string value via ``_sanitizeForPath(_:)`` so
+    /// URI's full string value via ``sanitizeForPath(_:)`` so
     /// distinct URIs never collide on the same temp path; identical
     /// URIs (within or across processes) share a path, which is
     /// harmless because the content is the same.
-    internal static func _tempPathFor(url uri: URI) -> Swift.String {
-        "/tmp/swift-linter-fetch-\(_sanitizeForPath(uri.value)).tmp"
+    ///
+    /// TODO (Phase 2.5 ecosystem-promotion): replace with
+    /// `File.Path.Temporary.deterministic(prefix:key:suffix:)` from
+    /// swift-file-system once that ecosystem API lands. Confirmed
+    /// absent in workspace as of this commit; principal authors the
+    /// Phase 2.5 sub-dispatch brief separately.
+    internal static func tempPathFor(url uri: URI) -> Swift.String {
+        "/tmp/swift-linter-fetch-\(sanitizeForPath(uri.value)).tmp"
     }
 
     /// Filename-safe form of an arbitrary string (alphanumerics +
     /// `_-.` retained, everything else mapped to `_`). Deterministic;
     /// same input → same output within and across processes.
-    internal static func _sanitizeForPath(_ string: Swift.String) -> Swift.String {
+    ///
+    /// TODO (Phase 2.5 ecosystem-promotion): replace with
+    /// `Path.sanitized(from:)` from swift-path-primitives once that
+    /// ecosystem API lands. Confirmed absent in workspace as of this
+    /// commit; principal authors the Phase 2.5 sub-dispatch brief
+    /// separately.
+    internal static func sanitizeForPath(_ string: Swift.String) -> Swift.String {
         var sanitized = ""
         for character in string {
             if character.isLetter || character.isNumber
@@ -394,7 +417,7 @@ extension Lint.SwiftDriver {
 extension Lint.SwiftDriver {
     /// Default Configuration: every built-in rule enabled at its
     /// default severity. Identical to v1 detection-only behavior.
-    internal static func _defaultConfiguration() -> Lint.Configuration {
+    internal static func defaultConfiguration() -> Lint.Configuration {
         Lint.Configuration(rules: {
             for rule in Lint.Rule.builtIn {
                 Lint.Rule.Configuration.enable(type(of: rule))
@@ -417,7 +440,7 @@ extension Lint.SwiftDriver {
     /// `Lint.Rule.Configuration.disable(...)` entry at this layer,
     /// overriding any parent enable for the same rule TYPE per
     /// `effectiveRules()`'s "later layer wins" rule.
-    internal static func _configuration(
+    internal static func configuration(
         from manifest: Lint.Manifest,
         parent: Lint.Configuration?
     ) -> Lint.Configuration {
@@ -450,7 +473,7 @@ extension Lint.SwiftDriver {
     /// an order-preserving `[URI]` for diagnostics; revisit produces
     /// ``Lint/Run/Error/parentChainCycle(visited:at:)``. Depth
     /// backstop at 16 produces ``Lint/Run/Error/parentChainTooDeep(depth:)``.
-    internal static func _resolveParentChain(
+    internal static func resolveParentChain(
         rootURL: URI
     ) throws(Lint.Run.Error) -> [Lint.Manifest] {
         var visited: Set<URI> = []
@@ -471,10 +494,10 @@ extension Lint.SwiftDriver {
             if depth > 16 {
                 throw .parentChainTooDeep(depth: depth)
             }
-            let content = try _fetchURL(uri, memo: &memo)
-            let manifest = try _evalParentManifest(content: content, url: uri)
+            let content = try fetchURL(uri, memo: &memo)
+            let manifest = try evalParentManifest(content: content, url: uri)
             chain.append(manifest)
-            currentURI = _parseParentURLFromContent(content)
+            currentURI = parseParentURLFromContent(content)
         }
 
         chain.reverse()
@@ -490,11 +513,11 @@ extension Lint.SwiftDriver {
     /// root. Each parent eval is a swift-build subprocess; only the
     /// FETCH step is memoized (`Manifest.load` itself spawns a fresh
     /// process per call).
-    internal static func _evalParentManifest(
+    internal static func evalParentManifest(
         content: Swift.String,
         url uri: URI
     ) throws(Lint.Run.Error) -> Lint.Manifest {
-        let tempDir = "/tmp/swift-linter-parent-eval-\(_sanitizeForPath(uri.value))"
+        let tempDir = "/tmp/swift-linter-parent-eval-\(sanitizeForPath(uri.value))"
         let tempLintFile = tempDir + "/Lint.swift"
 
         // Best-effort mkdir -p; failure surfaces as the subsequent write failure.
@@ -522,7 +545,7 @@ extension Lint.SwiftDriver {
                 from: tempDir,
                 named: "Lint.swift",
                 valueName: "manifest",
-                dependencies: _manifestDependencies()
+                dependencies: manifestDependencies()
             )
         } catch {
             throw .parentFetchFailed(
@@ -541,7 +564,7 @@ extension Lint.SwiftDriver {
     ///   - `JSON` (for `.jsonString()` on the typed value),
     ///   - `File_System` (for the `File.write.atomic` output sink),
     ///   - `Linter` (for the ``Lint/Manifest`` type).
-    internal static func _manifestDependencies() -> [Manifest.Dependency] {
+    internal static func manifestDependencies() -> [Manifest.Dependency] {
         let linterPath = Environment.read("SWIFT_LINTER_PATH")
             ?? "/Users/coen/Developer/swift-foundations/swift-linter"
         let workspace = linterPath + "/.."
