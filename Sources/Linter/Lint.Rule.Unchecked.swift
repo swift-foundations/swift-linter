@@ -84,7 +84,7 @@ extension Lint.Rule.Unchecked {
                     column: location.column
                 ),
                 severity: severity,
-                ruleID: Lint.Rule.Unchecked.id,
+                identifier: Lint.Rule.Unchecked.id,
                 message: Lint.Rule.Unchecked.message
             ))
             return .visitChildren

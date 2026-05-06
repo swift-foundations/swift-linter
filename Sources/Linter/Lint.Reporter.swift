@@ -36,9 +36,10 @@ extension Lint.Reporter {
     public static func line(for finding: Lint.Finding) -> Swift.String {
         let location = finding.location
         let pathOrID = location.filePath ?? location.fileID
-        return "\(pathOrID):\(location.line):\(location.column): "
-            + "\(severityToken(for: finding.severity)): "
-            + "\(finding.ruleID): \(finding.message)"
+        let prefix = "\(pathOrID):\(location.line):\(location.column): "
+        let severity = "\(severityToken(for: finding.severity)): "
+        let body = "\(finding.identifier): \(finding.message)"
+        return prefix + severity + body
     }
 
     static func severityToken(for severity: Diagnostic.Severity) -> Swift.String {

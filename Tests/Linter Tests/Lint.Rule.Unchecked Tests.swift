@@ -41,7 +41,7 @@ extension Lint.Rule.Unchecked.Test.Unit {
         let count = findings.count
         #expect(count == 1)
         if count == 1 {
-            #expect(findings[0].ruleID == "unchecked_call_site")
+            #expect(findings[0].identifier == "unchecked_call_site")
             #expect(findings[0].severity == .warning)
         }
     }

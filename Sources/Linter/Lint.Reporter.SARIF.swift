@@ -54,7 +54,7 @@ extension Lint.Reporter.SARIF {
     static func result(for finding: Lint.Finding) -> JSON {
         let pathOrID = finding.location.filePath ?? finding.location.fileID
         return [
-            "ruleId": JSON(stringLiteral: finding.ruleID),
+            "ruleId": JSON(stringLiteral: finding.identifier),
             "level": JSON(stringLiteral: level(for: finding.severity)),
             "message": ["text": JSON(stringLiteral: finding.message)],
             "locations": [
