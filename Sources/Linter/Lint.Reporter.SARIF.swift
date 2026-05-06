@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 public import JSON
+public import Terminal_Primitives
 
 /// SARIF 2.1.0 reporter — emits a single sarifLog object covering all
 /// findings from one run.
@@ -22,11 +23,27 @@ public import JSON
 /// JSON serialization composes `swift-foundations/swift-json` (Foundation-
 /// clean; backed by RFC 8259). Builds a `JSON` value via the package's
 /// literal-rich API and serializes via `JSON.serialize(pretty:)`.
+///
+/// Phase 1.5: report emits via `Terminal.Stream.Write` (the typed write
+/// surface from `swift-terminal-primitives`) plus a consumer-supplied
+/// emit closure, mirroring the text reporter's pattern. SARIF is a
+/// single-shot document (one JSON object per run) so the emit fires
+/// once with the full payload.
 extension Lint.Reporter {
     public enum SARIF {}
 }
 
 extension Lint.Reporter.SARIF {
+    /// Emit a SARIF report via the given write surface.
+    public static func emit(
+        findings: [Lint.Finding],
+        to write: Terminal.Stream.Write,
+        via emit: (Terminal.Stream.Write, Swift.String) -> Void
+    ) {
+        emit(write, report(for: findings))
+    }
+
+    /// Build the SARIF document as a String (testable; CLI uses `emit`).
     public static func report(for findings: [Lint.Finding]) -> Swift.String {
         let document = sarifLog(for: findings)
         return document.serialize(pretty: true)

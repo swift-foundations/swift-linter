@@ -9,30 +9,53 @@
 //
 // ===----------------------------------------------------------------------===//
 
-/// Default text-format reporter — one `file:line:col: severity: ruleID: message`
-/// line per finding.
+public import Terminal_Primitives
+
+/// Default text-format reporter — one `file:line:col: severity: identifier:
+/// message` line per finding.
 ///
 /// Format matches SwiftLint's textual shape so existing CI parsers / IDE
 /// problem-matchers detect findings without configuration changes.
 ///
-/// **Open Question (surfaced 2026-05-06)**: `swift-terminal-primitives` does
-/// not yet expose a `Stream.Write` accessor — it provides only the
-/// `Terminal.Stream` enum (.stdin/.stdout/.stderr) and a `.read` accessor.
-/// The library-side reporter therefore returns formatted strings; the CLI
-/// target's main.swift performs the I/O. Once `Stream.Write` exists, the
-/// reporter can compose it directly for higher-fidelity output (severity
-/// colors, hyperlinked locations).
+/// Phase 1.5: Reporter consumes `Terminal.Stream.Write` (the typed write
+/// surface from `swift-terminal-primitives`) instead of returning Strings.
+/// The CLI binds an emit closure at the I/O boundary; the L2 syscall
+/// callAsFunction extension on `Terminal.Stream.Write` is a future
+/// dispatch (see Open Question OQ-T2 in the Phase 1.5 HANDOFF). Until L2
+/// fills in the syscall, the CLI provides the emit via a Swift stdlib
+/// fallback — typed at the API surface, byte-emitting via the consumer.
 extension Lint {
     public enum Reporter {}
 }
 
 extension Lint.Reporter {
+    /// Emit findings as text lines via the given write surface.
+    ///
+    /// The `emit` parameter is a closure that performs the actual write.
+    /// Until `Terminal.Stream.Write` gains an L2 syscall extension,
+    /// consumers (e.g., the CLI) supply this closure at the I/O boundary
+    /// — typically wrapping `Swift.print(...)` or an equivalent FD write.
+    public static func emit(
+        findings: [Lint.Finding],
+        to write: Terminal.Stream.Write,
+        via emit: (Terminal.Stream.Write, Swift.String) -> Void
+    ) {
+        for finding in findings {
+            emit(write, line(for: finding))
+        }
+    }
+
+    /// Format all findings as a single text block (one line per finding).
+    ///
+    /// Convenience for testing and for consumers that prefer batch
+    /// String construction over line-by-line emit.
     public static func text(for findings: [Lint.Finding]) -> Swift.String {
         findings
             .map(line(for:))
             .joined(separator: "\n")
     }
 
+    /// Format a single finding as a SwiftLint-compatible textual line.
     public static func line(for finding: Lint.Finding) -> Swift.String {
         let location = finding.location
         let pathOrID = location.filePath ?? location.fileID
