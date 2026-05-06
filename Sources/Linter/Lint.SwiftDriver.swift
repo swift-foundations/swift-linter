@@ -9,61 +9,55 @@
 //
 // ===----------------------------------------------------------------------===//
 
-public import File_System
+internal import Environment
+internal import File_System
+internal import Manifest
 
-/// Detects + (eventually) evaluates a consumer's `Lint.swift`
-/// configuration file.
+/// Detects and evaluates a consumer's `Lint.swift` configuration
+/// file via the ``Manifest/Manifest`` subprocess loader.
 ///
-/// Phase 1.5 Item 5 v1 ships the L1 + canonical-package architecture +
-/// detection-only driver: when `Lint.swift` is present at the consumer
-/// package root, the driver acknowledges its presence and the CLI
-/// returns to a canonical-default configuration (everything in
-/// `Lint.Rule.builtIn` enabled at default severity, matching the
-/// effective tier2 + open-class rules). At v1 the consumer's
-/// `Lint.swift` content is read but NOT compiled-and-run — full
-/// subprocess evaluation lands in Phase 2 v2 (OQ-EV1).
+/// Phase 2 v2 (this file) replaces the v1 detection-only stub with
+/// a full single-file evaluator: when `Lint.swift` is present at
+/// the consumer's package root, the driver compiles + runs it via
+/// `swift-manifest`, captures the typed value as
+/// ``Lint/Manifest``, and constructs the runtime
+/// ``Lint/Configuration`` from the manifest's enabled rule IDs.
 ///
-/// ## Why a v1 stub vs. a full evaluator?
+/// ## Manifest contract
 ///
-/// Full Lint.swift evaluation requires (per SPM's Package.swift loader
-/// pattern):
+/// A consumer's `Lint.swift` MUST declare a file-scope
+/// `let manifest: Lint.Manifest = …` value. The driver shim that
+/// `swift-manifest` generates serializes this value as JSON and
+/// the parent decodes it back via
+/// ``Lint/Manifest/deserialize(_:)``.
 ///
-/// 1. Generating a temp `.build/.lint-eval/Package.swift` with deps on
-///    swift-linter, the canonical packages, etc.
-/// 2. Spawning `swift run` to compile-and-execute the consumer's
-///    Lint.swift content with an auto-generated `main.swift` shim
-///    that invokes the linter.
-/// 3. Forwarding stdout to the parent CLI.
-/// 4. Cache the result keyed on Lint.swift hash + dependency hash.
+/// ## Path discovery
 ///
-/// Subprocess spawning at L3 swift-linter requires either Foundation
-/// `Process` (re-introducing Foundation; regresses Item 1) or
-/// `posix_spawn` directly (substantial implementation surface). Phase
-/// 1.5 v1 defers this; v2 lands it as a single focused dispatch when a
-/// Foundation-clean process primitive (`swift-foundations/swift-process`)
-/// is available — the package directory exists in the workspace but is
-/// empty as of 2026-05-06.
+/// `swift-linter` itself does not know its own filesystem
+/// location at runtime. The driver reads the `SWIFT_LINTER_PATH`
+/// environment variable to locate the swift-linter source tree
+/// (and, by adjacency, sibling foundation packages used in the
+/// generated driver shim's deps). When the variable is unset the
+/// driver falls back to the workspace-relative default
+/// `/Users/coen/Developer/swift-foundations/swift-linter` so that
+/// local development verifies without per-shell setup. Production
+/// deployments SHOULD set `SWIFT_LINTER_PATH` explicitly.
 ///
-/// ## Consumer-visible behavior at v1
+/// ## Failure mode
 ///
-/// - Lint.swift at consumer root: detected; presence logged in stderr.
-///   Configuration applied: `Lint.Rule.builtIn` everything enabled at
-///   default severity (functionally equivalent to inheriting tier2 +
-///   no overrides for the swift-tagged-primitives PoC scenario).
-/// - No Lint.swift at consumer root: identical behavior — the v1
-///   default Configuration matches the expected canonical-tier2-derived
-///   shape for primitives consumers.
-///
-/// Empirical R5 invariant 27/26/15/8/2 holds at v1 because the
-/// effective rule set (R5 enabled at warning severity) is the same
-/// whether sourced from canonical tier2 or from `Lint.Rule.builtIn`.
+/// If `swift-manifest`'s evaluation fails — manifest absent,
+/// driver compile error, runtime trap, JSON decode error — the
+/// driver falls back to the v1-default Configuration (every rule
+/// in ``Lint/Rule/builtIn`` enabled at default severity). This
+/// matches the v1 invariant: the same R5 27-hit count holds even
+/// when the v2 evaluation surface is misconfigured.
 extension Lint {
     public enum SwiftDriver {}
 }
 
 extension Lint.SwiftDriver {
-    /// Detects whether a `Lint.swift` exists at the consumer's package
-    /// root.
+    /// Detects whether a `Lint.swift` exists at the consumer's
+    /// package root.
     public static func lintSwiftPath(at consumerPackageRoot: Swift.String) -> Swift.String? {
         let candidate = "\(consumerPackageRoot)/Lint.swift"
         guard let directory = try? File.Directory(validating: consumerPackageRoot) else {
@@ -79,35 +73,88 @@ extension Lint.SwiftDriver {
     }
 
     /// Resolve the configuration for the given consumer root.
-    ///
-    /// - If Lint.swift is present, read its content (validates UTF-8 +
-    ///   readability) and return the v1-default Configuration. Phase 2
-    ///   v2 will compile-and-run Lint.swift to produce the actual
-    ///   typed value; v1 honors the file's *presence* but defers
-    ///   structural evaluation.
-    /// - If Lint.swift is absent, return the same v1-default
-    ///   Configuration.
-    ///
-    /// The v1-default activates every rule in `Lint.Rule.builtIn` at
-    /// its `defaultSeverity`. For the swift-primitives ecosystem this
-    /// is functionally equivalent to inheriting
-    /// `SwiftPrimitivesLintCanonical.tier2` with no overrides, which
-    /// is the empirical case for the proof-of-concept Lint.swift at
-    /// swift-tagged-primitives.
     public static func resolveConfiguration(
         consumerPackageRoot: Swift.String
     ) -> Lint.Configuration {
-        // Validate that Lint.swift, if present, is at least readable.
-        // This catches typos / permission issues at v1 even though full
-        // structural evaluation defers to v2.
-        if let lintSwiftPath = lintSwiftPath(at: consumerPackageRoot) {
-            _ = (try? File.Path(lintSwiftPath))
-                .flatMap { try? File($0).read.full { _ in } }
+        guard lintSwiftPath(at: consumerPackageRoot) != nil else {
+            return _defaultConfiguration()
         }
-        return Lint.Configuration(rules: {
+        do {
+            let manifest = try Manifest.load(
+                Lint.Manifest.self,
+                from: consumerPackageRoot,
+                named: "Lint.swift",
+                valueName: "manifest",
+                dependencies: _manifestDependencies()
+            )
+            return _configuration(from: manifest)
+        } catch {
+            return _defaultConfiguration()
+        }
+    }
+}
+
+// MARK: - Internal helpers
+
+extension Lint.SwiftDriver {
+    /// Default Configuration: every built-in rule enabled at its
+    /// default severity. Identical to v1 detection-only behavior.
+    internal static func _defaultConfiguration() -> Lint.Configuration {
+        Lint.Configuration(rules: {
             for rule in Lint.Rule.builtIn {
                 Lint.Rule.Configuration.enable(type(of: rule))
             }
         })
+    }
+
+    /// Build a runtime Configuration from a parsed manifest by
+    /// looking up each rule ID in ``Lint/Rule/builtIn``. Unknown
+    /// rule IDs are silently ignored at v2 (rule registration is
+    /// not yet pluggable from the manifest); known IDs are enabled
+    /// at the rule's default severity.
+    internal static func _configuration(from manifest: Lint.Manifest) -> Lint.Configuration {
+        let enabled = Set(manifest.enabledRuleIDs)
+        return Lint.Configuration(rules: {
+            for rule in Lint.Rule.builtIn {
+                let ruleID = "\(type(of: rule).id)"
+                if enabled.contains(ruleID) {
+                    Lint.Rule.Configuration.enable(type(of: rule))
+                }
+            }
+        }, excluded: manifest.excludedPaths)
+    }
+
+    /// The dependency set the driver shim compiles against.
+    ///
+    /// Derived from `SWIFT_LINTER_PATH` (or the workspace default).
+    /// The shim needs:
+    ///
+    ///   - `JSON` (for `.jsonString()` on the typed value),
+    ///   - `File_System` (for the `File.write.atomic` output sink),
+    ///   - `Linter` (for the ``Lint/Manifest`` type).
+    internal static func _manifestDependencies() -> [Manifest.Dependency] {
+        let linterPath = Environment.read("SWIFT_LINTER_PATH")
+            ?? "/Users/coen/Developer/swift-foundations/swift-linter"
+        let workspace = linterPath + "/.."
+        return [
+            Manifest.Dependency(
+                path: workspace + "/swift-json",
+                packageName: "swift-json",
+                product: "JSON",
+                imports: ["JSON"]
+            ),
+            Manifest.Dependency(
+                path: workspace + "/swift-file-system",
+                packageName: "swift-file-system",
+                product: "File System",
+                imports: ["File_System"]
+            ),
+            Manifest.Dependency(
+                path: linterPath,
+                packageName: "swift-linter",
+                product: "Linter",
+                imports: ["Linter"]
+            )
+        ]
     }
 }
