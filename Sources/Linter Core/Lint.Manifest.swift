@@ -66,7 +66,7 @@ public import JSON
 /// Severity overrides and user-authored custom rules are deferred
 /// to v3. Parent-manifest inheritance lands in v2 alongside
 /// `disabledRuleIDs`; the driver in
-/// ``Lint/SwiftDriver/resolveConfiguration(consumerPackageRoot:)``
+/// ``Lint/Driver/resolveConfiguration(consumerPackageRoot:)``
 /// walks the parent chain and folds each manifest into a layered
 /// ``Lint/Configuration`` with `inheriting:` parent.
 extension Lint {

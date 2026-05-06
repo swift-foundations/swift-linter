@@ -67,10 +67,10 @@ internal import URI_Standard
 /// at the public boundary, [API-NAME-002] requires nested accessors
 /// and the compound names must be restructured.**
 extension Lint {
-    public enum SwiftDriver {}
+    public enum Driver {}
 }
 
-extension Lint.SwiftDriver {
+extension Lint.Driver {
     /// Detects whether a `Lint.swift` exists at the consumer's
     /// package root.
     public static func lintSwiftPath(at consumerPackageRoot: Swift.String) -> Swift.String? {
@@ -187,7 +187,7 @@ extension Lint.SwiftDriver {
 
 // MARK: - Parent directive parser
 
-extension Lint.SwiftDriver {
+extension Lint.Driver {
     /// Parse a `// parent: <URL>` directive from the leading
     /// comment lines of a Lint.swift file at `path`.
     ///
@@ -323,7 +323,7 @@ extension Lint.SwiftDriver {
 
 // MARK: - URL fetch (with per-process memoization)
 
-extension Lint.SwiftDriver {
+extension Lint.Driver {
     /// Fetch the contents of a parent `URI`, memoizing within the
     /// passed-through dictionary.
     ///
@@ -498,7 +498,7 @@ extension Lint.SwiftDriver {
 
 // MARK: - Internal helpers
 
-extension Lint.SwiftDriver {
+extension Lint.Driver {
     /// Default Configuration: every built-in rule enabled at its
     /// default severity. Identical to v1 detection-only behavior.
     internal static func defaultConfiguration() -> Lint.Configuration {

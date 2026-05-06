@@ -64,7 +64,7 @@ struct SwiftLinter: ParsableCommand {
     /// when no manifest is reachable (per supervisor block entry #5).
     func resolveConfiguration() -> Lint.Configuration {
         let consumerRoot = paths.first ?? "."
-        return Lint.SwiftDriver.resolveConfiguration(
+        return Lint.Driver.resolveConfiguration(
             consumerPackageRoot: consumerRoot,
             lintSwiftPathOverride: lintSwiftPath
         )

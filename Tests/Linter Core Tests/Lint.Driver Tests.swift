@@ -15,7 +15,7 @@ import Linter_Primitives
 import URI_Standard
 @testable import Linter_Core
 
-extension Lint.SwiftDriver {
+extension Lint.Driver {
     @Suite
     struct Test {
         @Suite struct ParseParentURL {}
@@ -27,7 +27,7 @@ extension Lint.SwiftDriver {
 
 // MARK: - parseParentURLFromContent
 
-extension Lint.SwiftDriver.Test.ParseParentURL {
+extension Lint.Driver.Test.ParseParentURL {
     @Test
     func `Absent directive returns nil`() {
         let content = """
@@ -35,7 +35,7 @@ extension Lint.SwiftDriver.Test.ParseParentURL {
 
         let manifest = Lint.Manifest(enabledRuleIDs: [])
         """
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == nil)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == nil)
     }
 
     @Test
@@ -48,47 +48,47 @@ extension Lint.SwiftDriver.Test.ParseParentURL {
         let expected = try URI(
             "https://raw.githubusercontent.com/swift-institute/.github/main/Lint.swift"
         )
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == expected)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
     }
 
     @Test
     func `http URL is parsed`() throws {
         let content = "// parent: http://example.com/Lint.swift\n"
         let expected = try URI("http://example.com/Lint.swift")
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == expected)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
     }
 
     @Test
     func `file URL is parsed`() throws {
         let content = "// parent: file:///tmp/parent.swift\n"
         let expected = try URI("file:///tmp/parent.swift")
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == expected)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
     }
 
     @Test
     func `Leading whitespace before directive is stripped`() throws {
         let content = "    // parent: https://example.com/Lint.swift\n"
         let expected = try URI("https://example.com/Lint.swift")
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == expected)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
     }
 
     @Test
     func `Tab-indented directive is parsed`() throws {
         let content = "\t// parent: https://example.com/Lint.swift\n"
         let expected = try URI("https://example.com/Lint.swift")
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == expected)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
     }
 
     @Test
     func `Unsupported scheme returns nil`() {
         let content = "// parent: ftp://example.com/Lint.swift\n"
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == nil)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == nil)
     }
 
     @Test
     func `Malformed URL without scheme returns nil`() {
         let content = "// parent: example.com/Lint.swift\n"
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == nil)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == nil)
     }
 
     @Test
@@ -99,7 +99,7 @@ extension Lint.SwiftDriver.Test.ParseParentURL {
         }
         lines.append("// parent: https://example.com/Lint.swift")
         let content = lines.joined(separator: "\n")
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == nil)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == nil)
     }
 
     @Test
@@ -111,14 +111,14 @@ extension Lint.SwiftDriver.Test.ParseParentURL {
         lines.append("// parent: https://example.com/Lint.swift")
         let content = lines.joined(separator: "\n")
         let expected = try URI("https://example.com/Lint.swift")
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == expected)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
     }
 
     @Test
     func `Trailing whitespace after URL is dropped`() throws {
         let content = "// parent: https://example.com/Lint.swift   \n"
         let expected = try URI("https://example.com/Lint.swift")
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == expected)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
     }
 
     @Test
@@ -128,24 +128,24 @@ extension Lint.SwiftDriver.Test.ParseParentURL {
         // parent: https://second.example.com/Lint.swift
         """
         let expected = try URI("https://first.example.com/Lint.swift")
-        #expect(Lint.SwiftDriver.parseParentURLFromContent(content) == expected)
+        #expect(Lint.Driver.parseParentURLFromContent(content) == expected)
     }
 }
 
 // MARK: - _configuration(from:parent:)
 
-extension Lint.SwiftDriver.Test.ConfigurationFromManifest {
+extension Lint.Driver.Test.ConfigurationFromManifest {
     @Test
     func `Empty manifest with nil parent produces empty effective rules`() {
         let manifest = Lint.Manifest(enabledRuleIDs: [])
-        let configuration = Lint.SwiftDriver.configuration(from: manifest, parent: nil)
+        let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         #expect(configuration.effectiveRules().isEmpty)
     }
 
     @Test
     func `Single enabled rule produces one effective entry`() {
         let manifest = Lint.Manifest(enabledRuleIDs: ["unchecked_call_site"])
-        let configuration = Lint.SwiftDriver.configuration(from: manifest, parent: nil)
+        let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         let effective = configuration.effectiveRules()
         #expect(effective.count == 1)
         if effective.count == 1 {
@@ -157,7 +157,7 @@ extension Lint.SwiftDriver.Test.ConfigurationFromManifest {
     func `Child disable overrides parent enable for same rule TYPE`() {
         // Parent: enables R5
         let parentManifest = Lint.Manifest(enabledRuleIDs: ["unchecked_call_site"])
-        let parentConfiguration = Lint.SwiftDriver.configuration(
+        let parentConfiguration = Lint.Driver.configuration(
             from: parentManifest,
             parent: nil
         )
@@ -166,7 +166,7 @@ extension Lint.SwiftDriver.Test.ConfigurationFromManifest {
             enabledRuleIDs: [],
             disabledRuleIDs: ["unchecked_call_site"]
         )
-        let childConfiguration = Lint.SwiftDriver.configuration(
+        let childConfiguration = Lint.Driver.configuration(
             from: childManifest,
             parent: parentConfiguration
         )
@@ -181,13 +181,13 @@ extension Lint.SwiftDriver.Test.ConfigurationFromManifest {
         let parentManifest = Lint.Manifest(
             enabledRuleIDs: ["unchecked_call_site", "cardinal_count_minus_one"]
         )
-        let parentConfiguration = Lint.SwiftDriver.configuration(
+        let parentConfiguration = Lint.Driver.configuration(
             from: parentManifest,
             parent: nil
         )
         // Child: empty manifest
         let childManifest = Lint.Manifest(enabledRuleIDs: [])
-        let childConfiguration = Lint.SwiftDriver.configuration(
+        let childConfiguration = Lint.Driver.configuration(
             from: childManifest,
             parent: parentConfiguration
         )
@@ -207,35 +207,35 @@ extension Lint.SwiftDriver.Test.ConfigurationFromManifest {
                 try File.Path(".build"),
             ]
         )
-        let configuration = Lint.SwiftDriver.configuration(from: manifest, parent: nil)
+        let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         #expect(configuration.excluded == ["Tests/Fixtures", ".build"])
     }
 
     @Test
     func `Unknown rule ID is silently ignored`() {
         let manifest = Lint.Manifest(enabledRuleIDs: ["nonexistent_rule"])
-        let configuration = Lint.SwiftDriver.configuration(from: manifest, parent: nil)
+        let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         #expect(configuration.effectiveRules().isEmpty)
     }
 }
 
 // MARK: - sanitizeForPath
 
-extension Lint.SwiftDriver.Test.SanitizeForPath {
+extension Lint.Driver.Test.SanitizeForPath {
     @Test
     func `Alphanumerics are retained`() {
-        #expect(Lint.SwiftDriver.sanitizeForPath("abcXYZ123") == "abcXYZ123")
+        #expect(Lint.Driver.sanitizeForPath("abcXYZ123") == "abcXYZ123")
     }
 
     @Test
     func `Underscore hyphen and dot are retained`() {
-        #expect(Lint.SwiftDriver.sanitizeForPath("a_b-c.d") == "a_b-c.d")
+        #expect(Lint.Driver.sanitizeForPath("a_b-c.d") == "a_b-c.d")
     }
 
     @Test
     func `Slashes are replaced with underscores`() {
         #expect(
-            Lint.SwiftDriver.sanitizeForPath("https://example.com/path/file.swift")
+            Lint.Driver.sanitizeForPath("https://example.com/path/file.swift")
             == "https___example.com_path_file.swift"
         )
     }
@@ -245,19 +245,19 @@ extension Lint.SwiftDriver.Test.SanitizeForPath {
         let urlA = "https://a.example.com/Lint.swift"
         let urlB = "https://b.example.com/Lint.swift"
         #expect(
-            Lint.SwiftDriver.sanitizeForPath(urlA)
-            != Lint.SwiftDriver.sanitizeForPath(urlB)
+            Lint.Driver.sanitizeForPath(urlA)
+            != Lint.Driver.sanitizeForPath(urlB)
         )
     }
 }
 
 // MARK: - tempPathFor
 
-extension Lint.SwiftDriver.Test.TempPathFor {
+extension Lint.Driver.Test.TempPathFor {
     @Test
     func `Path uses tmp prefix and tmp suffix`() throws {
         let uri = try URI("https://example.com/file.swift")
-        let path = Lint.SwiftDriver.tempPathFor(url: uri)
+        let path = Lint.Driver.tempPathFor(url: uri)
         #expect(path.hasPrefix("/tmp/swift-linter-fetch-"))
         #expect(path.hasSuffix(".tmp"))
     }
@@ -266,8 +266,8 @@ extension Lint.SwiftDriver.Test.TempPathFor {
     func `Same URL produces same path`() throws {
         let uri = try URI("https://example.com/Lint.swift")
         #expect(
-            Lint.SwiftDriver.tempPathFor(url: uri)
-            == Lint.SwiftDriver.tempPathFor(url: uri)
+            Lint.Driver.tempPathFor(url: uri)
+            == Lint.Driver.tempPathFor(url: uri)
         )
     }
 }
