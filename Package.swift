@@ -186,6 +186,14 @@ let package = Package(
                 .product(name: "SwiftParser", package: "swift-syntax"),
             ]
         ),
+        .testTarget(
+            name: "Linter Core Tests",
+            dependencies: [
+                "Linter Core",
+                .product(name: "Linter Primitives", package: "swift-linter-primitives"),
+                .product(name: "URI Standard", package: "swift-uri-standard"),
+            ]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )
