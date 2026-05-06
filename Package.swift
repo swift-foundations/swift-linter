@@ -142,12 +142,6 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "Linter Tests",
-            dependencies: [
-                "Linter",
-            ]
-        ),
-        .testTarget(
             name: "Linter Rule Unchecked Tests",
             dependencies: [
                 "Linter Rule Unchecked",
