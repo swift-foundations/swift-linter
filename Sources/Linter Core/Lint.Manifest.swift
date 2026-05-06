@@ -22,25 +22,61 @@ public import JSON
 ///
 /// ## Phase 2 v2 scope
 ///
-/// - ``enabledRuleIDs`` — string IDs (matching ``Lint/Rule/ID``'s
-///   raw value) of rules to activate.
+/// - ``enabledRuleIDs`` — typed `Lint.Rule.ID` (Tagged<Lint.Rule,
+///   Swift.String>) of rules to activate at this manifest's layer.
+///   Mixing rule IDs with file IDs, config keys, or other String
+///   identifiers is rejected at the type system, not at runtime.
+///   Construction at consumer call sites uses the
+///   `ExpressibleByStringLiteral` conformance shipped by
+///   `swift-tagged-primitives`'s standard-library-integration:
+///   `let id: Lint.Rule.ID = "unchecked_call_site"`.
+/// - ``disabledRuleIDs`` — typed `Lint.Rule.ID`s to deactivate at
+///   this layer. Layered with parent inheritance: a child manifest's
+///   `disabledRuleIDs` overrides a parent's `enabledRuleIDs` for the
+///   same ID via the Configuration layer's per-TYPE override
+///   semantics.
 /// - ``excludedPaths`` — package-specific path-prefix exclusions
 ///   (the linter's source walker already excludes `.build/` etc.;
-///   this list adds extras).
+///   this list adds extras). NOTE: this stays `[Swift.String]` for
+///   v2 because the institute's `File.Path` is ~Copyable and cannot
+///   live as the element type of a `[Path]`. When an Escapable Path
+///   variant lands at L1, this field migrates to that type.
 ///
-/// Severity overrides, custom rules, and parent-manifest
-/// inheritance are deferred to v3 once the single-file
-/// evaluation surface is proven.
+/// ## JSON wire format
+///
+/// Despite the typed Swift API surface, the JSON wire format
+/// remains rule-IDs as bare strings — the serializer unwraps each
+/// `Lint.Rule.ID` to its raw `String` and the deserializer wraps
+/// each raw `String` back into a `Lint.Rule.ID`. A v2 consumer's
+/// Lint.swift authored against the typed surface produces wire-
+/// compatible output.
+///
+/// Tagged-generic `JSON.Serializable` conformance is NOT introduced
+/// here. The natural home (swift-linter-primitives at L1) cannot
+/// accept the JSON dependency without a layering violation
+/// (JSON is L3); the manual unwrap below is the v2 workaround.
+/// A future ecosystem package (e.g., `swift-tagged-json`) may host
+/// the generic conformance properly.
+///
+/// Severity overrides and user-authored custom rules are deferred
+/// to v3. Parent-manifest inheritance lands in v2 alongside
+/// `disabledRuleIDs`; the driver in
+/// ``Lint/SwiftDriver/resolveConfiguration(consumerPackageRoot:)``
+/// walks the parent chain and folds each manifest into a layered
+/// ``Lint/Configuration`` with `inheriting:` parent.
 extension Lint {
     public struct Manifest: Sendable {
-        public let enabledRuleIDs: [Swift.String]
+        public let enabledRuleIDs: [Lint.Rule.ID]
+        public let disabledRuleIDs: [Lint.Rule.ID]
         public let excludedPaths: [Swift.String]
 
         public init(
-            enabledRuleIDs: [Swift.String],
+            enabledRuleIDs: [Lint.Rule.ID],
+            disabledRuleIDs: [Lint.Rule.ID] = [],
             excludedPaths: [Swift.String] = []
         ) {
             self.enabledRuleIDs = enabledRuleIDs
+            self.disabledRuleIDs = disabledRuleIDs
             self.excludedPaths = excludedPaths
         }
     }
@@ -51,15 +87,20 @@ extension Lint {
 extension Lint.Manifest: JSON.Serializable {
     public static func serialize(_ value: Self) -> JSON {
         [
-            "enabledRuleIDs": .array(value.enabledRuleIDs.map { .string($0) }),
+            "enabledRuleIDs": .array(value.enabledRuleIDs.map { .string($0.underlying) }),
+            "disabledRuleIDs": .array(value.disabledRuleIDs.map { .string($0.underlying) }),
             "excludedPaths": .array(value.excludedPaths.map { .string($0) })
         ]
     }
 
     public static func deserialize(_ json: JSON) throws(JSON.Error) -> Self {
-        Self(
-            enabledRuleIDs: try [Swift.String](json: json["enabledRuleIDs"]),
-            excludedPaths: try [Swift.String](json: json["excludedPaths"])
+        let enabledRaw = try [Swift.String](json: json["enabledRuleIDs"])
+        let disabledRaw = try [Swift.String](json: json["disabledRuleIDs"])
+        let excluded = try [Swift.String](json: json["excludedPaths"])
+        return Self(
+            enabledRuleIDs: enabledRaw.map { Lint.Rule.ID($0) },
+            disabledRuleIDs: disabledRaw.map { Lint.Rule.ID($0) },
+            excludedPaths: excluded
         )
     }
 }
