@@ -25,12 +25,14 @@ struct SwiftLinter: ParsableCommand {
         abstract: "SwiftSyntax-based AST linter for the swift-primitives ecosystem.",
         discussion: """
         Augments SwiftLint by hosting AST-shaped rules whose predicate cannot \
-        be expressed as a regex on source text. Phase 1 ships R5 \
-        (`__unchecked:` argument label at call sites only).
+        be expressed as a regex on source text. The engine ships rule-pack-\
+        agnostic — without an explicit configuration, zero rules fire.
 
-        Reads a `Lint.swift` typed-DSL config at the consumer package root \
-        (mirroring `Package.swift`); when absent, the CLI activates all \
-        built-in rules at default severity.
+        Two consumer shapes are detected at the package root: a `Lint/` \
+        nested SwiftPM package (recommended; consumers wire engine + rule \
+        packs in its `Package.swift`), or a single-file `Lint.swift` (sugar \
+        form, currently inert). When neither is present, the CLI runs with \
+        the empty default Configuration.
         """
     )
 

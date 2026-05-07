@@ -121,13 +121,13 @@ the manifest:
 ```swift
 // Lint/Sources/Lint/main.swift
 import Linter
-import Linter Rule Unchecked
-import Linter Rule Cardinal
+import Linter_Rule_Unchecked
+import Linter_Rule_Cardinal
 
 let manifest = Lint.Manifest(
     enabledRuleIDs: [
-        Linter.Rule.Unchecked.ruleID,
-        Linter.Rule.Cardinal.ruleID,
+        Lint.Rule.Unchecked.id,
+        Lint.Rule.Cardinal.Count.id,
     ],
     excludedPaths: [
         try File.Path("Tests/Fixtures"),
@@ -139,34 +139,6 @@ let manifest = Lint.Manifest(
 `swift run swift-linter <package>` discovers `Lint/`, builds it as a
 nested SwiftPM package, executes its emitted manifest, and runs the
 configured rules across the parent package's source tree.
-
-## Single-file `Lint.swift` form
-
-For the future sugar shape (currently inert until a default rule-pack
-convention ships), drop a single-file manifest at your package root
-mirroring `Package.swift`'s pattern:
-
-```swift
-// Lint.swift
-import Linter
-
-let manifest = Lint.Manifest(
-    enabledRuleIDs: [
-        "unchecked_call_site",
-        "cardinal_count_minus_one",
-    ],
-    disabledRuleIDs: [
-        "chained_rawvalue_access",
-    ],
-    excludedPaths: [
-        try File.Path("Tests/Fixtures"),
-        try File.Path(".build"),
-    ]
-)
-```
-
-The linter compiles `Lint.swift` via `swift-manifest`, captures the
-typed value as JSON, and reconstructs a runtime `Lint.Configuration`.
 
 ## Inheritance via `// parent:` directive
 

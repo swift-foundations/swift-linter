@@ -36,11 +36,12 @@ internal import Manifest_Resolver
 /// location at runtime. The driver reads the `SWIFT_LINTER_PATH`
 /// environment variable to locate the swift-linter source tree
 /// (and, by adjacency, sibling foundation packages used in the
-/// generated driver shim's deps). When the variable is unset the
-/// driver falls back to the workspace-relative default
-/// `/Users/coen/Developer/swift-foundations/swift-linter` so that
-/// local development verifies without per-shell setup. Production
-/// deployments SHOULD set `SWIFT_LINTER_PATH` explicitly.
+/// generated driver shim's deps). The variable MUST be set: when
+/// it is unset the driver emits
+/// `[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies`
+/// and falls back to the empty default Configuration. There is no
+/// hardcoded fallback — every caller is responsible for setting
+/// `SWIFT_LINTER_PATH` before invoking the driver.
 ///
 /// ## Failure mode
 ///
@@ -147,11 +148,14 @@ extension Lint.Driver {
             manifestFilename = "Lint.swift"
         }
 
+        guard let dependencies = manifestDependencies() else {
+            return defaultConfiguration()
+        }
         do {
             return try Manifest.Resolver<Lint.Manifest, Lint.Configuration>.resolve(
                 consumerPackageRoot: manifestDirectory,
                 manifestFilename: manifestFilename,
-                dependencies: manifestDependencies(),
+                dependencies: dependencies,
                 defaultConfiguration: defaultConfiguration,
                 buildConfiguration: { manifest, parent in
                     configuration(from: manifest, parent: parent)
@@ -202,15 +206,19 @@ extension Lint.Driver {
 
     /// The dependency set the driver shim compiles against.
     ///
-    /// Derived from `SWIFT_LINTER_PATH` (or the workspace default).
-    /// The shim needs:
+    /// Derived from `SWIFT_LINTER_PATH`. Returns `nil` when the
+    /// variable is unset — `resolveConfiguration` interprets `nil`
+    /// as "no manifest evaluation possible" and returns the empty
+    /// default Configuration. The shim needs:
     ///
     ///   - `JSON` (for `.jsonString()` on the typed value),
     ///   - `File_System` (for the `File.write.atomic` output sink),
     ///   - `Linter` (for the ``Lint/Manifest`` type).
-    internal static func manifestDependencies() -> [Manifest.Dependency] {
-        let linterPath = Environment.read("SWIFT_LINTER_PATH")
-            ?? "/Users/coen/Developer/swift-foundations/swift-linter"
+    internal static func manifestDependencies() -> [Manifest.Dependency]? {
+        guard let linterPath = Environment.read("SWIFT_LINTER_PATH") else {
+            print("[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies")
+            return nil
+        }
         let workspace = linterPath + "/.."
         return [
             Manifest.Dependency(
