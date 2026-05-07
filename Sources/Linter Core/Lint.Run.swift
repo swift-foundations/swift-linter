@@ -12,6 +12,7 @@
 public import SwiftSyntax
 public import SwiftParser
 public import File_System
+internal import Linter_Primitives
 
 /// Run the linter against one or more paths.
 ///
@@ -30,21 +31,53 @@ extension Lint.Run {
     /// Each effective entry instantiates its rule via the typed metatype
     /// path: `entry.rule.init(severity: entry.severity ?? entry.rule.defaultSeverity)`.
     /// No string-name lookup; identity flows through `.self`.
+    ///
+    /// ## Composition order (per-rule scope)
+    ///
+    /// Two scoping mechanisms compose at distinct stages:
+    ///
+    /// 1. ``Lint/Rule/Configuration/Mode/disabled`` short-circuits at
+    ///    ``Lint/Configuration/effectiveRules()`` — disabled entries
+    ///    never reach this loop.
+    /// 2. The per-rule ``Lint/Rule/Configuration/paths`` filter
+    ///    (``Path/Filter``) applies HERE, per (rule, source-path) pair,
+    ///    AFTER the disabled-drop and rule instantiation. A `nil`
+    ///    filter (no path scope on the entry) admits every path; a
+    ///    non-`nil` filter applies prefix-match semantics per
+    ///    ``Path/Filter/matches(sourcePath:)``.
+    ///
+    /// Stage (1) decides which rules participate; stage (2) decides
+    /// which (rule, file) pairs the engine actually invokes.
     public static func run(
         paths: [Swift.String],
         configuration: Lint.Configuration
     ) throws(Error) -> [Lint.Finding] {
-        let activeRules: [any Lint.Rule.`Protocol`] = configuration.effectiveRules().map { entry in
-            let resolvedSeverity = entry.severity ?? entry.rule.defaultSeverity
-            return entry.rule.init(severity: resolvedSeverity)
-        }
+        // (rule-instance, per-rule path filter) pairs. The filter
+        // travels alongside the instantiated rule so the per-source
+        // gate can read it without re-resolving the configuration.
+        // Fully-qualified `Linter_Primitives.Path.Filter` because
+        // `Path` is also declared in `Paths` (transitive via
+        // `File_System`); both are visible here.
+        let activeEntries: [(rule: any Lint.Rule.`Protocol`, paths: Linter_Primitives.Path.Filter?)] =
+            configuration.effectiveRules().map { entry in
+                let resolvedSeverity = entry.severity ?? entry.rule.defaultSeverity
+                return (entry.rule.init(severity: resolvedSeverity), entry.paths)
+            }
         var manager = Source.Manager()
         var findings: [Lint.Finding] = []
         for path in paths {
             let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: path)
             for sourcePath in sourcePaths {
                 let parsed = try parsedSource(at: sourcePath, manager: &manager)
-                for rule in activeRules {
+                for (rule, filter) in activeEntries {
+                    // Per-rule path filter — prefix-match per
+                    // Path.Filter.matches(sourcePath:). A nil filter
+                    // (entry has no `paths:` constraint) admits every
+                    // sourcePath; a non-nil filter discriminates per
+                    // its included/excluded prefix lists.
+                    if let filter, !filter.matches(sourcePath: sourcePath) {
+                        continue
+                    }
                     findings.append(contentsOf: rule.findings(in: parsed))
                 }
             }

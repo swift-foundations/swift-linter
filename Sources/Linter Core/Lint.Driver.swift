@@ -11,6 +11,7 @@
 
 internal import Environment
 internal import File_System
+internal import Linter_Primitives
 internal import Manifest_Loader
 internal import Manifest_Primitives
 internal import Manifest_Resolver
@@ -200,7 +201,7 @@ extension Lint.Driver {
         Lint.Configuration(
             inheriting: parent,
             rules: { },
-            excluded: manifest.excludedPaths.map { $0.description }
+            excluded: manifest.excludedPaths.map { Path.Filter.Prefix($0.description) }
         )
     }
 
