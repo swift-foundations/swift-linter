@@ -25,7 +25,7 @@ extension Lint.Run {
 // MARK: - Path filter integration
 //
 // Engine-layer integration coverage for the per-rule
-// `Lint.Rule.Configuration.paths` filter (`Path.Filter`). The fixture
+// `Lint.Rule.Configuration.paths` filter (`Lint.Filter`). The fixture
 // at `Tests/Fixtures/path-filter-fixture/` contains two source files
 // — `Sources/A/x.swift` and `Sources/B/y.swift` — each carrying a
 // call-site `__unchecked:` argument that `Lint.Rule.Unchecked` fires

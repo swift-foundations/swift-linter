@@ -87,7 +87,7 @@ extension Lint.Driver {
         guard Manifest.NestedPackage.detect(at: consumerPackageRoot) else {
             return nil
         }
-        do throws(Manifest.NestedPackage.DispatchError) {
+        do throws(Manifest.NestedPackage.Error) {
             return try Manifest.NestedPackage.dispatch(
                 at: consumerPackageRoot,
                 arguments: arguments
@@ -201,7 +201,7 @@ extension Lint.Driver {
         Lint.Configuration(
             inheriting: parent,
             rules: { },
-            excluded: manifest.excludedPaths.map(Path.Filter.Prefix.init)
+            excluded: manifest.excludedPaths.map(Lint.Filter.Prefix.init)
         )
     }
 

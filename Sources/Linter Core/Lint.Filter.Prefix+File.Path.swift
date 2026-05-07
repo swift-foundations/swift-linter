@@ -12,14 +12,14 @@
 public import File_System
 public import Linter_Primitives
 
-extension Linter_Primitives.Path.Filter.Prefix {
+extension Lint.Filter.Prefix {
     /// Typed conversion from L3 ``File_System/File/Path`` to the L1
-    /// ``Linter_Primitives/Path/Filter/Prefix``.
+    /// ``Linter_Primitives/Lint/Filter/Prefix``.
     ///
     /// The mechanism — extracting the underlying string via
     /// ``Paths/Path/description`` — is encapsulated here per [IMPL-010].
-    /// Call sites read `Path.Filter.Prefix(filePath)` (or
-    /// `.map(Path.Filter.Prefix.init)` for collections), surfacing
+    /// Call sites read `Lint.Filter.Prefix(filePath)` (or
+    /// `.map(Lint.Filter.Prefix.init)` for collections), surfacing
     /// intent rather than mechanism.
     @inlinable
     public init(_ filePath: File.Path) {

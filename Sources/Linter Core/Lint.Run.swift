@@ -61,10 +61,7 @@ extension Lint.Run {
         // (rule-instance, per-rule path filter) pairs. The filter
         // travels alongside the instantiated rule so the per-source
         // gate can read it without re-resolving the configuration.
-        // Fully-qualified `Linter_Primitives.Path.Filter` because
-        // `Path` is also declared in `Paths` (transitive via
-        // `File_System`); both are visible here.
-        let activeEntries: [(rule: any Lint.Rule.`Protocol`, paths: Linter_Primitives.Path.Filter?)] =
+        let activeEntries: [(rule: any Lint.Rule.`Protocol`, paths: Lint.Filter?)] =
             configuration.effectiveRules().map { entry in
                 let resolvedSeverity = entry.severity ?? entry.rule.defaultSeverity
                 return (entry.rule.init(severity: resolvedSeverity), entry.paths)
@@ -77,7 +74,7 @@ extension Lint.Run {
                 let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager)
                 for (rule, filter) in activeEntries {
                     // Per-rule path filter — prefix-match per
-                    // Path.Filter.matches(sourcePath:). A nil filter
+                    // Lint.Filter.matches(sourcePath:). A nil filter
                     // (entry has no `paths:` constraint) admits every
                     // sourcePath; a non-nil filter discriminates per
                     // its included/excluded prefix lists.
