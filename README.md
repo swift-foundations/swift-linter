@@ -54,6 +54,25 @@ let manifest = Lint.Manifest(
 The linter compiles `Lint.swift` via `swift-manifest`, captures the typed
 value as JSON, and reconstructs a runtime `Lint.Configuration`.
 
+## Two consumer shapes
+
+`swift-linter` detects two configurations at the consumer's package root:
+
+1. **`Lint/` nested SwiftPM package** (recommended) — a SwiftPM package
+   directory alongside `Package.swift` that imports rule packages and
+   declares activation via a typed `Lint.Manifest`. Supports arbitrary
+   rule packs (third-party or in-house) and custom rules with their own
+   dependencies.
+
+2. **Single-file `Lint.swift`** (sugar form) — a terse declaration at
+   the package root, no nested package required. Activates zero rules
+   until a default rule-pack convention ships; consumers who need rules
+   to fire today MUST adopt the `Lint/` nested-package shape.
+
+The `Lint/` shape is the canonical form going forward; single-file
+`Lint.swift` is preserved as a future-facing sugar form for consumers
+that adopt the canonical rule set without per-package customization.
+
 ## Inheritance via `// parent:` directive
 
 Layer your manifest on top of a canonical configuration hosted at a URL.
