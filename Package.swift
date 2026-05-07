@@ -13,22 +13,6 @@ let package = Package(
             targets: ["Linter"]
         ),
         .library(
-            name: "Linter Rule Unchecked",
-            targets: ["Linter Rule Unchecked"]
-        ),
-        .library(
-            name: "Linter Rule Cardinal",
-            targets: ["Linter Rule Cardinal"]
-        ),
-        .library(
-            name: "Linter Rule RawValue",
-            targets: ["Linter Rule RawValue"]
-        ),
-        .library(
-            name: "Linter Rule ResultBuilder",
-            targets: ["Linter Rule ResultBuilder"]
-        ),
-        .library(
             name: "Linter Reporter Text",
             targets: ["Linter Reporter Text"]
         ),
@@ -53,41 +37,13 @@ let package = Package(
         .package(path: "../swift-environment"),
         .package(path: "../swift-file-system"),
         .package(path: "../swift-json"),
+        .package(path: "../swift-linter-rules"),
         .package(path: "../swift-manifests"),
         .package(path: "../swift-process"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", "602.0.0"..<"603.0.0"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMajor(from: "1.5.0")),
     ],
     targets: [
-        .target(
-            name: "Linter Rule Unchecked",
-            dependencies: [
-                .product(name: "Linter Primitives", package: "swift-linter-primitives"),
-                .product(name: "SwiftSyntax", package: "swift-syntax"),
-            ]
-        ),
-        .target(
-            name: "Linter Rule Cardinal",
-            dependencies: [
-                .product(name: "Linter Primitives", package: "swift-linter-primitives"),
-                .product(name: "SwiftSyntax", package: "swift-syntax"),
-                .product(name: "SwiftOperators", package: "swift-syntax"),
-            ]
-        ),
-        .target(
-            name: "Linter Rule RawValue",
-            dependencies: [
-                .product(name: "Linter Primitives", package: "swift-linter-primitives"),
-                .product(name: "SwiftSyntax", package: "swift-syntax"),
-            ]
-        ),
-        .target(
-            name: "Linter Rule ResultBuilder",
-            dependencies: [
-                .product(name: "Linter Primitives", package: "swift-linter-primitives"),
-                .product(name: "SwiftSyntax", package: "swift-syntax"),
-            ]
-        ),
         .target(
             name: "Linter Reporter Text",
             dependencies: [
@@ -127,10 +83,10 @@ let package = Package(
         .target(
             name: "Linter Core",
             dependencies: [
-                "Linter Rule Unchecked",
-                "Linter Rule Cardinal",
-                "Linter Rule RawValue",
-                "Linter Rule ResultBuilder",
+                .product(name: "Linter Rule Unchecked", package: "swift-linter-rules"),
+                .product(name: "Linter Rule Cardinal", package: "swift-linter-rules"),
+                .product(name: "Linter Rule RawValue", package: "swift-linter-rules"),
+                .product(name: "Linter Rule ResultBuilder", package: "swift-linter-rules"),
                 .product(name: "ASCII Primitives", package: "swift-ascii-primitives"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Manifest Primitives", package: "swift-manifest-primitives"),
@@ -152,10 +108,10 @@ let package = Package(
                 "Linter Core",
                 "Linter Reporter Text",
                 "Linter Reporter SARIF",
-                "Linter Rule Unchecked",
-                "Linter Rule Cardinal",
-                "Linter Rule RawValue",
-                "Linter Rule ResultBuilder",
+                .product(name: "Linter Rule Unchecked", package: "swift-linter-rules"),
+                .product(name: "Linter Rule Cardinal", package: "swift-linter-rules"),
+                .product(name: "Linter Rule RawValue", package: "swift-linter-rules"),
+                .product(name: "Linter Rule ResultBuilder", package: "swift-linter-rules"),
             ]
         ),
         .executableTarget(
@@ -163,34 +119,6 @@ let package = Package(
             dependencies: [
                 "Linter",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ]
-        ),
-        .testTarget(
-            name: "Linter Rule Unchecked Tests",
-            dependencies: [
-                "Linter Rule Unchecked",
-                .product(name: "SwiftParser", package: "swift-syntax"),
-            ]
-        ),
-        .testTarget(
-            name: "Linter Rule Cardinal Tests",
-            dependencies: [
-                "Linter Rule Cardinal",
-                .product(name: "SwiftParser", package: "swift-syntax"),
-            ]
-        ),
-        .testTarget(
-            name: "Linter Rule RawValue Tests",
-            dependencies: [
-                "Linter Rule RawValue",
-                .product(name: "SwiftParser", package: "swift-syntax"),
-            ]
-        ),
-        .testTarget(
-            name: "Linter Rule ResultBuilder Tests",
-            dependencies: [
-                "Linter Rule ResultBuilder",
-                .product(name: "SwiftParser", package: "swift-syntax"),
             ]
         ),
         .testTarget(
