@@ -178,7 +178,7 @@ extension Lint.Driver {
     /// the run produces zero findings unless the consumer extends
     /// the engine with rule registration of their own.
     internal static func defaultConfiguration() -> Lint.Configuration {
-        Lint.Configuration(rules: { })
+        Lint.Configuration { }
     }
 
     /// Build a runtime Configuration from a parsed manifest.
@@ -200,9 +200,8 @@ extension Lint.Driver {
     ) -> Lint.Configuration {
         Lint.Configuration(
             inheriting: parent,
-            rules: { },
             excluded: manifest.excludedPaths.map(Lint.Filter.Prefix.init)
-        )
+        ) { }
     }
 
     /// The dependency set the driver shim compiles against.

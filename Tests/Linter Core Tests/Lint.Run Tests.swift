@@ -63,9 +63,9 @@ extension Lint.Run.Test.Integration {
     @Test
     func `paths .all yields findings for both A and B`() throws {
         let root = try Self.fixtureRoot()
-        let configuration = Lint.Configuration(rules: {
+        let configuration = Lint.Configuration {
             .enable(Lint.Rule.Unchecked.self, paths: .all)
-        })
+        }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 2)
     }
@@ -73,9 +73,9 @@ extension Lint.Run.Test.Integration {
     @Test
     func `paths .including A yields finding for A only`() throws {
         let root = try Self.fixtureRoot()
-        let configuration = Lint.Configuration(rules: {
+        let configuration = Lint.Configuration {
             .enable(Lint.Rule.Unchecked.self, paths: .including(["Sources/A"]))
-        })
+        }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 1)
         #expect(findings.first?.location.filePath?.hasSuffix("/Sources/A/x.swift") == true)
@@ -84,9 +84,9 @@ extension Lint.Run.Test.Integration {
     @Test
     func `paths .excluding B yields finding for A only`() throws {
         let root = try Self.fixtureRoot()
-        let configuration = Lint.Configuration(rules: {
+        let configuration = Lint.Configuration {
             .enable(Lint.Rule.Unchecked.self, paths: .excluding(["Sources/B"]))
-        })
+        }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 1)
         #expect(findings.first?.location.filePath?.hasSuffix("/Sources/A/x.swift") == true)
@@ -95,9 +95,9 @@ extension Lint.Run.Test.Integration {
     @Test
     func `paths .including non-matching yields no findings`() throws {
         let root = try Self.fixtureRoot()
-        let configuration = Lint.Configuration(rules: {
+        let configuration = Lint.Configuration {
             .enable(Lint.Rule.Unchecked.self, paths: .including(["Tests/Fixtures/Other"]))
-        })
+        }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 0)
     }
