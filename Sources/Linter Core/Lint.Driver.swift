@@ -19,7 +19,7 @@ internal import Manifest_Resolver
 /// Detects and evaluates a consumer's `Lint.swift` configuration
 /// file via the ``Manifest_Loader/Manifest/load(_:configuration:)``
 /// subprocess loader, then folds parent manifests via
-/// ``Manifest_Resolver/Manifest/Resolver/resolve(consumerPackageRoot:manifestFilename:dependencies:defaultConfiguration:buildConfiguration:)``.
+/// ``Manifest_Resolver/Manifest/Resolver/resolve(consumerPackageRoot:filename:dependencies:defaultConfiguration:buildConfiguration:)``.
 ///
 /// Phase 3a refactor: the chain-resolution machinery (URL fetch,
 /// cycle/depth tracking, parent eval, per-process memoization)
@@ -119,7 +119,7 @@ extension Lint.Driver {
     /// Determines the manifest's `(directory, filename)` from either
     /// `lintSwiftPathOverride` or via detection at
     /// `consumerPackageRoot`, then delegates parent-chain resolution
-    /// to ``Manifest_Resolver/Manifest/Resolver/resolve(consumerPackageRoot:manifestFilename:dependencies:defaultConfiguration:buildConfiguration:)``.
+    /// to ``Manifest_Resolver/Manifest/Resolver/resolve(consumerPackageRoot:filename:dependencies:defaultConfiguration:buildConfiguration:)``.
     ///
     /// Fall-back paths:
     /// - No `Lint.swift` at consumer root and no override → defaults-everything.
@@ -155,7 +155,7 @@ extension Lint.Driver {
         do {
             return try Manifest.Resolver<Lint.Manifest, Lint.Configuration>.resolve(
                 consumerPackageRoot: manifestDirectory,
-                manifestFilename: manifestFilename,
+                filename: manifestFilename,
                 dependencies: dependencies,
                 defaultConfiguration: defaultConfiguration,
                 buildConfiguration: { manifest, parent in
