@@ -87,13 +87,16 @@ extension Lint.Driver {
         guard Manifest.NestedPackage.detect(at: consumerPackageRoot) else {
             return nil
         }
+        // Library output discipline: do NOT print on dispatch error.
+        // The exit code (1) is the only signal — consumers wanting
+        // richer diagnostics should call `Manifest.NestedPackage.dispatch`
+        // directly, which throws the typed error.
         do throws(Manifest.NestedPackage.Error) {
             return try Manifest.NestedPackage.dispatch(
                 at: consumerPackageRoot,
                 arguments: arguments
             )
         } catch {
-            print("[swift-linter] error dispatching to Lint/ executable: \(error)")
             return 1
         }
     }
@@ -163,7 +166,12 @@ extension Lint.Driver {
                 }
             )
         } catch {
-            print("[swift-linter] WARN: parent chain resolution failed: \(error); proceeding with default configuration.")
+            // Library output discipline: silently fall back to the
+            // default Configuration on parent-chain failure (cycle,
+            // depth, fetch, eval). The fallback is the documented
+            // recovery path; consumers needing richer diagnostics
+            // should call `Manifest.Resolver.resolve` directly, which
+            // throws the typed error.
             return defaultConfiguration()
         }
     }
@@ -215,8 +223,11 @@ extension Lint.Driver {
     ///   - `File_System` (for the `File.write.atomic` output sink),
     ///   - `Linter` (for the ``Lint/Manifest`` type).
     internal static func manifestDependencies() -> [Manifest.Dependency]? {
+        // Library output discipline: silently return nil when
+        // SWIFT_LINTER_PATH is unset. The CLI is responsible for
+        // validating preconditions and surfacing the env-var error
+        // to the user before invoking the Driver.
         guard let linterPath = Environment.read("SWIFT_LINTER_PATH") else {
-            print("[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies")
             return nil
         }
         let workspace = linterPath + "/.."
