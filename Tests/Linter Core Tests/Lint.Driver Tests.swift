@@ -22,6 +22,22 @@ extension Lint.Driver {
 }
 
 // MARK: - configuration(from:parent:)
+//
+// Post-Phase-B.1 the engine no longer ships built-in rules: the
+// `Lint.Rule.builtIn` static array has been removed and
+// `Lint.Driver.configuration(from:parent:)` no longer maps manifest
+// `enabledRuleIDs` / `disabledRuleIDs` to rule TYPES. Rule registration
+// is now the consumer's responsibility (handled in the consumer's
+// `Lint/Sources/Lint/main.swift` for the nested-package shape).
+//
+// What the Driver still threads at this layer:
+//   - parent inheritance (`Lint.Configuration(inheriting: parent, ...)`)
+//   - excludedPaths from the manifest into `Lint.Configuration.excluded`
+//
+// The tests below pin these residual responsibilities. Per-TYPE
+// override semantics (parent enable / child disable) are exercised in
+// `Lint.Configuration` tests, not here, since the Driver no longer
+// registers rules at either layer.
 
 extension Lint.Driver.Test.ConfigurationFromManifest {
     @Test
@@ -32,59 +48,45 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
     }
 
     @Test
-    func `Single enabled rule produces one effective entry`() {
+    func `Manifest enabledRuleIDs are silently ignored at engine layer`() {
+        // Post-decouple: the engine doesn't know about rule types, so
+        // even a fully-populated enabledRuleIDs list yields no effective
+        // rules at this layer.
         let manifest = Lint.Manifest(enabledRuleIDs: ["unchecked_call_site"])
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
-        let effective = configuration.effectiveRules()
-        #expect(effective.count == 1)
-        if effective.count == 1 {
-            #expect(effective[0].rule.id == "unchecked_call_site")
-        }
+        #expect(configuration.effectiveRules().isEmpty)
     }
 
     @Test
-    func `Child disable overrides parent enable for same rule TYPE`() {
-        // Parent: enables R5
+    func `Manifest disabledRuleIDs are silently ignored at engine layer`() {
+        // Symmetric to above: disable lists are also engine-inert
+        // post-decouple — the engine has nothing to disable.
+        let manifest = Lint.Manifest(
+            enabledRuleIDs: [],
+            disabledRuleIDs: ["unchecked_call_site"]
+        )
+        let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
+        #expect(configuration.effectiveRules().isEmpty)
+    }
+
+    @Test
+    func `Child Configuration inherits from parent reference`() {
+        // The Driver's job is to thread `inheriting: parent` through
+        // Configuration construction. With both layers registering no
+        // rules post-decouple, the effective set is empty, but the
+        // inheritance link is intact (verified by Configuration-layer
+        // tests).
         let parentManifest = Lint.Manifest(enabledRuleIDs: ["unchecked_call_site"])
         let parentConfiguration = Lint.Driver.configuration(
             from: parentManifest,
             parent: nil
         )
-        // Child: disables R5
-        let childManifest = Lint.Manifest(
-            enabledRuleIDs: [],
-            disabledRuleIDs: ["unchecked_call_site"]
-        )
-        let childConfiguration = Lint.Driver.configuration(
-            from: childManifest,
-            parent: parentConfiguration
-        )
-        // Effective: empty (parent's enable shadowed by child's disable per
-        // Lint.Configuration.effectiveRules() per-TYPE override semantics).
-        #expect(childConfiguration.effectiveRules().isEmpty)
-    }
-
-    @Test
-    func `Child empty enabled inherits parent's enabled set`() {
-        // Parent: enables R1 + R5
-        let parentManifest = Lint.Manifest(
-            enabledRuleIDs: ["unchecked_call_site", "cardinal_count_minus_one"]
-        )
-        let parentConfiguration = Lint.Driver.configuration(
-            from: parentManifest,
-            parent: nil
-        )
-        // Child: empty manifest
         let childManifest = Lint.Manifest(enabledRuleIDs: [])
         let childConfiguration = Lint.Driver.configuration(
             from: childManifest,
             parent: parentConfiguration
         )
-        // Effective: parent's two rules (child adds nothing, disables nothing).
-        let effectiveIDs: Set<Lint.Rule.ID> = Set(
-            childConfiguration.effectiveRules().map { $0.rule.id }
-        )
-        #expect(effectiveIDs == ["unchecked_call_site", "cardinal_count_minus_one"])
+        #expect(childConfiguration.effectiveRules().isEmpty)
     }
 
     @Test
@@ -102,6 +104,10 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
 
     @Test
     func `Unknown rule ID is silently ignored`() {
+        // Pre-decouple: unknown IDs ignored because they didn't match
+        // anything in `Lint.Rule.builtIn`. Post-decouple: ALL IDs are
+        // ignored at this layer (the array is gone). This test
+        // continues to assert the silent-ignore semantic.
         let manifest = Lint.Manifest(enabledRuleIDs: ["nonexistent_rule"])
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         #expect(configuration.effectiveRules().isEmpty)

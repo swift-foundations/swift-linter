@@ -47,6 +47,27 @@ struct SwiftLinter: ParsableCommand {
     var exitPolicy: Lint.Run.ExitPolicy = .advisory
 
     func run() throws {
+        let consumerRoot = paths.first ?? "."
+
+        // Lint/ nested-package dispatch (architecture cohort Phase A).
+        // When the consumer opts into the nested-package shape via a
+        // `Lint/Package.swift`, swift-linter delegates the run to the
+        // consumer's Lint/ executable (which links engine + rule packs
+        // declared in its Lint/Package.swift). The dispatched
+        // executable's stdout IS the authoritative diagnostic stream;
+        // this CLI becomes a coordinator under that path.
+        if let dispatchedExitCode = Lint.Driver.dispatchNestedIfPresent(
+            consumerPackageRoot: consumerRoot,
+            arguments: paths
+        ) {
+            if dispatchedExitCode != 0 {
+                throw ExitCode(dispatchedExitCode)
+            }
+            return
+        }
+
+        // Single-file `Lint.swift` fallback (existing chain-resolution
+        // flow, unchanged).
         let configuration = resolveConfiguration()
         let findings = try Lint.Run.run(paths: paths, configuration: configuration)
         emit(findings)

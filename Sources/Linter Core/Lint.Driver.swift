@@ -46,15 +46,56 @@ internal import Manifest_Resolver
 ///
 /// If consumer manifest evaluation fails — manifest absent,
 /// driver compile error, runtime trap, JSON decode error — the
-/// driver falls back to the v1-default Configuration (every rule
-/// in ``Lint/Rule/builtIn`` enabled at default severity). Parent
-/// chain failures (cycle, depth, fetch, eval) emit a warning and
-/// drop the chain: the consumer-only Configuration is returned.
+/// driver falls back to an empty-rules Configuration. Post-Phase-B.1
+/// decouple the engine no longer ships built-in rules; the
+/// single-file `Lint.swift` fallback path is therefore inert
+/// (zero findings) until a consumer-side rule registration
+/// mechanism lands. Consumers SHOULD adopt the nested-package
+/// shape (`Lint/Package.swift` declaring engine + rule packs)
+/// per `Manifest.NestedPackage`. Parent chain failures (cycle,
+/// depth, fetch, eval) emit a warning and drop the chain: the
+/// consumer-only Configuration is returned.
 extension Lint {
     public enum Driver {}
 }
 
 extension Lint.Driver {
+    /// Detect a nested `Lint/` SwiftPM package at the consumer's
+    /// package root and, if present, dispatch the lint run to the
+    /// consumer's `Lint` executable via
+    /// `swift run --package-path <consumerRoot>/Lint Lint <args>`.
+    ///
+    /// PoC of the Lint/ nested-package mechanism (architecture cohort
+    /// Phase A — `HANDOFF-architecture-poc-lint-nested-package.md`).
+    /// Under Option 1 the Lint/ executable IS the linter binary for
+    /// the consumer (linking engine + rule packs declared in its
+    /// `Lint/Package.swift`); swift-linter (this CLI) becomes a
+    /// coordinator that delegates the run when the consumer opts into
+    /// the nested-package shape.
+    ///
+    /// - Returns: `nil` when no nested package is detected — the
+    ///   caller should fall through to the single-file `Lint.swift`
+    ///   path. Otherwise the dispatched executable's exit code (an
+    ///   `Int32`); `0` indicates success, non-zero indicates findings
+    ///   or error per the dispatched executable's exit policy.
+    public static func dispatchNestedIfPresent(
+        consumerPackageRoot: Swift.String,
+        arguments: [Swift.String]
+    ) -> Swift.Int32? {
+        guard Manifest.NestedPackage.detect(at: consumerPackageRoot) else {
+            return nil
+        }
+        do throws(Manifest.NestedPackage.DispatchError) {
+            return try Manifest.NestedPackage.dispatch(
+                at: consumerPackageRoot,
+                arguments: arguments
+            )
+        } catch {
+            print("[swift-linter] error dispatching to Lint/ executable: \(error)")
+            return 1
+        }
+    }
+
     /// Detects whether a `Lint.swift` exists at the consumer's
     /// package root.
     public static func lintSwiftPath(at consumerPackageRoot: Swift.String) -> Swift.String? {
@@ -126,49 +167,35 @@ extension Lint.Driver {
 // MARK: - Internal helpers
 
 extension Lint.Driver {
-    /// Default Configuration: every built-in rule enabled at its
-    /// default severity. Identical to v1 detection-only behavior.
+    /// Default Configuration for the single-file `Lint.swift`
+    /// fallback path. Post-Phase-B.1 decouple the engine ships no
+    /// built-in rules, so this returns an empty-rules Configuration —
+    /// the run produces zero findings unless the consumer extends
+    /// the engine with rule registration of their own.
     internal static func defaultConfiguration() -> Lint.Configuration {
-        Lint.Configuration(rules: {
-            for rule in Lint.Rule.builtIn {
-                Lint.Rule.Configuration.enable(type(of: rule))
-            }
-        })
+        Lint.Configuration(rules: { })
     }
 
-    /// Build a runtime Configuration from a parsed manifest by
-    /// looking up each rule ID in ``Lint/Rule/builtIn``. Unknown
-    /// rule IDs are silently ignored at v2 (rule registration is
-    /// not yet pluggable from the manifest); known IDs are enabled
-    /// at the rule's default severity.
+    /// Build a runtime Configuration from a parsed manifest.
+    ///
+    /// Post-Phase-B.1 the engine no longer ships built-in rules, so
+    /// the `enabledRuleIDs` / `disabledRuleIDs` lists in the manifest
+    /// are silently ignored at this layer; rule registration must
+    /// happen at the consumer's `Lint/` executable (which links rule
+    /// packs and instantiates `Lint.Configuration` directly).
     ///
     /// `parent` is the next-outer Configuration in the inheritance
     /// chain (or `nil` for the root tier). The returned Configuration
-    /// inherits via `Lint.Configuration(inheriting: parent)`; layered
-    /// override semantics are computed by ``Lint/Configuration/effectiveRules()``.
-    ///
-    /// Each ID in `disabledRuleIDs` becomes a
-    /// `Lint.Rule.Configuration.disable(...)` entry at this layer,
-    /// overriding any parent enable for the same rule TYPE per
-    /// `effectiveRules()`'s "later layer wins" rule.
+    /// inherits via `Lint.Configuration(inheriting: parent)` and
+    /// threads `excluded` paths from the manifest; layered override
+    /// semantics are computed by ``Lint/Configuration/effectiveRules()``.
     internal static func configuration(
         from manifest: Lint.Manifest,
         parent: Lint.Configuration?
     ) -> Lint.Configuration {
-        let enabled = Set(manifest.enabledRuleIDs)
-        let disabled = Set(manifest.disabledRuleIDs)
-        return Lint.Configuration(
+        Lint.Configuration(
             inheriting: parent,
-            rules: {
-                for rule in Lint.Rule.builtIn {
-                    let ruleID = type(of: rule).id
-                    if disabled.contains(ruleID) {
-                        Lint.Rule.Configuration.disable(type(of: rule))
-                    } else if enabled.contains(ruleID) {
-                        Lint.Rule.Configuration.enable(type(of: rule))
-                    }
-                }
-            },
+            rules: { },
             excluded: manifest.excludedPaths.map { $0.description }
         )
     }
