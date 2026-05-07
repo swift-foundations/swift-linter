@@ -16,3 +16,12 @@
 @_exported public import Linter_Rule_Cardinal
 @_exported public import Linter_Rule_RawValue
 @_exported public import Linter_Rule_ResultBuilder
+
+// Wave 1 — AI-harness rules (Phase 4).
+@_exported public import Linter_Rule_Try_Optional
+@_exported public import Linter_Rule_Untyped_Throws
+@_exported public import Linter_Rule_Existential_Throws
+@_exported public import Linter_Rule_Var_Named_Impl
+@_exported public import Linter_Rule_Option_Named_Flags
+@_exported public import Linter_Rule_Compound_Identifier
+@_exported public import Linter_Rule_Tag_Suffix
