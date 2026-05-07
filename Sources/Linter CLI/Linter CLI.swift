@@ -49,6 +49,11 @@ struct SwiftLinter: ParsableCommand {
     @Option(name: [.long, .customLong("strict")], help: "Exit policy. Choices: advisory (exit 0 always), strict (exit non-zero when any finding has severity:error). The legacy --strict flag is honored.")
     var exitPolicy: Lint.Run.ExitPolicy = .advisory
 
+    // ArgumentParser's `ParsableCommand.run()` protocol requirement is
+    // bare-throws; typed throws is unavailable here until upstream
+    // adoption. The body throws three distinct types (`ExitCode`,
+    // `Path.Error` via `try File.Path(_:)`, `Lint.Run.Error`) — they
+    // unify to `any Error` at the boundary by necessity, not by choice.
     func run() throws {
         let consumerRoot = paths.first ?? "."
 
