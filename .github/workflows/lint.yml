@@ -1,0 +1,137 @@
+name: swift-linter (reusable)
+
+# ─── Third-party consumer notice ────────────────────────────────────────
+# This reusable workflow is designed for swift-institute ecosystem
+# packages. Outside callers consume at their own risk and should pin to
+# an immutable SHA (`@<sha>`) rather than `@main`. The input/output
+# surface and behavior may change without notice.
+# Cross-references swift-institute/.github's swift-ci.yml convention.
+# ────────────────────────────────────────────────────────────────────────
+
+# Reusable swift-linter workflow. Runs swift-linter against the consumer
+# repository's source. Under the architecture-cohort Phase A/B shape:
+#
+#   - If the consumer has a `Lint/Package.swift` at its repo root, the
+#     swift-linter CLI detects it via Manifest.NestedPackage and
+#     dispatches the run to the consumer's `Lint` executable
+#     (`swift run --package-path <consumer>/Lint Lint <consumer>`).
+#     The dispatched executable links the engine + rule packs the
+#     consumer chose, plus any custom rules, and produces the
+#     authoritative diagnostic stream.
+#
+#   - If the consumer has no `Lint/Package.swift`, the CLI falls back to
+#     the single-file `Lint.swift` chain-resolution path (post-Phase-B.1
+#     this path is inert until a consumer-side rule registration
+#     mechanism is restored — see swift-linter/Research/2026-05-07-phase-b1-decouple.md).
+#
+# Consume from a caller package's .github/workflows/ci.yml via:
+#
+#   jobs:
+#     lint:
+#       uses: swift-foundations/swift-linter/.github/workflows/lint.yml@<sha>
+#       with:
+#         swift-version: "6.3"
+#         advisory: true        # Phase 1 — drop after γ-flip
+#       secrets: inherit
+#
+# Inputs are deliberately minimal. Toolchain version + advisory flag +
+# the SARIF emit toggle. SARIF emission is opt-in because GH
+# code-scanning ingestion is a per-repo enablement decision (see
+# https://docs.github.com/en/code-security/code-scanning).
+#
+# Caching policy: this workflow does NOT cache `.build/`. Matches
+# swift-ci.yml's policy ecosystem-wide (Package.resolved is gitignored;
+# cache-key invalidation cannot key on resolved-graph state).
+
+on:
+  workflow_call:
+    inputs:
+      swift-version:
+        type: string
+        default: "6.3"
+        description: "Swift version for the lint run."
+      advisory:
+        type: boolean
+        default: true
+        description: "If true, the job runs with continue-on-error: true (Phase 1 advisory). Drop after γ-flip when the linter graduates from advisory to gating."
+      enable-private-repos:
+        type: boolean
+        default: true
+        description: "If true, configure git to use PRIVATE_REPO_TOKEN for github.com clones. Default true matches swift-ci.yml convention."
+      emit-sarif:
+        type: boolean
+        default: false
+        description: "If true, run with --format sarif and upload the artifact to GitHub code-scanning. Default false (text format) so caller repos that haven't enabled code-scanning don't see permission errors."
+    secrets:
+      PRIVATE_REPO_TOKEN:
+        required: false
+
+# NOTE per [feedback_top_level_permissions_on_reusables.md]: reusable
+# workflows MUST NOT declare top-level `permissions:` — the intersection
+# rule causes startup_failure on workflow_call. Per-job grants only.
+
+jobs:
+  swift-linter:
+    name: swift-linter (Phase 1${{ inputs.advisory && ', advisory' || '' }})
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    container: swift:${{ inputs.swift-version }}
+    timeout-minutes: 30
+    continue-on-error: ${{ inputs.advisory }}
+    permissions:
+      contents: read
+      # security-events: write granted only when SARIF upload is requested.
+      # GH code-scanning ingest requires this permission; consumers without
+      # code-scanning enabled would see permission errors on the upload step
+      # if this were always-on. Opt-in via `with: { emit-sarif: true }`.
+      security-events: ${{ inputs.emit-sarif && 'write' || 'read' }}
+    steps:
+      - name: Harden runner (audit-mode egress logging)
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout consumer
+        uses: actions/checkout@v6
+        with:
+          path: consumer
+
+      - uses: swift-institute/.github/.github/actions/configure-private-repos@main
+        with:
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          enabled: ${{ inputs.enable-private-repos }}
+
+      - name: Checkout swift-linter (sibling of consumer)
+        uses: actions/checkout@v6
+        with:
+          repository: swift-foundations/swift-linter
+          path: swift-linter
+
+      - name: Print Swift version
+        run: swift --version
+
+      # ─── Run swift-linter ──────────────────────────────────────────
+      # The CLI auto-detects the consumer's Lint/Package.swift and
+      # dispatches to the consumer's Lint executable when present.
+      # SARIF format is enabled only when the consumer opts in;
+      # otherwise the run emits text (SwiftLint-compatible lines) to
+      # stdout and the workflow surfaces findings via the job log.
+
+      - name: Run swift-linter (text)
+        if: ${{ !inputs.emit-sarif }}
+        working-directory: swift-linter
+        run: swift run swift-linter ../consumer
+
+      - name: Run swift-linter (SARIF)
+        if: ${{ inputs.emit-sarif }}
+        working-directory: swift-linter
+        run: |
+          set -euo pipefail
+          swift run swift-linter --format sarif ../consumer > "${RUNNER_TEMP}/swift-linter.sarif"
+
+      - name: Upload SARIF
+        if: ${{ inputs.emit-sarif && always() }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ runner.temp }}/swift-linter.sarif
+          category: swift-linter
