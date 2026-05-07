@@ -215,19 +215,19 @@ extension Lint.Driver {
         return [
             Manifest.Dependency(
                 path: workspace + "/swift-json",
-                packageName: "swift-json",
+                name: "swift-json",
                 product: "JSON",
                 imports: ["JSON"]
             ),
             Manifest.Dependency(
                 path: workspace + "/swift-file-system",
-                packageName: "swift-file-system",
+                name: "swift-file-system",
                 product: "File System",
                 imports: ["File_System"]
             ),
             Manifest.Dependency(
                 path: linterPath,
-                packageName: "swift-linter",
+                name: "swift-linter",
                 product: "Linter",
                 imports: ["Linter"]
             )
