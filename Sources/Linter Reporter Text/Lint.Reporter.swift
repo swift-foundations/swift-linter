@@ -41,7 +41,7 @@ extension Lint.Reporter {
     /// truncated last line on a closed pipe) is the conventional behavior
     /// for textual diagnostic emitters.
     public static func emit(
-        findings: [Lint.Finding],
+        findings: [Diagnostic.Record],
         to write: Terminal.Stream.Write
     ) {
         for finding in findings {
@@ -53,14 +53,14 @@ extension Lint.Reporter {
     ///
     /// Convenience for testing and for consumers that prefer batch
     /// String construction over line-by-line emit.
-    public static func text(for findings: [Lint.Finding]) -> Swift.String {
+    public static func text(for findings: [Diagnostic.Record]) -> Swift.String {
         findings
             .map(line(for:))
             .joined(separator: "\n")
     }
 
     /// Format a single finding as a SwiftLint-compatible textual line.
-    public static func line(for finding: Lint.Finding) -> Swift.String {
+    public static func line(for finding: Diagnostic.Record) -> Swift.String {
         let location = finding.location
         let pathOrID = location.filePath ?? location.fileID
         let prefix = "\(pathOrID):\(location.line):\(location.column): "

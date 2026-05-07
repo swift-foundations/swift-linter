@@ -103,7 +103,7 @@ struct SwiftLinter: ParsableCommand {
         )
     }
 
-    func emit(_ findings: [Lint.Finding]) {
+    func emit(_ findings: [Diagnostic.Record]) {
         // Phase 2 Stream C: emit directly via Terminal.Stream.Write's
         // L2 syscall extension (POSIX: swift-iso-9945; Windows:
         // swift-windows-32). OQ-T2 from Phase 1.5 is closed.

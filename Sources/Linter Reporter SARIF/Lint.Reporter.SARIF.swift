@@ -42,19 +42,19 @@ extension Lint.Reporter {
 extension Lint.Reporter.SARIF {
     /// Emit a SARIF report via the given write surface.
     public static func emit(
-        findings: [Lint.Finding],
+        findings: [Diagnostic.Record],
         to write: Terminal.Stream.Write
     ) {
         try? write((report(for: findings) + "\n").utf8)
     }
 
     /// Build the SARIF document as a String (testable; CLI uses `emit`).
-    public static func report(for findings: [Lint.Finding]) -> Swift.String {
+    public static func report(for findings: [Diagnostic.Record]) -> Swift.String {
         let document = sarifLog(for: findings)
         return document.serialize(pretty: true)
     }
 
-    static func sarifLog(for findings: [Lint.Finding]) -> JSON {
+    static func sarifLog(for findings: [Diagnostic.Record]) -> JSON {
         [
             "version": "2.1.0",
             "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cs01/schemas/sarif-schema-2.1.0.json",
@@ -73,7 +73,7 @@ extension Lint.Reporter.SARIF {
         ]
     }
 
-    static func result(for finding: Lint.Finding) -> JSON {
+    static func result(for finding: Diagnostic.Record) -> JSON {
         let pathOrID = finding.location.filePath ?? finding.location.fileID
         return [
             "ruleId": JSON(stringLiteral: finding.identifier),

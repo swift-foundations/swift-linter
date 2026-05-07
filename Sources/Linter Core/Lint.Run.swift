@@ -57,7 +57,7 @@ extension Lint.Run {
     public static func run(
         paths: [File.Path],
         configuration: Lint.Configuration
-    ) throws(Error) -> [Lint.Finding] {
+    ) throws(Error) -> [Diagnostic.Record] {
         // (rule-instance, per-rule path filter) pairs. The filter
         // travels alongside the instantiated rule so the per-source
         // gate can read it without re-resolving the configuration.
@@ -67,7 +67,7 @@ extension Lint.Run {
                 return (entry.rule.init(severity: resolvedSeverity), entry.paths)
             }
         var manager = Source.Manager()
-        var findings: [Lint.Finding] = []
+        var findings: [Diagnostic.Record] = []
         for root in paths {
             let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: root)
             for sourcePath in sourcePaths {
