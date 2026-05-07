@@ -40,16 +40,22 @@ extension Lint.Run {
     ///    ``Lint/Configuration/effectiveRules()`` — disabled entries
     ///    never reach this loop.
     /// 2. The per-rule ``Lint/Rule/Configuration/paths`` filter
-    ///    (``Path/Filter``) applies HERE, per (rule, source-path) pair,
-    ///    AFTER the disabled-drop and rule instantiation. A `nil`
+    ///    (``Lint/Path/Filter``) applies HERE, per (rule, source-path)
+    ///    pair, AFTER the disabled-drop and rule instantiation. A `nil`
     ///    filter (no path scope on the entry) admits every path; a
     ///    non-`nil` filter applies prefix-match semantics per
-    ///    ``Path/Filter/matches(sourcePath:)``.
+    ///    ``Lint/Path/Filter/matches(sourcePath:)``.
     ///
     /// Stage (1) decides which rules participate; stage (2) decides
     /// which (rule, file) pairs the engine actually invokes.
+    ///
+    /// `paths` are typed `File.Path` values — input boundary lives at
+    /// the CLI (where `ArgumentParser` strings cross `try File.Path(_:)`).
+    /// The walker emits run-root-relative ``Lint/Source/Path`` values;
+    /// the filter, the rule invocation, and the parsed-source resolver
+    /// all read typed.
     public static func run(
-        paths: [Swift.String],
+        paths: [File.Path],
         configuration: Lint.Configuration
     ) throws(Error) -> [Lint.Finding] {
         // (rule-instance, per-rule path filter) pairs. The filter
@@ -65,10 +71,10 @@ extension Lint.Run {
             }
         var manager = Source.Manager()
         var findings: [Lint.Finding] = []
-        for path in paths {
-            let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: path)
+        for root in paths {
+            let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: root)
             for sourcePath in sourcePaths {
-                let parsed = try parsedSource(at: sourcePath, manager: &manager)
+                let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager)
                 for (rule, filter) in activeEntries {
                     // Per-rule path filter — prefix-match per
                     // Path.Filter.matches(sourcePath:). A nil filter
@@ -85,15 +91,37 @@ extension Lint.Run {
         return findings
     }
 
+    /// Reads, parses, and registers the source file at
+    /// `root + relativePath` for the engine.
+    ///
+    /// `root` is the run-root passed to ``run(paths:configuration:)``
+    /// (typed `File.Path`); `relativePath` is the walker-emitted
+    /// ``Lint/Source/Path`` (run-root-relative). When `relativePath`
+    /// is empty the walker is in single-file-root mode and `root`
+    /// itself is the file. Otherwise the resolver concatenates
+    /// `root.description + "/" + relativePath.underlying` to obtain
+    /// the absolute string for I/O. The concatenation is the typed
+    /// boundary's mechanism — bare strings exist here, in the
+    /// resolver body, and nowhere else in the engine.
     static func parsedSource(
-        at path: Swift.String,
+        root: File.Path,
+        relativePath: Lint.Source.Path,
         manager: inout Source.Manager
     ) throws(Error) -> Lint.Source.Parsed {
+        let absoluteString: Swift.String
         let filePath: File.Path
-        do {
-            filePath = try File.Path(path)
-        } catch {
-            throw .fileNotReadable(path: path)
+        if relativePath.underlying.isEmpty {
+            absoluteString = root.description
+            filePath = root
+        } else {
+            let rootString = root.description
+            let separator = rootString.hasSuffix("/") ? "" : "/"
+            absoluteString = rootString + separator + relativePath.underlying
+            do {
+                filePath = try File.Path(absoluteString)
+            } catch {
+                throw .fileNotReadable(path: absoluteString)
+            }
         }
         let file = File(filePath)
         let bytes: [UInt8]
@@ -107,13 +135,13 @@ extension Lint.Run {
                 return copy
             }
         } catch {
-            throw .fileNotReadable(path: path)
+            throw .fileNotReadable(path: absoluteString)
         }
         let text = Swift.String(decoding: bytes, as: UTF8.self)
-        let id = manager.register(fileID: path, filePath: path, content: bytes)
+        let id = manager.register(fileID: absoluteString, filePath: absoluteString, content: bytes)
         let sourceFile = manager.file(for: id)
         let tree = Parser.parse(source: text)
-        let converter = SourceLocationConverter(fileName: path, tree: tree)
+        let converter = SourceLocationConverter(fileName: absoluteString, tree: tree)
         return Lint.Source.Parsed(file: sourceFile, tree: tree, converter: converter)
     }
 }

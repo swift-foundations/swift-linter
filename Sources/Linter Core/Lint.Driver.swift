@@ -201,7 +201,7 @@ extension Lint.Driver {
         Lint.Configuration(
             inheriting: parent,
             rules: { },
-            excluded: manifest.excludedPaths.map { Path.Filter.Prefix($0.description) }
+            excluded: manifest.excludedPaths.map(Path.Filter.Prefix.init)
         )
     }
 

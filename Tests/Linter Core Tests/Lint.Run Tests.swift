@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 import Testing
+import File_System
 import Linter_Primitives
 import Linter_Rule_Unchecked
 @testable import Linter_Core
@@ -31,13 +32,13 @@ extension Lint.Run {
 // on. Each test activates `Lint.Rule.Unchecked` with a different
 // `paths:` filter shape and asserts the resulting finding count.
 //
-// Filter prefixes are computed as absolute paths anchored on the
-// fixture root (derived from `#filePath`). The walker
-// (`Lint.Source.Walker.swiftSourcePaths(under:)`) emits absolute
-// source paths when the run root is absolute, so the prefix entries
-// must align with that emitted form per `Path.Filter`'s documented
-// contract — typed at construction (`Path.Filter.Prefix`), bare at
-// the L3 walker boundary.
+// Filter prefixes are bare run-root-relative strings (e.g.,
+// `"Sources/A"`) — the walker emits relative
+// ``Lint/Source/Path`` values per its run-root-stripping contract,
+// so prefix matches against bare relative entries align without any
+// absolute-root concatenation at call sites. This is the typed-rim,
+// typed-throughout shape: tests author intent (`"Sources/A"`), the
+// walker handles the mechanism (root-prefix strip).
 
 extension Lint.Run.Test.Integration {
     /// Compute the absolute path to the fixture root:
@@ -45,7 +46,7 @@ extension Lint.Run.Test.Integration {
     ///
     /// Resolves from `#filePath` of the test source so the path is
     /// independent of the working directory at `swift test` time.
-    private static func fixtureRoot(testFile: Swift.String = #filePath) -> Swift.String {
+    private static func fixtureRoot(testFile: Swift.String = #filePath) throws -> File.Path {
         // testFile = .../swift-linter/Tests/Linter Core Tests/Lint.Run Tests.swift
         // Strip the filename and the test-target directory, leaving
         // .../swift-linter/Tests/, then descend into the fixture path.
@@ -56,12 +57,12 @@ extension Lint.Run.Test.Integration {
         _ = components.popLast() // "Linter Core Tests"
         components.append("Fixtures")
         components.append("path-filter-fixture")
-        return components.joined(separator: "/")
+        return try File.Path(components.joined(separator: "/"))
     }
 
     @Test
     func `paths .all yields findings for both A and B`() throws {
-        let root = Self.fixtureRoot()
+        let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration(rules: {
             .enable(Lint.Rule.Unchecked.self, paths: .all)
         })
@@ -71,10 +72,9 @@ extension Lint.Run.Test.Integration {
 
     @Test
     func `paths .including A yields finding for A only`() throws {
-        let root = Self.fixtureRoot()
-        let aPrefix: Linter_Primitives.Path.Filter.Prefix = .init(root + "/Sources/A")
+        let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration(rules: {
-            .enable(Lint.Rule.Unchecked.self, paths: .including([aPrefix]))
+            .enable(Lint.Rule.Unchecked.self, paths: .including(["Sources/A"]))
         })
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 1)
@@ -83,10 +83,9 @@ extension Lint.Run.Test.Integration {
 
     @Test
     func `paths .excluding B yields finding for A only`() throws {
-        let root = Self.fixtureRoot()
-        let bPrefix: Linter_Primitives.Path.Filter.Prefix = .init(root + "/Sources/B")
+        let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration(rules: {
-            .enable(Lint.Rule.Unchecked.self, paths: .excluding([bPrefix]))
+            .enable(Lint.Rule.Unchecked.self, paths: .excluding(["Sources/B"]))
         })
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 1)
@@ -95,10 +94,9 @@ extension Lint.Run.Test.Integration {
 
     @Test
     func `paths .including non-matching yields no findings`() throws {
-        let root = Self.fixtureRoot()
-        let nonMatch: Linter_Primitives.Path.Filter.Prefix = .init(root + "/Tests/Fixtures/Other")
+        let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration(rules: {
-            .enable(Lint.Rule.Unchecked.self, paths: .including([nonMatch]))
+            .enable(Lint.Rule.Unchecked.self, paths: .including(["Tests/Fixtures/Other"]))
         })
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 0)

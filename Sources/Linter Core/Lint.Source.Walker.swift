@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 public import File_System
+public import Linter_Primitives
 
 /// Recursively discovers Swift source files via `swift-file-system`'s
 /// glob support (Foundation-clean composition over
@@ -43,22 +44,45 @@ extension Lint.Source.Walker {
         "**/*.docc/Resources/**",
     ]
 
-    public static func swiftSourcePaths(under root: Swift.String) -> [Swift.String] {
-        // Single-file root: short-circuit; glob-on-file is degenerate.
-        if root.hasSuffix(".swift"), let _ = try? File.Path(root) {
-            return [root]
+    /// Walks the directory at `root` and emits run-root-relative typed
+    /// source paths for every Swift file discovered.
+    ///
+    /// Glob returns absolute paths; the walker strips `root`'s prefix
+    /// before emitting so that downstream filter prefixes
+    /// (``Lint/Path/Filter/Prefix``) align with the same root-relative
+    /// shape (e.g., `"Sources/A/x.swift"` matches prefix `"Sources/A"`
+    /// without absolute-path concatenation at call sites).
+    ///
+    /// Single-file root (`root.description.hasSuffix(".swift")`) is the
+    /// degenerate case: the walker emits a single empty-string
+    /// ``Lint/Source/Path`` and ``Lint/Run/parsedSource(root:relativePath:manager:)``
+    /// resolves I/O via `root` directly.
+    public static func swiftSourcePaths(under root: File.Path) -> [Lint.Source.Path] {
+        let rootString = root.description
+
+        if rootString.hasSuffix(".swift") {
+            return [Lint.Source.Path("")]
         }
-        guard let directory = try? File.Directory(validating: root) else {
-            return []
-        }
+
+        let directory = File.Directory(root)
         guard let files = try? directory.glob.files(
             include: includePatterns,
             excluding: excludePatterns
         ) else {
             return []
         }
-        return files
-            .map { Swift.String($0.path) }
-            .sorted()
+
+        let normalizedRoot = rootString.hasSuffix("/") ? rootString : rootString + "/"
+        var results: [Lint.Source.Path] = []
+        results.reserveCapacity(files.count)
+        for file in files {
+            let absolute = file.path.description
+            guard absolute.hasPrefix(normalizedRoot) else {
+                continue
+            }
+            let relative = Swift.String(absolute.dropFirst(normalizedRoot.count))
+            results.append(Lint.Source.Path(relative))
+        }
+        return results.sorted(by: { $0.underlying < $1.underlying })
     }
 }

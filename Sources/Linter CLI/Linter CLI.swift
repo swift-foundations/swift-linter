@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 public import ArgumentParser
+import File_System
 import Linter
 import Linter_Reporter_Text
 import Linter_Reporter_SARIF
@@ -37,13 +38,13 @@ struct SwiftLinter: ParsableCommand {
     )
 
     @Argument(help: "Paths to lint (files or directories). Defaults to current directory.")
-    var paths: [String] = ["."]
+    var paths: [Swift.String] = ["."]
 
     @Option(name: .long, help: "Output format. Choices: text (default; SwiftLint-compatible textual lines), sarif (SARIF 2.1.0 JSON for CI artifact upload).")
     var format: Lint.Reporter.Format = .text
 
     @Option(name: .long, help: "Path to Lint.swift. Defaults to <path>/Lint.swift if present.")
-    var lintSwiftPath: String?
+    var lintSwiftPath: Swift.String?
 
     @Option(name: [.long, .customLong("strict")], help: "Exit policy. Choices: advisory (exit 0 always), strict (exit non-zero when any finding has severity:error). The legacy --strict flag is honored.")
     var exitPolicy: Lint.Run.ExitPolicy = .advisory
@@ -71,7 +72,11 @@ struct SwiftLinter: ParsableCommand {
         // Single-file `Lint.swift` fallback (existing chain-resolution
         // flow, unchanged).
         let configuration = resolveConfiguration()
-        let findings = try Lint.Run.run(paths: paths, configuration: configuration)
+        // ArgumentParser hands `[String]`; validate at the CLI boundary
+        // exactly once via `try File.Path(_:)` so the engine receives
+        // typed paths from here down [IMPL-010].
+        let typedPaths: [File.Path] = try paths.map { try File.Path($0) }
+        let findings = try Lint.Run.run(paths: typedPaths, configuration: configuration)
         emit(findings)
         if exitPolicy == .strict && findings.contains(where: { $0.severity == .error }) {
             throw ExitCode.failure
