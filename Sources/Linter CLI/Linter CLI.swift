@@ -109,7 +109,7 @@ struct SwiftLinter: ParsableCommand {
         // swift-windows-32). OQ-T2 from Phase 1.5 is closed.
         switch format {
         case .text:
-            Lint.Reporter.emit(findings: findings, to: Terminal.Stream.stdout.write)
+            Lint.Reporter.Text.emit(findings: findings, to: Terminal.Stream.stdout.write)
         case .sarif:
             Lint.Reporter.SARIF.emit(findings: findings, to: Terminal.Stream.stdout.write)
         }

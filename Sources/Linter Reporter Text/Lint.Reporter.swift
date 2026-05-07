@@ -10,62 +10,14 @@
 // ===----------------------------------------------------------------------===//
 
 public import Linter_Primitives
-public import Terminal_Primitives
 
-#if !os(Windows)
-public import ISO_9945_Kernel_Terminal
-#else
-public import Windows_32_Kernel_Terminal
-#endif
-
-/// Default text-format reporter — one `file:line:col: severity: identifier:
-/// message` line per finding.
+/// Output-format reporter namespace.
 ///
-/// Format matches SwiftLint's textual shape so existing CI parsers / IDE
-/// problem-matchers detect findings without configuration changes.
-///
-/// Phase 2 Stream C: Reporter writes directly to `Terminal.Stream.Write`
-/// via the L2 syscall extension (POSIX: `swift-iso-9945`; Windows:
-/// `swift-windows-32`). The earlier closure stand-in (Phase 1.5) was
-/// removed once OQ-T2 closed.
+/// Concrete reporters nest as `Lint.Reporter.<Format>` (e.g.,
+/// `Lint.Reporter.Text`, `Lint.Reporter.SARIF`). The namespace is
+/// shared across the Reporter Text and Reporter SARIF targets so a
+/// single `Lint.Reporter.<Format>` qualified reference resolves at
+/// every consumer site.
 extension Lint {
     public enum Reporter {}
-}
-
-extension Lint.Reporter {
-    /// Emit findings as text lines via the given write surface.
-    ///
-    /// One line per finding, each terminated with a single `\n`. Errors
-    /// from the underlying syscall are silently dropped — the CLI's exit
-    /// path doesn't model output-stream failures, and partial output (a
-    /// truncated last line on a closed pipe) is the conventional behavior
-    /// for textual diagnostic emitters.
-    public static func emit(
-        findings: [Diagnostic.Record],
-        to write: Terminal.Stream.Write
-    ) {
-        for finding in findings {
-            try? write((line(for: finding) + "\n").utf8)
-        }
-    }
-
-    /// Format all findings as a single text block (one line per finding).
-    ///
-    /// Convenience for testing and for consumers that prefer batch
-    /// String construction over line-by-line emit.
-    public static func text(for findings: [Diagnostic.Record]) -> Swift.String {
-        findings
-            .map(line(for:))
-            .joined(separator: "\n")
-    }
-
-    /// Format a single finding as a SwiftLint-compatible textual line.
-    public static func line(for finding: Diagnostic.Record) -> Swift.String {
-        let location = finding.location
-        let pathOrID = location.filePath ?? location.fileID
-        let prefix = "\(pathOrID):\(location.line):\(location.column): "
-        let severity = "\(finding.severity.wireToken): "
-        let body = "\(finding.identifier): \(finding.message)"
-        return prefix + severity + body
-    }
 }
