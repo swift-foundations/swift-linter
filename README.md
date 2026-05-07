@@ -1,58 +1,63 @@
 # swift-linter
 
-SwiftSyntax-based AST linter for the Swift Institute ecosystem. Augments
-[SwiftLint](https://github.com/realm/SwiftLint) by hosting AST-shaped rules
-whose predicates cannot be expressed as a regex on source text — typed-
-system escape patterns, ownership-discipline violations, and ecosystem-
-specific idioms.
+![Development Status](https://img.shields.io/badge/status-active--development-blue.svg)
 
-## Install
+SwiftSyntax-based AST linter for Swift packages. Hosts rules whose
+predicates require an abstract syntax tree — typed-system escape
+patterns, ownership-discipline violations, spec-mirror conformances —
+that cannot be expressed as a regex on source text.
 
-```swift
-.package(url: "https://github.com/swift-foundations/swift-linter", from: "1.0.0"),
-```
+## Quick Start
 
-The executable ships in the `Linter CLI` product; for ad-hoc invocation,
-`swift run --package-path <this-package> swift-linter <target>` works out
-of the box.
-
-## Quickstart (zero-config)
+Run the linter against any Swift package directory:
 
 ```bash
 swift run swift-linter /path/to/your-package
 ```
 
-With no `Lint.swift` at the target's package root, every built-in rule
-activates at default severity. Output is SwiftLint-compatible textual
-lines by default; `--format sarif` emits SARIF 2.1.0 JSON suitable for CI
-artifact upload.
+The engine ships rule-pack-agnostic — without an explicit configuration,
+zero rules fire. To activate a rule set, drop a `Lint/` nested SwiftPM
+package at your package root (see *Adopting the `Lint/` shape* below).
 
-## Customization via Lint.swift
+Output is SwiftLint-compatible textual lines by default; `--format sarif`
+emits SARIF 2.1.0 JSON suitable for CI artifact upload.
 
-Drop a typed-Swift-DSL configuration at your package root (mirroring
-`Package.swift`'s manifest pattern):
+## Installation
 
 ```swift
-// Lint.swift
-import Linter
+dependencies: [
+    .package(url: "https://github.com/swift-foundations/swift-linter.git", from: "0.1.0"),
+]
+```
 
-let manifest = Lint.Manifest(
-    enabledRuleIDs: [
-        "unchecked_call_site",          // R5
-        "cardinal_count_minus_one",     // R1
-    ],
-    disabledRuleIDs: [
-        "chained_rawvalue_access",      // R3 — opted out
-    ],
-    excludedPaths: [
-        try File.Path("Tests/Fixtures"),
-        try File.Path(".build"),
+```swift
+.target(
+    name: "YourTarget",
+    dependencies: [
+        .product(name: "Linter", package: "swift-linter"),
     ]
 )
 ```
 
-The linter compiles `Lint.swift` via `swift-manifest`, captures the typed
-value as JSON, and reconstructs a runtime `Lint.Configuration`.
+The `swift-linter` executable ships as a separate product of the same
+package. For ad-hoc invocation,
+`swift run --package-path <this-package> swift-linter <target>` works
+out of the box.
+
+## How it complements SwiftLint and swift-format
+
+`swift-linter` is not a replacement for either tool; the three are
+complementary:
+
+| Tool | Rule shape | Use for |
+|------|-----------|---------|
+| [swift-format](https://github.com/swiftlang/swift-format) | Whitespace and formatting normalizer | Indentation, line wrapping, brace placement |
+| [SwiftLint](https://github.com/realm/SwiftLint) | Regex / token patterns over source text | Style conventions, simple structural rules |
+| **swift-linter** (this package) | SwiftSyntax AST predicates | Ownership / typed-system / spec-mirror rules whose predicates can't be expressed as regex |
+
+Use all three together: `swift-format` for normalization, SwiftLint for
+fast token-level rules, swift-linter for AST-shaped rules the other
+two cannot reach.
 
 ## Two consumer shapes
 
@@ -73,45 +78,125 @@ The `Lint/` shape is the canonical form going forward; single-file
 `Lint.swift` is preserved as a future-facing sugar form for consumers
 that adopt the canonical rule set without per-package customization.
 
-## Inheritance via `// parent:` directive
+## Adopting the `Lint/` shape
 
-Layer your manifest on top of a canonical configuration hosted at a URL.
-Place the directive in the first 30 lines of `Lint.swift`:
+Create a `Lint/` directory at your package root with the following layout:
 
-```swift
-// parent: https://raw.githubusercontent.com/your-org/.github/main/Lint.swift
-import Linter
-
-let manifest = Lint.Manifest(enabledRuleIDs: [])  // inherit all from parent
+```
+your-package/
+├── Package.swift
+├── Sources/...
+└── Lint/
+    ├── Package.swift
+    └── Sources/Lint/main.swift
 ```
 
-Schemes accepted: `http://`, `https://`, `file://`. The driver fetches each
-parent via `curl` (memoized per process), with cycle detection and a
-depth-16 backstop. On any fetch failure the driver warns and falls back to
-the consumer-only configuration — the chain is best-effort. A child's
-`disabledRuleIDs` overrides a parent's `enabledRuleIDs` for the same rule
-via per-TYPE "later layer wins" semantics.
+`Lint/Package.swift` depends on the rule packs you want active:
 
-## Adoption by third-party teams
+```swift
+// Lint/Package.swift
+let package = Package(
+    name: "Lint",
+    products: [.executable(name: "Lint", targets: ["Lint"])],
+    dependencies: [
+        .package(url: "https://github.com/swift-foundations/swift-linter.git", from: "0.1.0"),
+        .package(url: "https://github.com/swift-foundations/swift-linter-rules.git", from: "0.1.0"),
+    ],
+    targets: [
+        .executableTarget(
+            name: "Lint",
+            dependencies: [
+                .product(name: "Linter", package: "swift-linter"),
+                .product(name: "Linter Rule Unchecked", package: "swift-linter-rules"),
+                .product(name: "Linter Rule Cardinal", package: "swift-linter-rules"),
+            ]
+        ),
+    ]
+)
+```
 
-Host your team's canonical `Lint.swift` at `<your-org>/.github/Lint.swift`;
-the raw GitHub URL is the conventional public pointer. Per-package
-consumers then declare:
+`Lint/Sources/Lint/main.swift` registers the imported rules and emits
+the manifest:
+
+```swift
+// Lint/Sources/Lint/main.swift
+import Linter
+import Linter Rule Unchecked
+import Linter Rule Cardinal
+
+let manifest = Lint.Manifest(
+    enabledRuleIDs: [
+        Linter.Rule.Unchecked.ruleID,
+        Linter.Rule.Cardinal.ruleID,
+    ],
+    excludedPaths: [
+        try File.Path("Tests/Fixtures"),
+        try File.Path(".build"),
+    ]
+)
+```
+
+`swift run swift-linter <package>` discovers `Lint/`, builds it as a
+nested SwiftPM package, executes its emitted manifest, and runs the
+configured rules across the parent package's source tree.
+
+## Single-file `Lint.swift` form
+
+For the future sugar shape (currently inert until a default rule-pack
+convention ships), drop a single-file manifest at your package root
+mirroring `Package.swift`'s pattern:
+
+```swift
+// Lint.swift
+import Linter
+
+let manifest = Lint.Manifest(
+    enabledRuleIDs: [
+        "unchecked_call_site",
+        "cardinal_count_minus_one",
+    ],
+    disabledRuleIDs: [
+        "chained_rawvalue_access",
+    ],
+    excludedPaths: [
+        try File.Path("Tests/Fixtures"),
+        try File.Path(".build"),
+    ]
+)
+```
+
+The linter compiles `Lint.swift` via `swift-manifest`, captures the
+typed value as JSON, and reconstructs a runtime `Lint.Configuration`.
+
+## Inheritance via `// parent:` directive
+
+Layer your manifest on top of a canonical configuration hosted at a
+URL. Place the directive in the first 30 lines of `Lint.swift` (or
+`Lint/Sources/Lint/main.swift`):
 
 ```swift
 // parent: https://raw.githubusercontent.com/<your-org>/.github/main/Lint.swift
 import Linter
 
-let manifest = Lint.Manifest(enabledRuleIDs: [/* per-package overrides */])
+let manifest = Lint.Manifest(enabledRuleIDs: [])  // inherit all from parent
 ```
 
-This mirrors the Tier 1 / Tier 2 / consumer pattern used by
-`swift-primitives` (which inherits from `swift-institute`); each layer
-contributes the rules that apply at its scope.
+Schemes accepted: `http://`, `https://`, `file://`. The driver fetches
+each parent via `curl` (memoized per process), with cycle detection and
+a depth-16 backstop. On any fetch failure the driver warns and falls
+back to the consumer-only configuration — the chain is best-effort.
+Per-rule overrides at any layer override deeper layers under "later
+layer wins" semantics.
+
+The conventional public pointer for an org's canonical configuration is
+its `.github` repo's raw URL: `<your-org>/.github/main/Lint.swift`.
+This mirrors SwiftLint's `parent_config:` cascade at the file layer.
 
 ## Documentation
 
 A DocC catalog covering the rule catalog, configuration schema, and CI
-integration recipes is deferred to a separate cycle. For a worked example
-of the file-based canonical pattern in production, see
-`swift-primitives/swift-tagged-primitives`'s `Lint.swift`.
+integration recipes is deferred to a separate cycle.
+
+## License
+
+Apache 2.0. See [LICENSE.md](LICENSE.md).
