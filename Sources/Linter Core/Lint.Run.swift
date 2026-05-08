@@ -54,6 +54,23 @@ extension Lint.Run {
     /// The walker emits run-root-relative ``Lint/Source/Path`` values;
     /// the filter, the rule invocation, and the parsed-source resolver
     /// all read typed.
+    ///
+    /// ## Working set
+    ///
+    /// The run instantiates a single `Source.Manager` and threads it
+    /// through every parsed-source resolution. The manager retains
+    /// each registered file's bytes for the duration of the run so
+    /// that rules MAY perform cross-file analysis against any prior
+    /// parsed source. The working-set memory cost is therefore
+    /// proportional to the total source-tree size rather than to the
+    /// largest single file.
+    ///
+    /// For consumer trees in the typical SwiftPM-package range
+    /// (single-digit megabytes of source), the retain-all shape is
+    /// negligible. Consumers running against very large trees
+    /// (tens-of-thousands of files; corporate monorepos; aggregated
+    /// dependency-graphs) should expect proportional memory residency
+    /// and MAY chunk runs by sub-tree to bound the working set.
     public static func run(
         paths: [File.Path],
         configuration: Lint.Configuration
@@ -134,7 +151,9 @@ extension Lint.Run {
         } catch {
             throw .fileNotReadable(path: absoluteString)
         }
-        let text = Swift.String(decoding: bytes, as: UTF8.self)
+        guard let text = Swift.String(validating: bytes, as: UTF8.self) else {
+            throw .nonUTF8(path: absoluteString)
+        }
         let id = manager.register(fileID: absoluteString, filePath: absoluteString, content: bytes)
         let sourceFile = manager.file(for: id)
         let tree = Parser.parse(source: text)
