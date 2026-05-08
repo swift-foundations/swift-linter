@@ -44,39 +44,48 @@ package. For ad-hoc invocation,
 `swift run --package-path <this-package> swift-linter <target>` works
 out of the box.
 
-## How it complements SwiftLint and swift-format
+## How it relates to SwiftLint and swift-format
 
-`swift-linter` is not a replacement for either tool; the three are
-complementary:
+`swift-linter` is not a replacement for either tool; the three differ in
+posture, not in capability ceiling. All three operate over Swift source
+and all three reach AST-shaped rules — the question is whether the AST
+path is the *primary* invocation or an opt-in mode alongside something
+else.
 
-| Tool | Rule shape | Use for |
-|------|-----------|---------|
-| [swift-format](https://github.com/swiftlang/swift-format) | Whitespace and formatting normalizer | Indentation, line wrapping, brace placement |
-| [SwiftLint](https://github.com/realm/SwiftLint) | Regex / token patterns over source text | Style conventions, simple structural rules |
-| **swift-linter** (this package) | SwiftSyntax AST predicates | Ownership / typed-system / spec-mirror rules whose predicates can't be expressed as regex |
+| Tool | Posture | Primary mechanism |
+|------|---------|-------------------|
+| [swift-format](https://github.com/swiftlang/swift-format) | Formatter with a `lint` subcommand | SwiftSyntax-based formatting + style rules; ships ~43 rules covering indentation, brace placement, ordered members, doc-comment shape, and structural smells |
+| [SwiftLint](https://github.com/realm/SwiftLint) | Style/convention linter; rules are predominantly SwiftSyntax-based, with an opt-in `analyze` command that adds SourceKit-backed type-information rules | SwiftSyntax for the common case; SourceKit-LSP via `swiftlint analyze` when type information is required |
+| **swift-linter** (this package) | AST-only by construction; AST predicates ARE the surface | SwiftSyntax + SwiftParser; no SourceKit-LSP dependency in the chain |
 
-Use all three together: `swift-format` for normalization, SwiftLint for
-fast token-level rules, swift-linter for AST-shaped rules the other
-two cannot reach.
+Use all three together: `swift-format` for style normalization, SwiftLint
+for the broad style/convention pack (with `swiftlint analyze` for
+type-information rules), swift-linter for the cases where the rule's
+identity is the AST predicate itself — typed-system escape patterns,
+ownership-discipline checks, spec-mirror conformances.
 
 ## Two consumer shapes
 
-`swift-linter` detects two configurations at the consumer's package root:
+`swift-linter` detects two configurations at the consumer's package root.
+**For 0.1.0, only the nested-package shape is active**:
 
-1. **`Lint/` nested SwiftPM package** (recommended) — a SwiftPM package
-   directory alongside `Package.swift` that imports rule packages and
-   declares activation via a typed `Lint.Manifest`. Supports arbitrary
-   rule packs (third-party or in-house) and custom rules with their own
-   dependencies.
+1. **`Lint/` nested SwiftPM package** (the active 0.1.0 path) — a
+   SwiftPM package directory alongside `Package.swift` that imports
+   rule packages and instantiates a `Lint.Configuration` using a
+   result-builder DSL. Supports arbitrary rule packs (third-party or
+   in-house) and custom rules with their own dependencies.
 
-2. **Single-file `Lint.swift`** (sugar form) — a terse declaration at
-   the package root, no nested package required. Activates zero rules
-   until a default rule-pack convention ships; consumers who need rules
-   to fire today MUST adopt the `Lint/` nested-package shape.
+2. **Single-file `Lint.swift`** — placeholder shape; activates zero
+   rules in 0.1.0. The single-file path is wired end-to-end (manifest
+   parsing, parent-chain resolution, configuration inheritance), but
+   it has no canonical default rule pack to inherit from yet — that
+   ships in a follow-up cycle. **Consumers who need rules to fire
+   today MUST adopt the `Lint/` nested-package shape.**
 
-The `Lint/` shape is the canonical form going forward; single-file
-`Lint.swift` is preserved as a future-facing sugar form for consumers
-that adopt the canonical rule set without per-package customization.
+The `Lint/` shape is the canonical form going forward; the single-file
+`Lint.swift` shape is preserved for consumers who will eventually adopt
+the canonical default rule set without per-package customization, once
+that default ships.
 
 ## Adopting the `Lint/` shape
 
@@ -115,30 +124,59 @@ let package = Package(
 )
 ```
 
-`Lint/Sources/Lint/main.swift` registers the imported rules and emits
-the manifest:
+`Lint/Sources/Lint/main.swift` activates the imported rules through a
+`Lint.Configuration` result-builder, then runs the linter against the
+consumer's source tree:
 
 ```swift
 // Lint/Sources/Lint/main.swift
+import File_System
 import Linter
+import Linter_Reporter_Text
 import Linter_Rule_Unchecked
 import Linter_Rule_Cardinal
+import Terminal_Primitives
 
-let manifest = Lint.Manifest(
-    enabledRuleIDs: [
-        Lint.Rule.Unchecked.id,
-        Lint.Rule.Cardinal.Count.id,
-    ],
-    excludedPaths: [
-        try File.Path("Tests/Fixtures"),
-        try File.Path(".build"),
-    ]
-)
+let configuration = Lint.Configuration {
+    Lint.Rule.Configuration.enable(Lint.Rule.Unchecked.self)
+    Lint.Rule.Configuration.enable(Lint.Rule.Cardinal.Count.self)
+}
+
+let arguments = Swift.CommandLine.arguments
+let pathStrings: [Swift.String] = arguments.count >= 2
+    ? [Swift.String](arguments.dropFirst())
+    : ["."]
+
+do {
+    let consumerPaths: [File.Path] = try pathStrings.map { try File.Path($0) }
+    let findings = try Lint.Run.run(paths: consumerPaths, configuration: configuration)
+    Lint.Reporter.Text.emit(findings: findings, to: Terminal.Stream.stdout.write)
+} catch {
+    print("[Lint] error: \(error)")
+}
 ```
 
-`swift run swift-linter <package>` discovers `Lint/`, builds it as a
-nested SwiftPM package, executes its emitted manifest, and runs the
-configured rules across the parent package's source tree.
+Rules are activated by metatype reference (`Lint.Rule.Unchecked.self`),
+not by string identifier — the engine resolves identity through `.self`
+and propagates the typed metatype through the configuration. The
+result-builder's top-level position requires the fully-qualified
+`Lint.Rule.Configuration.enable(...)` form (the builder declares
+multiple `buildExpression` overloads, so leading-dot inference is
+ambiguous in the unconstrained position; inside `if`/`for` bodies the
+contextual type narrows and the leading-dot form works there).
+
+`swift run swift-linter <package>` detects the consumer's `Lint/`
+nested package, builds it, and dispatches the lint run to the
+consumer's `Lint` executable, which links engine + rule packs and
+runs `Lint.Run.run(paths:configuration:)` against the consumer's
+source tree.
+
+> **Wire format note**: `Lint.Manifest` exists as a separate type for
+> the cross-process JSON wire format used by the future single-file
+> `Lint.swift` subprocess path. Nested-package consumers do not cross
+> a JSON boundary — metatypes flow directly through
+> `Lint.Configuration` — so the consumer surface is the typed
+> result-builder above, not `Lint.Manifest`.
 
 ## Inheritance via `// parent:` directive
 
@@ -163,6 +201,55 @@ layer wins" semantics.
 The conventional public pointer for an org's canonical configuration is
 its `.github` repo's raw URL: `<your-org>/.github/main/Lint.swift`.
 This mirrors SwiftLint's `parent_config:` cascade at the file layer.
+
+## Architecture
+
+### Stability and SemVer
+
+`swift-linter` is pre-1.0. Minor-version boundaries (0.1.x → 0.2.0)
+admit source-breaking changes; consumers pinning `from: "0.1.0"` should
+plan to audit migration notes at each minor bump. The 1.0 inflection
+will mark the API surface as stable under the standard SemVer contract
+(no source-breaking changes in minor versions; deprecations precede
+removals).
+
+The known 0.1.x → 0.2 candidates are documented at the API surface
+itself; the most prominent is the bare-form rename of `Lint.Manifest`
+struct fields (see "Wire-key stability" below).
+
+### Wire-key stability
+
+`Lint.Manifest` carries three array-shaped fields —
+`enabledRuleIDs`, `disabledRuleIDs`, `excludedPaths` — that the engine
+serializes to JSON when crossing the consumer-driver-shim subprocess
+boundary. The JSON wire-keys for these fields (`"enabledRuleIDs"`,
+`"disabledRuleIDs"`, `"excludedPaths"`) are stable across 0.x; the
+Swift property names may rename to bare forms (`enabled`, `disabled`,
+`excluded`) in 0.2 to remove the namespace-implicit prefix
+redundancy, with a serializer-side mapping preserving wire compat. JSON
+consumers built against 0.1.x continue to work after a 0.2 Swift-side
+rename; Swift API consumers face a one-line migration per field.
+
+### Five-package cohort
+
+The implementation factors across five sibling packages:
+
+| Package | Layer | Role |
+|---------|-------|------|
+| **swift-linter** (this) | L3 (Foundations) | Engine, CLI, reporters |
+| swift-linter-rules | L3 | Default rule packs |
+| swift-manifests | L3 | Manifest loader + parent-chain resolver |
+| swift-manifest-primitives | L1 (Primitives) | `Manifest.Dependency`, `Manifest.NestedPackage` types |
+| swift-linter-primitives | L1 | `Lint.Configuration`, `Lint.Rule.Protocol`, `Lint.Filter`, the typed-DSL surface |
+
+The factorization reflects the institute's five-layer architecture: L1
+primitives provide atoms (typed DSL surface, dependency-shape types);
+L3 foundations compose them into running tools. A single-package
+collapse would conflate the L1 typed-DSL surface (consumer-facing
+type vocabulary) with the L3 engine (running orchestration), breaking
+the layering. Consumers depend on `swift-linter` via the URL-form
+`.package(url:from:)` declaration; the cohort's primitives are pulled
+transitively.
 
 ## Documentation
 
