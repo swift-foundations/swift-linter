@@ -75,28 +75,48 @@ extension Lint.Driver {
     /// coordinator that delegates the run when the consumer opts into
     /// the nested-package shape.
     ///
+    /// Library output discipline: this helper does NOT write to stdout
+    /// or stderr. Dispatch errors are surfaced via the optional
+    /// `onDispatchError` closure; the default no-op preserves the
+    /// silent-fallback behavior for non-CLI callers. The CLI binding
+    /// supplies a closure that emits to `Terminal.Stream.stderr.write`
+    /// so end users see a typed-error diagnostic instead of a bare
+    /// non-zero exit.
+    ///
+    /// - Parameters:
+    ///   - consumerPackageRoot: Filesystem path to the consumer's
+    ///     package root (the directory containing the consumer's
+    ///     `Package.swift`).
+    ///   - arguments: Arguments forwarded to the dispatched `Lint`
+    ///     executable.
+    ///   - onDispatchError: Optional closure invoked when
+    ///     ``Manifest_Resolver/Manifest/NestedPackage/dispatch(at:arguments:)``
+    ///     throws. Receives the error's textual description; CLI
+    ///     callers translate this to a stderr diagnostic. Defaults to
+    ///     a no-op so library callers retain the silent-fallback
+    ///     contract.
     /// - Returns: `nil` when no nested package is detected — the
     ///   caller should fall through to the single-file `Lint.swift`
     ///   path. Otherwise the dispatched executable's exit code (an
     ///   `Int32`); `0` indicates success, non-zero indicates findings
-    ///   or error per the dispatched executable's exit policy.
+    ///   or error per the dispatched executable's exit policy. When
+    ///   the dispatch itself fails (spawn error), returns `1` after
+    ///   invoking `onDispatchError`.
     public static func dispatchNestedIfPresent(
         consumerPackageRoot: Swift.String,
-        arguments: [Swift.String]
+        arguments: [Swift.String],
+        onDispatchError: (Swift.String) -> Void = { _ in }
     ) -> Swift.Int32? {
         guard Manifest.NestedPackage.detect(at: consumerPackageRoot) else {
             return nil
         }
-        // Library output discipline: do NOT print on dispatch error.
-        // The exit code (1) is the only signal — consumers wanting
-        // richer diagnostics should call `Manifest.NestedPackage.dispatch`
-        // directly, which throws the typed error.
         do throws(Manifest.NestedPackage.Error) {
             return try Manifest.NestedPackage.dispatch(
                 at: consumerPackageRoot,
                 arguments: arguments
             )
         } catch {
+            onDispatchError("\(error)")
             return 1
         }
     }
@@ -130,9 +150,30 @@ extension Lint.Driver {
     /// - Consumer's `Lint.swift` evaluation fails → defaults-everything (resolver internalizes this).
     /// - Any parent fetch / eval / cycle / depth failure → emit a
     ///   warning, drop the parent chain, return defaults-everything.
+    /// - `SWIFT_LINTER_PATH` environment variable is unset → defaults-everything;
+    ///   `onMissingLinterPath` is invoked so the CLI can surface the
+    ///   missing-env-var diagnostic to stderr.
+    ///
+    /// Library output discipline: this method does NOT write to stdout
+    /// or stderr. The `onMissingLinterPath` closure (default no-op)
+    /// gives the CLI binding a hook to emit a stderr diagnostic when
+    /// `SWIFT_LINTER_PATH` is unset; non-CLI callers retain the
+    /// silent-fallback contract.
+    ///
+    /// - Parameters:
+    ///   - consumerPackageRoot: Filesystem path to the consumer's
+    ///     package root.
+    ///   - lintSwiftPathOverride: Optional explicit path to the
+    ///     consumer's `Lint.swift`; overrides default detection at
+    ///     `<consumerPackageRoot>/Lint.swift`.
+    ///   - onMissingLinterPath: Optional closure invoked when the
+    ///     `SWIFT_LINTER_PATH` environment variable is unset. Default
+    ///     is a no-op so library callers retain the silent-fallback
+    ///     contract.
     public static func resolveConfiguration(
         consumerPackageRoot: Swift.String,
-        lintSwiftPathOverride: Swift.String? = nil
+        lintSwiftPathOverride: Swift.String? = nil,
+        onMissingLinterPath: () -> Void = { }
     ) -> Lint.Configuration {
         let manifestDirectory: Swift.String
         let manifestFilename: Swift.String
@@ -153,6 +194,7 @@ extension Lint.Driver {
         }
 
         guard let dependencies = manifestDependencies() else {
+            onMissingLinterPath()
             return defaultConfiguration()
         }
         do {

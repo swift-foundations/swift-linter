@@ -64,9 +64,19 @@ struct SwiftLinter: ParsableCommand {
         // declared in its Lint/Package.swift). The dispatched
         // executable's stdout IS the authoritative diagnostic stream;
         // this CLI becomes a coordinator under that path.
+        //
+        // `onDispatchError` translates the typed `Manifest.NestedPackage.Error`
+        // (silently suppressed at the library boundary) into a stderr
+        // diagnostic. Without this hook the user sees a bare non-zero
+        // exit with no explanation when the nested-package spawn fails.
         if let dispatchedExitCode = Lint.Driver.dispatchNestedIfPresent(
             consumerPackageRoot: consumerRoot,
-            arguments: paths
+            arguments: paths,
+            onDispatchError: { description in
+                try? Terminal.Stream.stderr.write(
+                    "[swift-linter] error: nested-package dispatch failed: \(description)\n".utf8
+                )
+            }
         ) {
             if dispatchedExitCode != 0 {
                 throw ExitCode(dispatchedExitCode)
@@ -95,11 +105,21 @@ struct SwiftLinter: ParsableCommand {
     /// overrides the default detection at `<paths.first>/Lint.swift`.
     /// The driver falls back to a defaults-everything Configuration
     /// when no manifest is reachable (per supervisor block entry #5).
+    ///
+    /// `onMissingLinterPath` translates the silently-suppressed
+    /// `SWIFT_LINTER_PATH`-unset case into a stderr diagnostic. The
+    /// library still falls back to defaults-everything; the CLI tells
+    /// the user why.
     func resolveConfiguration() -> Lint.Configuration {
         let consumerRoot = paths.first ?? "."
         return Lint.Driver.resolveConfiguration(
             consumerPackageRoot: consumerRoot,
-            lintSwiftPathOverride: lintSwiftPath
+            lintSwiftPathOverride: lintSwiftPath,
+            onMissingLinterPath: {
+                try? Terminal.Stream.stderr.write(
+                    "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n".utf8
+                )
+            }
         )
     }
 
