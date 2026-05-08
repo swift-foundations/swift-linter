@@ -70,7 +70,7 @@ public import JSON
 /// walks the parent chain and folds each manifest into a layered
 /// ``Lint/Configuration`` with `inheriting:` parent.
 extension Lint {
-    public struct Manifest: Sendable {
+    public struct Manifest: Sendable, Hashable {
         public let enabledRuleIDs: [Lint.Rule.ID]
         public let disabledRuleIDs: [Lint.Rule.ID]
         public let excludedPaths: [File.Path]
