@@ -75,6 +75,47 @@ extension Lint.Run {
         paths: [File.Path],
         configuration: Lint.Configuration
     ) throws(Error) -> [Diagnostic.Record] {
+        let outcome = try runCapturingSuppressed(paths: paths, configuration: configuration)
+        return outcome.findings
+    }
+
+    /// Outcome of a lint run that distinguishes the surfaced findings
+    /// from those elided by per-finding ``Lint/Suppression`` directives.
+    public struct Outcome: Sendable, Equatable {
+        /// Findings the engine surfaces to the caller — survived
+        /// per-source ``Lint/Suppression`` consultation.
+        public let findings: [Diagnostic.Record]
+
+        /// Findings the engine elided because a `swift-linter:disable`
+        /// directive matched. Recorded for observability; never the
+        /// engine's exit-policy signal.
+        public let suppressed: [Diagnostic.Record]
+
+        @inlinable
+        public init(
+            findings: [Diagnostic.Record] = [],
+            suppressed: [Diagnostic.Record] = []
+        ) {
+            self.findings = findings
+            self.suppressed = suppressed
+        }
+    }
+
+    /// Variant that returns the suppressed-finding observability
+    /// stream alongside the engine's surfaced findings.
+    ///
+    /// Per-finding disable mechanism (decision 2026-05-11, hybrid
+    /// line-comment + config-file): for each parsed source file the
+    /// engine first builds a ``Lint/Suppression`` map via
+    /// ``Lint/Suppression/scan(tree:converter:)``, then consults the
+    /// map for each finding before adding it to the return value. The
+    /// rule-wide-disable axis is honored at
+    /// ``Lint/Configuration/effectiveRules()`` — rule IDs in
+    /// ``Lint/Configuration/disabledRuleIDs`` never reach this loop.
+    public static func runCapturingSuppressed(
+        paths: [File.Path],
+        configuration: Lint.Configuration
+    ) throws(Error) -> Outcome {
         // Witness-shape engine. Each effective entry stores a `Lint.Rule`
         // witness with any per-rule path filter already folded in via
         // `Lint.Rule.filtered(toPaths:)` at configuration time. The
@@ -84,17 +125,30 @@ extension Lint.Run {
         let effective = configuration.effectiveRules()
         var manager = Source.Manager()
         var findings: [Diagnostic.Record] = []
+        var suppressed: [Diagnostic.Record] = []
         for root in paths {
             let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: root)
             for sourcePath in sourcePaths {
                 let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager)
+                let suppression = Lint.Suppression.scan(
+                    tree: parsed.tree,
+                    converter: parsed.converter
+                )
                 for entry in effective {
                     let severity = entry.severity ?? entry.rule.defaultSeverity
-                    findings.append(contentsOf: entry.rule.findings(parsed, severity))
+                    let candidates = entry.rule.findings(parsed, severity)
+                    for record in candidates {
+                        let ruleID = Lint.Rule.ID(_unchecked: record.identifier)
+                        if suppression.suppresses(line: record.location.line, ruleID: ruleID) {
+                            suppressed.append(record)
+                            continue
+                        }
+                        findings.append(record)
+                    }
                 }
             }
         }
-        return findings
+        return Outcome(findings: findings, suppressed: suppressed)
     }
 
     /// Reads, parses, and registers the source file at

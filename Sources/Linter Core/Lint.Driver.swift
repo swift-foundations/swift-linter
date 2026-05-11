@@ -233,24 +233,33 @@ extension Lint.Driver {
 
     /// Build a runtime Configuration from a parsed manifest.
     ///
-    /// Post-Phase-B.1 the engine no longer ships built-in rules, so
-    /// the `enabledRuleIDs` / `disabledRuleIDs` lists in the manifest
-    /// are silently ignored at this layer; rule registration must
-    /// happen at the consumer's `Lint/` executable (which links rule
-    /// packs and instantiates `Lint.Configuration` directly).
+    /// Post-Phase-B.1 the engine no longer ships built-in rules, so the
+    /// manifest's `enabledRuleIDs` list cannot be mapped to rule TYPES
+    /// at this layer — rule registration must happen at the consumer's
+    /// `Lint/` executable (which links rule packs and instantiates
+    /// `Lint.Configuration` directly with concrete witnesses). The
+    /// manifest's `disabledRuleIDs` list, however, is threaded
+    /// through to ``Lint/Configuration/disabledRuleIDs``: the engine
+    /// applies the rule-wide disable wholesale at
+    /// ``Lint/Configuration/effectiveRules()``, dropping any rule
+    /// whose ID matches regardless of which layer registered it.
+    /// Per-line `// swift-linter:disable:next <id>` directives compose
+    /// on top of this rule-wide disable per decision 2026-05-11.
     ///
     /// `parent` is the next-outer Configuration in the inheritance
     /// chain (or `nil` for the root tier). The returned Configuration
     /// inherits via `Lint.Configuration(inheriting: parent)` and
-    /// threads `excluded` paths from the manifest; layered override
-    /// semantics are computed by ``Lint/Configuration/effectiveRules()``.
+    /// threads `excluded` paths plus `disabledRuleIDs` from the
+    /// manifest; layered override semantics are computed by
+    /// ``Lint/Configuration/effectiveRules()``.
     internal static func configuration(
         from manifest: Lint.Manifest,
         parent: Lint.Configuration?
     ) -> Lint.Configuration {
         Lint.Configuration(
             inheriting: parent,
-            excluded: manifest.excludedPaths.map(Lint.Filter.Prefix.init)
+            excluded: manifest.excludedPaths.map(Lint.Filter.Prefix.init),
+            disabledRuleIDs: manifest.disabledRuleIDs
         ) { }
     }
 
