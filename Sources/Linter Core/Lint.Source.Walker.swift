@@ -17,7 +17,8 @@ public import Linter_Primitives
 /// `swift-glob-primitives`).
 ///
 /// Standard exclusions: `.build/`, `Carthage/`, `Pods/`,
-/// `*.docc/Resources/`, `.swiftpm/`, `.benchmarks/`, `DerivedData/`.
+/// `*.docc/**` (entire DocC catalog tree), `.swiftpm/`, `.benchmarks/`,
+/// `DerivedData/`.
 extension Lint.Source {
     public enum Walker {}
 }
@@ -41,7 +42,17 @@ extension Lint.Source.Walker {
         "**/DerivedData/**",
         "**/Carthage/**",
         "**/Pods/**",
-        "**/*.docc/Resources/**",
+        "**/*.docc/**",
+    ]
+
+    /// Substrings that disqualify a discovered path even if the glob
+    /// exclusion didn't fire. Defensive post-filter — the canonical
+    /// exclusion is `excludePatterns`, but glob-level handling of
+    /// directory names containing spaces has been observed to leak
+    /// `*.docc/**` matches through.
+    @usableFromInline
+    internal static let pathExclusionSubstrings: [Swift.String] = [
+        ".docc/",
     ]
 
     /// Walks the directory at `root` and emits run-root-relative typed
@@ -81,6 +92,9 @@ extension Lint.Source.Walker {
                 continue
             }
             let relative = Swift.String(absolute.dropFirst(normalizedRoot.count))
+            if pathExclusionSubstrings.contains(where: { relative.contains($0) }) {
+                continue
+            }
             results.append(Lint.Source.Path(relative))
         }
         return results.sorted(by: { $0.underlying < $1.underlying })
