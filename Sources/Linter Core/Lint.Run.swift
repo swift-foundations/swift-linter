@@ -75,30 +75,22 @@ extension Lint.Run {
         paths: [File.Path],
         configuration: Lint.Configuration
     ) throws(Error) -> [Diagnostic.Record] {
-        // (rule-instance, per-rule path filter) pairs. The filter
-        // travels alongside the instantiated rule so the per-source
-        // gate can read it without re-resolving the configuration.
-        let activeEntries: [(rule: any Lint.Rule.`Protocol`, paths: Lint.Filter?)] =
-            configuration.effectiveRules().map { entry in
-                let resolvedSeverity = entry.severity ?? entry.rule.defaultSeverity
-                return (entry.rule.init(severity: resolvedSeverity), entry.paths)
-            }
+        // Witness-shape engine. Each effective entry stores a `Lint.Rule`
+        // witness with any per-rule path filter already folded in via
+        // `Lint.Rule.filtered(toPaths:)` at configuration time. The
+        // engine simply resolves severity and invokes the witness's
+        // findings closure — no existential dispatch, no `init(severity:)`
+        // factory hop, no per-entry filter branch.
+        let effective = configuration.effectiveRules()
         var manager = Source.Manager()
         var findings: [Diagnostic.Record] = []
         for root in paths {
             let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: root)
             for sourcePath in sourcePaths {
                 let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager)
-                for (rule, filter) in activeEntries {
-                    // Per-rule path filter — prefix-match per
-                    // Lint.Filter.matches(sourcePath:). A nil filter
-                    // (entry has no `paths:` constraint) admits every
-                    // sourcePath; a non-nil filter discriminates per
-                    // its included/excluded prefix lists.
-                    if let filter, !filter.matches(sourcePath: sourcePath) {
-                        continue
-                    }
-                    findings.append(contentsOf: rule.findings(in: parsed))
+                for entry in effective {
+                    let severity = entry.severity ?? entry.rule.defaultSeverity
+                    findings.append(contentsOf: entry.rule.findings(parsed, severity))
                 }
             }
         }
@@ -158,6 +150,11 @@ extension Lint.Run {
         let sourceFile = manager.file(for: id)
         let tree = Parser.parse(source: text)
         let converter = SourceLocationConverter(fileName: absoluteString, tree: tree)
-        return Lint.Source.Parsed(file: sourceFile, tree: tree, converter: converter)
+        return Lint.Source.Parsed(
+            file: sourceFile,
+            path: relativePath,
+            tree: tree,
+            converter: converter
+        )
     }
 }

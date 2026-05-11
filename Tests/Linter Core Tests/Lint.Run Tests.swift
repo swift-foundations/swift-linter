@@ -64,7 +64,7 @@ extension Lint.Run.Test.Integration {
     func `paths .all yields findings for both A and B`() throws {
         let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration {
-            .enable(Lint.Rule.Unchecked.self, paths: .all)
+            .enable(.`unchecked call site`, paths: .all)
         }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 2)
@@ -74,7 +74,7 @@ extension Lint.Run.Test.Integration {
     func `paths .including A yields finding for A only`() throws {
         let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration {
-            .enable(Lint.Rule.Unchecked.self, paths: .including(["Sources/A"]))
+            .enable(.`unchecked call site`, paths: .including(["Sources/A"]))
         }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 1)
@@ -85,7 +85,7 @@ extension Lint.Run.Test.Integration {
     func `paths .excluding B yields finding for A only`() throws {
         let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration {
-            .enable(Lint.Rule.Unchecked.self, paths: .excluding(["Sources/B"]))
+            .enable(.`unchecked call site`, paths: .excluding(["Sources/B"]))
         }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 1)
@@ -96,7 +96,7 @@ extension Lint.Run.Test.Integration {
     func `paths .including non-matching yields no findings`() throws {
         let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration {
-            .enable(Lint.Rule.Unchecked.self, paths: .including(["Tests/Fixtures/Other"]))
+            .enable(.`unchecked call site`, paths: .including(["Tests/Fixtures/Other"]))
         }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 0)
