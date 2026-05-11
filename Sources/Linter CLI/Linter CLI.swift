@@ -84,9 +84,7 @@ struct SwiftLinter: ParsableCommand {
             return
         }
 
-        // Single-file `Lint.swift` fallback (existing chain-resolution
-        // flow, unchanged).
-        let configuration = resolveConfiguration()
+        let configuration: Lint.Configuration = resolveConfiguration()
         // ArgumentParser hands `[String]`; validate at the CLI boundary
         // exactly once via `try File.Path(_:)` so the engine receives
         // typed paths from here down [IMPL-010].

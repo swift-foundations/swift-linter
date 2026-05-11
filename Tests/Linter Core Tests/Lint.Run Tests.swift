@@ -12,7 +12,6 @@
 import Testing
 import File_System
 import Linter_Primitives
-import Linter_Rule_Unchecked
 @testable import Linter_Core
 
 extension Lint.Run {
@@ -20,6 +19,30 @@ extension Lint.Run {
     struct Test {
         @Suite struct Integration {}
     }
+}
+
+// Engine-level path-filter tests use a synthetic fixture rule constructed
+// inline; the engine package has no dependency on any rule pack. The rule
+// fires once per visited source file, which is sufficient signal to
+// validate the `Lint.Filter` discrimination paths.
+extension Lint.Rule {
+    fileprivate static let `test fixture` = Lint.Rule(
+        id: "test fixture",
+        defaultSeverity: .warning,
+        findings: { source, severity in
+            [Diagnostic.Record(
+                location: Source.Location(
+                    fileID: source.file.fileID,
+                    filePath: source.file.filePath,
+                    line: 1,
+                    column: 1
+                ),
+                severity: severity,
+                identifier: "test fixture",
+                message: "fixture rule fired"
+            )]
+        }
+    )
 }
 
 // MARK: - Path filter integration
@@ -64,7 +87,7 @@ extension Lint.Run.Test.Integration {
     func `paths .all yields findings for both A and B`() throws {
         let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration {
-            .enable(.`unchecked call site`, paths: .all)
+            .enable(.`test fixture`, paths: .all)
         }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 2)
@@ -74,7 +97,7 @@ extension Lint.Run.Test.Integration {
     func `paths .including A yields finding for A only`() throws {
         let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration {
-            .enable(.`unchecked call site`, paths: .including(["Sources/A"]))
+            .enable(.`test fixture`, paths: .including(["Sources/A"]))
         }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 1)
@@ -85,7 +108,7 @@ extension Lint.Run.Test.Integration {
     func `paths .excluding B yields finding for A only`() throws {
         let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration {
-            .enable(.`unchecked call site`, paths: .excluding(["Sources/B"]))
+            .enable(.`test fixture`, paths: .excluding(["Sources/B"]))
         }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 1)
@@ -96,7 +119,7 @@ extension Lint.Run.Test.Integration {
     func `paths .including non-matching yields no findings`() throws {
         let root = try Self.fixtureRoot()
         let configuration = Lint.Configuration {
-            .enable(.`unchecked call site`, paths: .including(["Tests/Fixtures/Other"]))
+            .enable(.`test fixture`, paths: .including(["Tests/Fixtures/Other"]))
         }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 0)
