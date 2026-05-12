@@ -27,6 +27,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../../swift-primitives/swift-ascii-primitives"),
+        .package(path: "../../swift-primitives/swift-glob-primitives"),
         .package(path: "../../swift-primitives/swift-linter-primitives"),
         .package(path: "../../swift-primitives/swift-manifest-primitives"),
         .package(path: "../../swift-primitives/swift-parser-primitives"),
@@ -85,6 +86,8 @@ let package = Package(
             name: "Linter Core",
             dependencies: [
                 .product(name: "ASCII Primitives", package: "swift-ascii-primitives"),
+                .product(name: "Glob Primitives", package: "swift-glob-primitives"),
+                .product(name: "Glob Primitives Standard Library Integration", package: "swift-glob-primitives"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Manifest Primitives", package: "swift-manifest-primitives"),
                 .product(name: "Environment", package: "swift-environment"),

@@ -10,6 +10,8 @@
 // ===----------------------------------------------------------------------===//
 
 public import File_System
+public import Glob_Primitives
+public import Glob_Primitives_Standard_Library_Integration
 public import Linter_Primitives
 
 /// Recursively discovers Swift source files via `swift-file-system`'s
@@ -27,7 +29,7 @@ extension Lint.Source.Walker {
     /// Patterns matched against entries in the search root.
     ///
     /// Include: every Swift file at any depth.
-    public static let includePatterns: [Swift.String] = [
+    public static let includePatterns: [Glob.Pattern] = [
         "**/*.swift",
     ]
 
@@ -35,7 +37,7 @@ extension Lint.Source.Walker {
     ///
     /// Trailing `/**` matches every entry beneath the named directory at
     /// any depth.
-    public static let excludePatterns: [Swift.String] = [
+    public static let excludePatterns: [Glob.Pattern] = [
         "**/.build/**",
         "**/.swiftpm/**",
         "**/.benchmarks/**",
