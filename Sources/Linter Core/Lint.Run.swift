@@ -207,7 +207,11 @@ extension Lint.Run {
             do throws(Paths.Path.Error) {
                 relative = try File.Path(relativePath.underlying)
             } catch {
-                throw .fileNotReadable(path: relativePath.underlying)
+                // Walker-emitted relative path failed `File.Path`
+                // validation — the closest meaningful path on the
+                // typed error is `root` (the parent directory the
+                // file was discovered under).
+                throw .fileNotReadable(path: root)
             }
             filePath = root.appending(relative)
             absoluteString = filePath.description
@@ -224,10 +228,10 @@ extension Lint.Run {
                 return copy
             }
         } catch {
-            throw .fileNotReadable(path: absoluteString)
+            throw .fileNotReadable(path: filePath)
         }
         guard let text = Swift.String(validating: bytes, as: UTF8.self) else {
-            throw .nonUTF8(path: absoluteString)
+            throw .nonUTF8(path: filePath)
         }
         let id = manager.register(fileID: absoluteString, filePath: absoluteString, content: bytes)
         let sourceFile = manager.file(for: id)

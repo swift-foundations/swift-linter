@@ -10,7 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 internal import Environment
-internal import File_System
+public import File_System
 internal import Linter_Primitives
 internal import Manifest_Loader
 internal import Manifest_Primitives
@@ -103,16 +103,20 @@ extension Lint.Driver {
     ///   the dispatch itself fails (spawn error), returns `1` after
     ///   invoking `onDispatchError`.
     public static func dispatchNestedIfPresent(
-        consumerPackageRoot: Swift.String,
+        consumerPackageRoot: File.Path,
         arguments: [Swift.String],
         onDispatchError: (Swift.String) -> Void = { _ in }
     ) -> Swift.Int32? {
-        guard Manifest.NestedPackage.detect(at: consumerPackageRoot) else {
+        // `Manifest.NestedPackage.detect / dispatch` operate at the
+        // SwiftPM-shim boundary on `Swift.String` paths; convert at
+        // the boundary while the engine surface above stays typed.
+        let rootString: Swift.String = consumerPackageRoot.string
+        guard Manifest.NestedPackage.detect(at: rootString) else {
             return nil
         }
         do throws(Manifest.NestedPackage.Error) {
             return try Manifest.NestedPackage.dispatch(
-                at: consumerPackageRoot,
+                at: rootString,
                 arguments: arguments
             )
         } catch {
@@ -123,9 +127,12 @@ extension Lint.Driver {
 
     /// Detects whether a `Lint.swift` exists at the consumer's
     /// package root.
-    public static func lintSwiftPath(at consumerPackageRoot: Swift.String) -> Swift.String? {
-        let candidate = "\(consumerPackageRoot)/Lint.swift"
-        guard let directory = try? File.Directory(validating: consumerPackageRoot) else {
+    ///
+    /// F-A2.2 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
+    /// typed `File.Path` on both parameter and return.
+    public static func lintSwiftPath(at consumerPackageRoot: File.Path) -> File.Path? {
+        let candidate: File.Path = consumerPackageRoot / "Lint.swift"
+        guard let directory = try? File.Directory(validating: consumerPackageRoot.string) else {
             return nil
         }
         guard let entries = try? directory.entries() else {
@@ -170,26 +177,24 @@ extension Lint.Driver {
     ///     `SWIFT_LINTER_PATH` environment variable is unset. Default
     ///     is a no-op so library callers retain the silent-fallback
     ///     contract.
+    /// F-A2.1 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
+    /// `consumerPackageRoot` and `lintSwiftPathOverride` are typed
+    /// `File.Path`.
     public static func resolveConfiguration(
-        consumerPackageRoot: Swift.String,
-        lintSwiftPathOverride: Swift.String? = nil,
+        consumerPackageRoot: File.Path,
+        lintSwiftPathOverride: File.Path? = nil,
         onMissingLinterPath: () -> Void = { }
     ) -> Lint.Configuration {
         let manifestDirectory: Swift.String
         let manifestFilename: Swift.String
         if let override = lintSwiftPathOverride {
-            do {
-                let overridePath = try File.Path(override)
-                manifestDirectory = overridePath.parent.map { $0.description } ?? "."
-                manifestFilename = overridePath.components.last.map { $0.string } ?? "Lint.swift"
-            } catch {
-                return defaultConfiguration()
-            }
+            manifestDirectory = override.parent.map { $0.description } ?? "."
+            manifestFilename = override.components.last.map { $0.string } ?? "Lint.swift"
         } else {
             guard lintSwiftPath(at: consumerPackageRoot) != nil else {
                 return defaultConfiguration()
             }
-            manifestDirectory = consumerPackageRoot
+            manifestDirectory = consumerPackageRoot.string
             manifestFilename = "Lint.swift"
         }
 

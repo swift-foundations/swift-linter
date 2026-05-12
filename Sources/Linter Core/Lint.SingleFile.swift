@@ -10,7 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 internal import Environment
-internal import File_System
+public import File_System
 internal import JSON
 internal import Manifest_Loader
 internal import Manifest_Primitives
@@ -101,21 +101,15 @@ extension Lint.SingleFile {
     /// file's first 30 lines (sufficient for the institute's
     /// canonical scaffolds; SE-0152 SwiftPM places the analogous
     /// `swift-tools-version:` directive at line 1).
+    ///
+    /// F-A2.3 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
+    /// `consumerPackageRoot` is typed `File.Path`; the returned
+    /// candidate path is also typed.
     public static func detect(
-        at consumerPackageRoot: Swift.String
-    ) -> Swift.String? {
-        // F-A1.9 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
-        // typed `File.Path` arithmetic replaces the prior
-        // `consumerPackageRoot + "/Lint.swift"` concat. The boundary
-        // remains `Swift.String` until Phase 2 types
-        // `consumerPackageRoot` itself; an invalid root falls
-        // through `nil` rather than throwing because `detect` is
-        // explicitly silent-fallback.
-        guard let consumerRoot: File.Path = try? File.Path(consumerPackageRoot) else {
-            return nil
-        }
-        let candidate: Swift.String = (consumerRoot / "Lint.swift").string
-        guard let directory = try? File.Directory(validating: consumerPackageRoot) else {
+        at consumerPackageRoot: File.Path
+    ) -> File.Path? {
+        let candidate: File.Path = consumerPackageRoot / "Lint.swift"
+        guard let directory = try? File.Directory(validating: consumerPackageRoot.string) else {
             return nil
         }
         guard let entries = try? directory.entries() else {
@@ -149,9 +143,10 @@ extension Lint.SingleFile {
     }
 
     /// Read a file's full contents into a `Swift.String`.
+    ///
+    /// F-A2.3 cascade: typed `File.Path` parameter.
     @usableFromInline
-    internal static func readFile(at absolutePath: Swift.String) throws -> Swift.String {
-        let path: File.Path = try File.Path(absolutePath)
+    internal static func readFile(at path: File.Path) throws -> Swift.String {
         let bytes: [UInt8] = try File(path).read.full { (span: Span<UInt8>) -> [UInt8] in
             var array: [UInt8] = []
             array.reserveCapacity(span.count)
@@ -187,21 +182,16 @@ extension Lint.SingleFile {
     ///
     /// `arguments` is forwarded to the dispatched `Lint` executable
     /// (the consumer's `Lint.swift` as compiled in the eval project).
+    ///
+    /// F-A2.3 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
+    /// `consumerPackageRoot` is typed `File.Path`. The CLI binding
+    /// converts the CLI-supplied bare string once at the boundary
+    /// per `[IMPL-010]`.
     public static func dispatch(
-        at consumerPackageRoot: Swift.String,
+        at consumerPackageRoot: File.Path,
         arguments: [Swift.String]
     ) throws(Lint.SingleFile.Error) -> Swift.Int32 {
-        // F-A1.10 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
-        // typed `File.Path` arithmetic replaces the prior
-        // `consumerPackageRoot + "/Lint.swift"` concat. The
-        // surrounding boundary remains `Swift.String` until Phase 2.
-        let consumerRoot: File.Path
-        do throws(Paths.Path.Error) {
-            consumerRoot = try File.Path(consumerPackageRoot)
-        } catch {
-            throw .materializationFailed(reason: "invalid consumerPackageRoot `\(consumerPackageRoot)`: \(error)")
-        }
-        let consumerLintSwiftPath: Swift.String = (consumerRoot / "Lint.swift").string
+        let consumerLintSwiftPath: File.Path = consumerPackageRoot / "Lint.swift"
         let source: Swift.String
         do {
             source = try Self.readFile(at: consumerLintSwiftPath)
@@ -216,7 +206,7 @@ extension Lint.SingleFile {
             sourcePath: consumerLintSwiftPath,
             consumerPackageRoot: consumerPackageRoot
         )
-        let evalRoot: Swift.String = try Lint.SingleFile.Materializer.materialize(
+        let evalRoot: File.Path = try Lint.SingleFile.Materializer.materialize(
             consumerPackageRoot: consumerPackageRoot,
             consumerLintSwiftPath: consumerLintSwiftPath,
             dependencies: dependencies
@@ -225,17 +215,17 @@ extension Lint.SingleFile {
         // Parent-chain resolution. The folded parent Manifest is
         // serialized to a temp file and passed to the dispatched
         // executable via env var.
-        let parentManifestPath: Swift.String? = try Self.resolveParentChain(
+        let parentManifestPath: File.Path? = try Self.resolveParentChain(
             consumerSource: source,
             consumerPackageRoot: consumerPackageRoot
         )
 
         let invocation: [Swift.String] =
-            ["swift", "run", "--package-path", evalRoot, "Lint"] + arguments
+            ["swift", "run", "--package-path", evalRoot.string, "Lint"] + arguments
         let environment: [Swift.String: Swift.String]?
-        if let path: Swift.String = parentManifestPath {
+        if let path: File.Path = parentManifestPath {
             var snapshot: Environment.Snapshot = Environment.Snapshot.current()
-            snapshot.values["SWIFT_LINTER_PARENT_MANIFEST"] = path
+            snapshot.values["SWIFT_LINTER_PARENT_MANIFEST"] = path.string
             environment = snapshot.values
         } else {
             environment = nil
@@ -274,8 +264,8 @@ extension Lint.SingleFile {
     /// proceeds without parent inheritance.
     internal static func resolveParentChain(
         consumerSource: Swift.String,
-        consumerPackageRoot: Swift.String
-    ) throws(Lint.SingleFile.Error) -> Swift.String? {
+        consumerPackageRoot: File.Path
+    ) throws(Lint.SingleFile.Error) -> File.Path? {
         guard let linterPath: Swift.String = Environment.read("SWIFT_LINTER_PATH") else {
             return nil
         }
@@ -332,24 +322,16 @@ extension Lint.SingleFile {
         let serialized: JSON = Lint.Manifest.serialize(folded)
         let jsonString: Swift.String = serialized.jsonString()
         // F-A1.12 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
-        // typed `File.Path` arithmetic replaces the prior
-        // `consumerPackageRoot + "/.swift-lint/parent-manifest.json"`
-        // concat. Component-literal `/` operator means the segment
-        // shapes are compile-time validated.
-        let filePath: File.Path
-        do throws(Paths.Path.Error) {
-            let consumerRoot = try File.Path(consumerPackageRoot)
-            filePath = consumerRoot / ".swift-lint" / "parent-manifest.json"
-        } catch {
-            throw .materializationFailed(reason: "invalid consumerPackageRoot `\(consumerPackageRoot)`: \(error)")
-        }
-        let tempPath: Swift.String = filePath.string
+        // typed `File.Path` arithmetic — component-literal `/`
+        // operator means the segment shapes are compile-time
+        // validated.
+        let filePath: File.Path = consumerPackageRoot / ".swift-lint" / "parent-manifest.json"
         do {
             try File(filePath).write.atomic(jsonString)
         } catch {
-            throw .materializationFailed(reason: "write parent manifest \(tempPath): \(error)")
+            throw .materializationFailed(reason: "write parent manifest \(filePath.string): \(error)")
         }
-        return tempPath
+        return filePath
     }
 
     /// Fold a parent-first chain of `Lint.Manifest` values into a
@@ -396,7 +378,11 @@ extension Lint.SingleFile {
     public static func parentConfiguration(
         registry: [Lint.Rule.ID: Lint.Rule]
     ) -> Lint.Configuration? {
-        guard let path: Swift.String = Environment.read("SWIFT_LINTER_PARENT_MANIFEST") else {
+        // F-A2.9 (env-boundary) — `SWIFT_LINTER_PARENT_MANIFEST` is a
+        // raw bare string; convert to `File.Path` at the boundary.
+        guard let raw: Swift.String = Environment.read("SWIFT_LINTER_PARENT_MANIFEST"),
+              let path: File.Path = try? File.Path(raw)
+        else {
             return nil
         }
         let source: Swift.String

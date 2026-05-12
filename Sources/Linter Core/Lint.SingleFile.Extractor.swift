@@ -9,7 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
-internal import File_System
+public import File_System
 internal import SwiftParser
 internal import SwiftSyntax
 
@@ -40,10 +40,17 @@ extension Lint.SingleFile.Extractor {
     /// name for `.package(path: ".")` / `.package(path: "")`
     /// self-references (the literal `"."` is not a valid SwiftPM
     /// package name; the consumer-root's directory basename is).
+    /// F-A2.7 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
+    /// the audit marks the extractor's path parameters as
+    /// Ambiguous (boundary judgement). The boundary in this Phase 2
+    /// pass moves toward `File.Path` to keep the artery typed
+    /// end-to-end; AST-extracted string literals (which genuinely
+    /// originate as `Swift.String` from SwiftSyntax) remain
+    /// `Swift.String` and are not retyped here.
     public static func extractDependencies(
         from source: Swift.String,
-        sourcePath: Swift.String,
-        consumerPackageRoot: Swift.String
+        sourcePath: File.Path,
+        consumerPackageRoot: File.Path
     ) throws(Lint.SingleFile.Error) -> [Lint.SingleFile.PackageDependency] {
         let sourceFile: SourceFileSyntax = Parser.parse(source: source)
         guard let runCall: FunctionCallExprSyntax = findRunCall(in: sourceFile) else {
@@ -121,8 +128,8 @@ extension Lint.SingleFile.Extractor {
 
     internal static func parsePackageCall(
         _ call: FunctionCallExprSyntax,
-        sourcePath: Swift.String,
-        consumerPackageRoot: Swift.String
+        sourcePath: File.Path,
+        consumerPackageRoot: File.Path
     ) throws(Lint.SingleFile.Error) -> Lint.SingleFile.PackageDependency {
         guard let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self),
               member.declName.baseName.text == "package"
@@ -206,7 +213,7 @@ extension Lint.SingleFile.Extractor {
 
     internal static func extractStringLiteral(
         _ expr: ExprSyntax,
-        sourcePath: Swift.String
+        sourcePath: File.Path
     ) throws(Lint.SingleFile.Error) -> Swift.String {
         guard let literal: StringLiteralExprSyntax = expr.as(StringLiteralExprSyntax.self) else {
             throw .malformedPackageCall(
@@ -230,7 +237,7 @@ extension Lint.SingleFile.Extractor {
 
     internal static func extractStringArray(
         _ expr: ExprSyntax,
-        sourcePath: Swift.String
+        sourcePath: File.Path
     ) throws(Lint.SingleFile.Error) -> [Swift.String] {
         guard let arrayExpr: ArrayExprSyntax = expr.as(ArrayExprSyntax.self) else {
             throw .malformedPackageCall(
@@ -265,10 +272,14 @@ extension Lint.SingleFile.Extractor {
 
     internal static func packageName(
         fromPath path: Swift.String,
-        consumerPackageRoot: Swift.String
+        consumerPackageRoot: File.Path
     ) -> Swift.String {
+        // `path` is the AST-extracted SwiftPM literal (genuinely
+        // string-shaped — it's source text being copied into the
+        // generated PackageDescription); only `consumerPackageRoot`
+        // is typed per the Phase 2 boundary.
         if path.isEmpty || path == "." {
-            return basename(of: consumerPackageRoot)
+            return consumerPackageRoot.components.last?.string ?? consumerPackageRoot.string
         }
         return basename(of: path)
     }

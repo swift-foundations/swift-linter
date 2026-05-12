@@ -67,7 +67,7 @@ struct SwiftLinter: ParsableCommand {
         // between user-supplied paths and engine internals, so cwd
         // resolution lives here per the platform skill's L3-unifier
         // composition discipline. Linter Core stays kernel-free.
-        let consumerRoot = Lint.SingleFile.canonicalize(
+        let consumerRootString: Swift.String = Lint.SingleFile.canonicalize(
             consumerRoot: paths.first ?? ".",
             currentWorkingDirectory: {
                 try? Kernel.Directory.Working.withCurrentBytes { (span: Span<UInt8>) -> Swift.String in
@@ -80,6 +80,11 @@ struct SwiftLinter: ParsableCommand {
                 }
             }
         )
+        // F-A2.1 / F-A2.3 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
+        // bare-string → `File.Path` conversion happens once at the
+        // CLI boundary per `[IMPL-010]`. Every engine surface below
+        // receives the typed value.
+        let consumerRoot: File.Path = try File.Path(consumerRootString)
 
         // Single-file `Lint.swift` (Shape γ) dispatch — research
         // recommendation 2026-05-12-swift-linter-unified-consumer-manifest.md.
@@ -135,7 +140,7 @@ struct SwiftLinter: ParsableCommand {
             return
         }
 
-        let configuration: Lint.Configuration = resolveConfiguration()
+        let configuration: Lint.Configuration = try resolveConfiguration(consumerRoot: consumerRoot)
         // ArgumentParser hands `[String]`; validate at the CLI boundary
         // exactly once via `try File.Path(_:)` so the engine receives
         // typed paths from here down [IMPL-010].
@@ -159,11 +164,15 @@ struct SwiftLinter: ParsableCommand {
     /// `SWIFT_LINTER_PATH`-unset case into a stderr diagnostic. The
     /// library still falls back to defaults-everything; the CLI tells
     /// the user why.
-    func resolveConfiguration() -> Lint.Configuration {
-        let consumerRoot = paths.first ?? "."
+    ///
+    /// F-A2.1 / F-A2.2: typed `File.Path` artery from CLI boundary
+    /// down. The override path is parsed once at the CLI boundary;
+    /// engine receives the typed value.
+    func resolveConfiguration(consumerRoot: File.Path) throws -> Lint.Configuration {
+        let typedOverride: File.Path? = try lintSwiftPath.map { try File.Path($0) }
         return Lint.Driver.resolveConfiguration(
             consumerPackageRoot: consumerRoot,
-            lintSwiftPathOverride: lintSwiftPath,
+            lintSwiftPathOverride: typedOverride,
             onMissingLinterPath: {
                 try? Terminal.Stream.stderr.write(
                     "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n".utf8

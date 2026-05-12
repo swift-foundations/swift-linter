@@ -10,7 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 internal import Environment
-internal import File_System
+public import File_System
 
 extension Lint.SingleFile {
     /// Renders the eval project (`Package.swift` + `Sources/Lint/main.swift`)
@@ -27,41 +27,38 @@ extension Lint.SingleFile {
 extension Lint.SingleFile.Materializer {
     /// Materialize the eval project on disk and return the
     /// eval-root directory path.
+    ///
+    /// F-A2.4 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
+    /// `consumerPackageRoot` and `consumerLintSwiftPath` are typed
+    /// `File.Path`; the return value is also `File.Path`. The
+    /// internal typed-Path chain from Phase 1 collapses to single
+    /// operations once the entry-point types match.
     public static func materialize(
-        consumerPackageRoot: Swift.String,
-        consumerLintSwiftPath: Swift.String,
+        consumerPackageRoot: File.Path,
+        consumerLintSwiftPath: File.Path,
         dependencies: [Lint.SingleFile.PackageDependency]
-    ) throws(Lint.SingleFile.Error) -> Swift.String {
-        // F-A1.5–F-A1.8 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
-        // typed `File.Path` arithmetic replaces the prior raw
-        // `consumerPackageRoot + "/.swift-lint/eval"` etc. concat.
-        // The strings remain `Swift.String` at this boundary pending
-        // Phase 2's typing of `consumerPackageRoot`; conversion at
-        // each site keeps Phase 1's local-edits invariant.
-        let consumerRoot: File.Path
-        do throws(Paths.Path.Error) {
-            consumerRoot = try File.Path(consumerPackageRoot)
-        } catch {
-            throw .materializationFailed(reason: "invalid consumerPackageRoot `\(consumerPackageRoot)`: \(error)")
-        }
+    ) throws(Lint.SingleFile.Error) -> File.Path {
         // `/` operator's `(Path, Component)` overload — `Component`
         // is `ExpressibleByStringLiteral`, so the segment literals
         // typecheck without throwing component construction at call
         // sites (compile-time-known component shapes can never fail
         // path-component validation).
-        let evalRootPath: File.Path = consumerRoot / ".swift-lint" / "eval"
-        let sourcesDirectoryPath: File.Path = evalRootPath / "Sources" / "Lint"
-        let packageSwiftPath: File.Path = evalRootPath / "Package.swift"
-        let mainSwiftPath: File.Path = sourcesDirectoryPath / "main.swift"
-
-        let evalRoot: Swift.String = evalRootPath.string
-        let sourcesDirectory: Swift.String = sourcesDirectoryPath.string
+        let evalRoot: File.Path = consumerPackageRoot / ".swift-lint" / "eval"
+        let sourcesDirectory: File.Path = evalRoot / "Sources" / "Lint"
+        let packageSwiftPath: File.Path = evalRoot / "Package.swift"
+        let mainSwiftPath: File.Path = sourcesDirectory / "main.swift"
 
         try Self.createDirectoryRecursive(at: sourcesDirectory)
 
-        let linterPath: Swift.String
-        if let path: Swift.String = Environment.read("SWIFT_LINTER_PATH") {
-            linterPath = path
+        let linterPath: File.Path
+        if let raw: Swift.String = Environment.read("SWIFT_LINTER_PATH") {
+            do throws(Paths.Path.Error) {
+                linterPath = try File.Path(raw)
+            } catch {
+                throw .materializationFailed(
+                    reason: "SWIFT_LINTER_PATH value is not a valid path: \(error)"
+                )
+            }
         } else {
             throw .materializationFailed(
                 reason: "SWIFT_LINTER_PATH environment variable not set; cannot resolve swift-linter dependency for the eval project."
@@ -74,10 +71,10 @@ extension Lint.SingleFile.Materializer {
             linterPath: linterPath,
             dependencies: dependencies
         )
-        try Self.writeAtomic(packageSwift, to: packageSwiftPath.string)
+        try Self.writeAtomic(packageSwift, to: packageSwiftPath)
 
         let consumerSource: Swift.String = try Self.readFile(at: consumerLintSwiftPath)
-        try Self.writeAtomic(consumerSource, to: mainSwiftPath.string)
+        try Self.writeAtomic(consumerSource, to: mainSwiftPath)
 
         return evalRoot
     }
@@ -95,9 +92,9 @@ extension Lint.SingleFile.Materializer {
     ///   target settings (strict memory safety, upcoming features).
     @usableFromInline
     internal static func renderPackageSwift(
-        consumerPackageRoot: Swift.String,
-        evalRoot: Swift.String,
-        linterPath: Swift.String,
+        consumerPackageRoot: File.Path,
+        evalRoot: File.Path,
+        linterPath: File.Path,
         dependencies: [Lint.SingleFile.PackageDependency]
     ) throws(Lint.SingleFile.Error) -> Swift.String {
         // Consumer-declared `.package(path: X)` paths are written by
@@ -112,7 +109,7 @@ extension Lint.SingleFile.Materializer {
         var lines: [Swift.String] = [
             "// swift-tools-version: 6.3.1",
             "// AUTO-GENERATED by swift-linter. DO NOT EDIT.",
-            "// Source: \(consumerPackageRoot)/Lint.swift",
+            "// Source: \(consumerPackageRoot.string)/Lint.swift",
             "",
             "import PackageDescription",
             "",
@@ -128,7 +125,7 @@ extension Lint.SingleFile.Materializer {
         ]
 
         // swift-linter dep — always added.
-        lines.append("        .package(path: \"\(linterPath)\"),")
+        lines.append("        .package(path: \"\(linterPath.string)\"),")
 
         // Consumer-declared deps.
         for dep in dependencies {
@@ -235,18 +232,12 @@ extension Lint.SingleFile.Materializer {
     /// Create a directory tree recursively.
     @usableFromInline
     internal static func createDirectoryRecursive(
-        at absolutePath: Swift.String
+        at path: File.Path
     ) throws(Lint.SingleFile.Error) {
-        let path: File.Path
-        do throws(Paths.Path.Error) {
-            path = try File.Path(absolutePath)
-        } catch {
-            throw .materializationFailed(reason: "invalid path \(absolutePath): \(error)")
-        }
         do throws(File.System.Create.Directory.Error) {
             try File.Directory(path).create.recursive()
         } catch {
-            throw .materializationFailed(reason: "create directory \(absolutePath): \(error)")
+            throw .materializationFailed(reason: "create directory \(path.string): \(error)")
         }
     }
 
@@ -254,30 +245,18 @@ extension Lint.SingleFile.Materializer {
     @usableFromInline
     internal static func writeAtomic(
         _ contents: Swift.String,
-        to absolutePath: Swift.String
+        to path: File.Path
     ) throws(Lint.SingleFile.Error) {
-        let path: File.Path
-        do throws(Paths.Path.Error) {
-            path = try File.Path(absolutePath)
-        } catch {
-            throw .materializationFailed(reason: "invalid path \(absolutePath): \(error)")
-        }
         do throws(File.System.Write.Atomic.Error) {
             try File(path).write.atomic(contents)
         } catch {
-            throw .materializationFailed(reason: "write \(absolutePath): \(error)")
+            throw .materializationFailed(reason: "write \(path.string): \(error)")
         }
     }
 
     /// Read a file's full contents into a `Swift.String`.
     @usableFromInline
-    internal static func readFile(at absolutePath: Swift.String) throws(Lint.SingleFile.Error) -> Swift.String {
-        let path: File.Path
-        do throws(Paths.Path.Error) {
-            path = try File.Path(absolutePath)
-        } catch {
-            throw .readFailed(path: absolutePath, description: "invalid path: \(error)")
-        }
+    internal static func readFile(at path: File.Path) throws(Lint.SingleFile.Error) -> Swift.String {
         let bytes: [UInt8]
         do throws(File.System.Read.Full.Error) {
             bytes = try File(path).read.full { (span: Span<UInt8>) -> [UInt8] in
@@ -289,7 +268,7 @@ extension Lint.SingleFile.Materializer {
                 return array
             }
         } catch {
-            throw .readFailed(path: absolutePath, description: "\(error)")
+            throw .readFailed(path: path, description: "\(error)")
         }
         return Swift.String(decoding: bytes, as: UTF8.self)
     }

@@ -9,6 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
+import File_System
 import Testing
 @testable import Linter_Core
 
@@ -100,7 +101,7 @@ extension Lint.SingleFile.Extractor.Test.PackageName {
     func `Sibling-package relative path uses path's own basename`() {
         let name = Lint.SingleFile.Extractor.packageName(
             fromPath: "../swift-primitives-linter-rules",
-            consumerPackageRoot: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+            consumerPackageRoot: File.Path(stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives")
         )
         #expect(name == "swift-primitives-linter-rules")
     }
@@ -109,7 +110,7 @@ extension Lint.SingleFile.Extractor.Test.PackageName {
     func `Absolute path uses path's own basename`() {
         let name = Lint.SingleFile.Extractor.packageName(
             fromPath: "/Users/coen/Developer/swift-foundations/swift-linter-rules",
-            consumerPackageRoot: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+            consumerPackageRoot: File.Path(stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives")
         )
         #expect(name == "swift-linter-rules")
     }
@@ -118,7 +119,7 @@ extension Lint.SingleFile.Extractor.Test.PackageName {
     func `Self-reference dot derives package name from consumer-root basename`() {
         let name = Lint.SingleFile.Extractor.packageName(
             fromPath: ".",
-            consumerPackageRoot: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+            consumerPackageRoot: File.Path(stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives")
         )
         #expect(name == "swift-cardinal-primitives")
     }
@@ -127,7 +128,7 @@ extension Lint.SingleFile.Extractor.Test.PackageName {
     func `Self-reference empty string derives package name from consumer-root basename`() {
         let name = Lint.SingleFile.Extractor.packageName(
             fromPath: "",
-            consumerPackageRoot: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+            consumerPackageRoot: File.Path(stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives")
         )
         #expect(name == "swift-cardinal-primitives")
     }
@@ -136,7 +137,7 @@ extension Lint.SingleFile.Extractor.Test.PackageName {
     func `Self-reference dot strips trailing slash from consumer-root`() {
         let name = Lint.SingleFile.Extractor.packageName(
             fromPath: ".",
-            consumerPackageRoot: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives/"
+            consumerPackageRoot: File.Path(stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives/")
         )
         #expect(name == "swift-cardinal-primitives")
     }
