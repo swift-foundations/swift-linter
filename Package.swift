@@ -30,6 +30,7 @@ let package = Package(
         .package(path: "../../swift-primitives/swift-linter-primitives"),
         .package(path: "../../swift-primitives/swift-manifest-primitives"),
         .package(path: "../../swift-primitives/swift-parser-primitives"),
+        .package(path: "../../swift-primitives/swift-standard-library-extensions"),
         .package(path: "../../swift-primitives/swift-terminal-primitives"),
         .package(path: "../../swift-iso/swift-iso-9945"),
         .package(path: "../../swift-microsoft/swift-windows-32"),
@@ -104,6 +105,7 @@ let package = Package(
                 "Linter Reporter Text",
                 "Linter Reporter SARIF",
                 .product(name: "File System", package: "swift-file-system"),
+                .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
             ]
         ),

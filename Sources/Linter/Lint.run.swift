@@ -11,6 +11,7 @@
 
 internal import File_System
 public import Linter_Primitives
+internal import Standard_Library_Extensions
 internal import Terminal_Primitives
 
 /// One-call entry point for consumer `Lint` executables.
@@ -39,6 +40,34 @@ internal import Terminal_Primitives
 ///     Lint.Rule.Configuration.override(.`try optional`, severity: .error)
 /// })
 /// ```
+///
+/// ## Unified single-file consumer manifest (Shape γ)
+///
+/// Consumers who place a single `Lint.swift` at their package root
+/// (replacing the nested `Lint/` directory) declare dependencies AND
+/// rule activations in one file via
+/// ``run(dependencies:configuration:)``:
+///
+/// ```swift
+/// // swift-linter-tools-version: 0.1
+/// import Linter
+/// import Linter_Primitives_Rules
+///
+/// Lint.run(dependencies: [
+///     .package(path: "../../swift-primitives-linter-rules",
+///              products: ["Linter Primitives Rules"]),
+/// ]) {
+///     Lint.Rule.Bundle.primitives
+/// }
+/// ```
+///
+/// The `dependencies:` argument is consumed syntactically by
+/// swift-linter at phase 1 (AST extraction) to generate the eval
+/// project's `Package.swift`; at phase 2 (compile + run) the array
+/// is unused. The trailing closure is a `@Lint.Configuration.Builder`
+/// over `Lint.Rule.Configuration` entries (`.enable(_:)`,
+/// `.disable(_:)`, `.override(_:severity:)`) and bundle expansions
+/// (`Lint.Rule.Bundle.primitives`).
 extension Lint {
     /// Run the linter with a bundle of rule configurations.
     ///
@@ -61,5 +90,34 @@ extension Lint {
         } catch {
             print("[Lint] error: \(error)")
         }
+    }
+
+    /// Run the linter from a single-file `Lint.swift` consumer manifest
+    /// (Shape γ).
+    ///
+    /// The `dependencies:` argument is the value-level mirror of the
+    /// SwiftPM `.package(...)` declarations swift-linter extracts
+    /// syntactically at phase 1 (AST walk over `Lint.swift`). At
+    /// phase 2 (`swift run --package-path <eval>`) the array is
+    /// unused — the dependencies it describes have already been
+    /// resolved by SwiftPM and the rule-pack products are accessible
+    /// via the `import` statements at the top of the consumer's
+    /// `Lint.swift`.
+    ///
+    /// Equivalent at runtime to
+    /// `run(configuration: Lint.Configuration(rules: rules))`.
+    public static func run(
+        dependencies: [Lint.Dependency],
+        @Array<Lint.Rule.Configuration>.Builder rules: () -> [Lint.Rule.Configuration]
+    ) {
+        _ = dependencies
+        let collected: [Lint.Rule.Configuration] = rules()
+        var registry: [Lint.Rule.ID: Lint.Rule] = [:]
+        for entry in collected {
+            registry[entry.rule.id] = entry.rule
+        }
+        let parent: Lint.Configuration? = Lint.SingleFile.parentConfiguration(registry: registry)
+        let configuration = Lint.Configuration(inheriting: parent) { collected }
+        run(configuration: configuration)
     }
 }

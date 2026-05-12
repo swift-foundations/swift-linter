@@ -29,11 +29,15 @@ struct SwiftLinter: ParsableCommand {
         be expressed as a regex on source text. The engine ships rule-pack-\
         agnostic — without an explicit configuration, zero rules fire.
 
-        Two consumer shapes are detected at the package root: a `Lint/` \
-        nested SwiftPM package (recommended; consumers wire engine + rule \
-        packs in its `Package.swift`), or a single-file `Lint.swift` (sugar \
-        form, currently inert). When neither is present, the CLI runs with \
-        the empty default Configuration.
+        Three consumer shapes are detected at the package root, in priority \
+        order: (1) a single-file `Lint.swift` with a `// swift-linter-tools-\
+        version:` magic-comment header (Shape γ — recommended; declares \
+        SwiftPM deps + rule activations in one file), (2) a `Lint/` nested \
+        SwiftPM package (the prior recommended shape; consumers wire engine \
+        + rule packs in its `Package.swift`), or (3) a legacy single-file \
+        `Lint.swift` declaring `let manifest: Lint.Manifest` (inert post-\
+        Phase-B.1 decouple). When none is present, the CLI runs with the \
+        empty default Configuration.
         """
     )
 
@@ -56,6 +60,33 @@ struct SwiftLinter: ParsableCommand {
     // unify to `any Error` at the boundary by necessity, not by choice.
     func run() throws {
         let consumerRoot = paths.first ?? "."
+
+        // Single-file `Lint.swift` (Shape γ) dispatch — research
+        // recommendation 2026-05-12-swift-linter-unified-consumer-manifest.md.
+        // When the consumer places a `Lint.swift` at the package root
+        // with a `// swift-linter-tools-version:` magic-comment header,
+        // swift-linter parses it via SwiftSyntax to extract the
+        // declared `.package(...)` dependencies, materializes an eval
+        // project at `<consumerRoot>/.swift-lint/eval/`, and dispatches
+        // `swift run --package-path <eval> Lint <args>`. The dispatched
+        // executable IS the linter binary for the consumer.
+        if Lint.SingleFile.detect(at: consumerRoot) != nil {
+            do {
+                let dispatchedExitCode: Swift.Int32 = try Lint.SingleFile.dispatch(
+                    at: consumerRoot,
+                    arguments: paths
+                )
+                if dispatchedExitCode != 0 {
+                    throw ExitCode(dispatchedExitCode)
+                }
+                return
+            } catch let error as Lint.SingleFile.Error {
+                try? Terminal.Stream.stderr.write(
+                    "[swift-linter] error: single-file dispatch failed: \(error)\n".utf8
+                )
+                throw ExitCode.failure
+            }
+        }
 
         // Lint/ nested-package dispatch (architecture cohort Phase A).
         // When the consumer opts into the nested-package shape via a
