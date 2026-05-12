@@ -45,7 +45,13 @@ extension Lint.Reporter.SARIF {
         findings: [Lint.Finding],
         to write: Terminal.Stream.Write
     ) {
-        try? write((report(for: findings) + "\n").utf8)
+        do throws(ISO_9945.Kernel.IO.Write.Error) {
+            _ = try write((report(for: findings) + "\n").utf8)
+        } catch {
+            // Best-effort stdout write; broken pipe is acceptable for
+            // a textual diagnostic emitter (the conventional behavior
+            // when stdout's reader has closed).
+        }
     }
 
     /// Build the SARIF document as a String (testable; CLI uses `emit`).

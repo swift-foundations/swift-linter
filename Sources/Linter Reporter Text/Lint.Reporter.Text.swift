@@ -45,7 +45,13 @@ extension Lint.Reporter.Text {
         to write: Terminal.Stream.Write
     ) {
         for finding in findings {
-            try? write((line(for: finding) + "\n").utf8)
+            do throws(ISO_9945.Kernel.IO.Write.Error) {
+                _ = try write((line(for: finding) + "\n").utf8)
+            } catch {
+                // Best-effort stdout write; broken pipe is acceptable for
+                // a textual diagnostic emitter (the conventional behavior
+                // when stdout's reader has closed).
+            }
         }
     }
 

@@ -83,8 +83,16 @@ extension Lint {
             ? [Swift.String](arguments.dropFirst())
             : ["."]
 
-        do {
-            let consumerPaths: [File.Path] = try pathStrings.map { try File.Path($0) }
+        let consumerPaths: [File.Path]
+        do throws(Paths.Path.Error) {
+            consumerPaths = try pathStrings.map { (raw: Swift.String) throws(Paths.Path.Error) in
+                try File.Path(raw)
+            }
+        } catch {
+            print("[Lint] error: invalid path argument: \(error)")
+            return
+        }
+        do throws(Lint.Run.Error) {
             let findings: [Lint.Finding] = try Lint.Run.run(paths: consumerPaths, configuration: configuration)
             Lint.Reporter.Text.emit(findings: findings, to: Terminal.Stream.stdout.write)
         } catch {

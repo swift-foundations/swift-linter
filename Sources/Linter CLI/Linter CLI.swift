@@ -59,6 +59,7 @@ struct SwiftLinter: ParsableCommand {
     // adoption. The body throws three distinct types (`ExitCode`,
     // `Path.Error` via `try File.Path(_:)`, `Lint.Run.Error`) — they
     // unify to `any Error` at the boundary by necessity, not by choice.
+    // swift-linter:disable:next untyped throws
     func run() throws {
         // Resolve `"."` / empty to an absolute path before any
         // engine-side path arithmetic. SwiftPM rejects the literal
@@ -70,14 +71,22 @@ struct SwiftLinter: ParsableCommand {
         let consumerRootString: Swift.String = Lint.SingleFile.canonicalize(
             consumerRoot: paths.first ?? ".",
             currentWorkingDirectory: {
-                try? Kernel.Directory.Working.withCurrentBytes { (span: Span<UInt8>) -> Swift.String in
-                    var bytes: [UInt8] = []
-                    bytes.reserveCapacity(span.count)
-                    for i in 0..<span.count {
-                        bytes.append(span[i])
+                let result: Swift.String?
+                do throws(ISO_9945.Kernel.Directory.Working.Error) {
+                    result = try Kernel.Directory.Working.withCurrentBytes { (span: Span<UInt8>) -> Swift.String in
+                        var bytes: [UInt8] = []
+                        bytes.reserveCapacity(span.count)
+                        for i in 0..<span.count {
+                            bytes.append(span[i])
+                        }
+                        return Swift.String(decoding: bytes, as: UTF8.self)
                     }
-                    return Swift.String(decoding: bytes, as: UTF8.self)
+                } catch {
+                    // Silent-fallback: getcwd failure (e.g., removed)
+                    // surfaces as the consumer-root-string unchanged.
+                    result = nil
                 }
+                return result
             }
         )
         // F-A2.1 / F-A2.3 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
@@ -96,21 +105,26 @@ struct SwiftLinter: ParsableCommand {
         // `swift run --package-path <eval> Lint <args>`. The dispatched
         // executable IS the linter binary for the consumer.
         if Lint.SingleFile.detect(at: consumerRoot) != nil {
-            do {
-                let dispatchedExitCode: Swift.Int32 = try Lint.SingleFile.dispatch(
+            let dispatchedExitCode: Swift.Int32
+            do throws(Lint.SingleFile.Error) {
+                dispatchedExitCode = try Lint.SingleFile.dispatch(
                     at: consumerRoot,
                     arguments: paths
                 )
-                if dispatchedExitCode != 0 {
-                    throw ExitCode(dispatchedExitCode)
+            } catch {
+                do throws(ISO_9945.Kernel.IO.Write.Error) {
+                    _ = try Terminal.Stream.stderr.write(
+                        "[swift-linter] error: single-file dispatch failed: \(error)\n".utf8
+                    )
+                } catch {
+                    // Best-effort stderr write; broken pipe is acceptable.
                 }
-                return
-            } catch let error as Lint.SingleFile.Error {
-                try? Terminal.Stream.stderr.write(
-                    "[swift-linter] error: single-file dispatch failed: \(error)\n".utf8
-                )
                 throw ExitCode.failure
             }
+            if dispatchedExitCode != 0 {
+                throw ExitCode(dispatchedExitCode)
+            }
+            return
         }
 
         // Lint/ nested-package dispatch (architecture cohort Phase A).
@@ -129,9 +143,13 @@ struct SwiftLinter: ParsableCommand {
             consumerPackageRoot: consumerRoot,
             arguments: paths,
             onDispatchError: { description in
-                try? Terminal.Stream.stderr.write(
-                    "[swift-linter] error: nested-package dispatch failed: \(description)\n".utf8
-                )
+                do throws(ISO_9945.Kernel.IO.Write.Error) {
+                    _ = try Terminal.Stream.stderr.write(
+                        "[swift-linter] error: nested-package dispatch failed: \(description)\n".utf8
+                    )
+                } catch {
+                    // Best-effort stderr write; broken pipe is acceptable.
+                }
             }
         ) {
             if dispatchedExitCode != 0 {
@@ -168,15 +186,21 @@ struct SwiftLinter: ParsableCommand {
     /// F-A2.1 / F-A2.2: typed `File.Path` artery from CLI boundary
     /// down. The override path is parsed once at the CLI boundary;
     /// engine receives the typed value.
-    func resolveConfiguration(consumerRoot: File.Path) throws -> Lint.Configuration {
-        let typedOverride: File.Path? = try lintSwiftPath.map { try File.Path($0) }
+    func resolveConfiguration(consumerRoot: File.Path) throws(Paths.Path.Error) -> Lint.Configuration {
+        let typedOverride: File.Path? = try lintSwiftPath.map { (raw: Swift.String) throws(Paths.Path.Error) in
+            try File.Path(raw)
+        }
         return Lint.Driver.resolveConfiguration(
             consumerPackageRoot: consumerRoot,
             lintSwiftPathOverride: typedOverride,
             onMissingLinterPath: {
-                try? Terminal.Stream.stderr.write(
-                    "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n".utf8
-                )
+                do throws(ISO_9945.Kernel.IO.Write.Error) {
+                    _ = try Terminal.Stream.stderr.write(
+                        "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n".utf8
+                    )
+                } catch {
+                    // Best-effort stderr write; broken pipe is acceptable.
+                }
             }
         )
     }
