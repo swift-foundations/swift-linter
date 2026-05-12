@@ -118,6 +118,8 @@ let package = Package(
             name: "Linter Core Tests",
             dependencies: [
                 "Linter Core",
+                "Linter Reporter Text",
+                "Linter Reporter SARIF",
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "URI Standard", package: "swift-uri-standard"),
