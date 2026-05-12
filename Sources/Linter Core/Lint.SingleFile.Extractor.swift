@@ -33,9 +33,16 @@ extension Lint.SingleFile.Extractor {
     /// Extract `.package(...)` dependency declarations from the
     /// `dependencies:` argument of the consumer's `Lint.run(...)`
     /// call.
+    ///
+    /// `consumerPackageRoot` is the directory path of the consumer's
+    /// own package — needed to derive a SwiftPM-resolvable package
+    /// name for `.package(path: ".")` / `.package(path: "")`
+    /// self-references (the literal `"."` is not a valid SwiftPM
+    /// package name; the consumer-root's directory basename is).
     public static func extractDependencies(
         from source: Swift.String,
-        sourcePath: Swift.String
+        sourcePath: Swift.String,
+        consumerPackageRoot: Swift.String
     ) throws(Lint.SingleFile.Error) -> [Lint.SingleFile.PackageDependency] {
         let sourceFile: SourceFileSyntax = Parser.parse(source: source)
         guard let runCall: FunctionCallExprSyntax = findRunCall(in: sourceFile) else {
@@ -66,7 +73,11 @@ extension Lint.SingleFile.Extractor {
                     description: "dependencies[] element is not a function call: `\(element.expression.description)`"
                 )
             }
-            let dep: Lint.SingleFile.PackageDependency = try parsePackageCall(call, sourcePath: sourcePath)
+            let dep: Lint.SingleFile.PackageDependency = try parsePackageCall(
+                call,
+                sourcePath: sourcePath,
+                consumerPackageRoot: consumerPackageRoot
+            )
             deps.append(dep)
         }
         return deps
@@ -109,7 +120,8 @@ extension Lint.SingleFile.Extractor {
 
     internal static func parsePackageCall(
         _ call: FunctionCallExprSyntax,
-        sourcePath: Swift.String
+        sourcePath: Swift.String,
+        consumerPackageRoot: Swift.String
     ) throws(Lint.SingleFile.Error) -> Lint.SingleFile.PackageDependency {
         guard let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self),
               member.declName.baseName.text == "package"
@@ -161,7 +173,7 @@ extension Lint.SingleFile.Extractor {
         let derivedName: Swift.String
         if let path: Swift.String = pathArg {
             source = .path(path)
-            derivedName = Self.packageName(fromPath: path)
+            derivedName = Self.packageName(fromPath: path, consumerPackageRoot: consumerPackageRoot)
         } else if let url: Swift.String = urlArg {
             if let from: Swift.String = fromArg {
                 source = .urlFrom(url: url, from: from)
@@ -234,8 +246,37 @@ extension Lint.SingleFile.Extractor {
     }
 
     /// Derive a SwiftPM package name from a `path:` argument's value.
+    ///
+    /// Self-reference shortcuts: `"."` and the empty string both name
+    /// the consumer's own package. SwiftPM rejects the literal `"."`
+    /// as a package name (`unknown package '.'`); for these forms the
+    /// derived name is the consumer-root directory's basename instead
+    /// — SwiftPM resolves `path:`-form packages by directory, and the
+    /// directory basename typically matches the Package.swift `name:`
+    /// field (e.g., `swift-cardinal-primitives`).
+    ///
+    /// The companion path-resolution shortcut lives at
+    /// ``Lint/SingleFile/Materializer/resolveConsumerPath(_:relativeRoot:)``.
 
-    internal static func packageName(fromPath path: Swift.String) -> Swift.String {
+    internal static func packageName(
+        fromPath path: Swift.String,
+        consumerPackageRoot: Swift.String
+    ) -> Swift.String {
+        if path.isEmpty || path == "." {
+            return basename(of: consumerPackageRoot)
+        }
+        return basename(of: path)
+    }
+
+    /// Slash-trimmed basename of a path-shaped string.
+    ///
+    /// Strips trailing slashes, then returns the segment after the
+    /// last remaining slash. Used by both `packageName(fromPath:)` and
+    /// `packageName(fromPath:consumerPackageRoot:)` for the
+    /// non-self-reference case; extracting here avoids duplicating
+    /// the slash-stripping logic across the two derivations.
+
+    private static func basename(of path: Swift.String) -> Swift.String {
         var trimmed: Swift.String = path
         while trimmed.hasSuffix("/") {
             trimmed.removeLast()

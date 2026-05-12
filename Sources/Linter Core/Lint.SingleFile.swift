@@ -168,7 +168,8 @@ extension Lint.SingleFile {
         }
         let dependencies: [Lint.SingleFile.PackageDependency] = try Lint.SingleFile.Extractor.extractDependencies(
             from: source,
-            sourcePath: consumerLintSwiftPath
+            sourcePath: consumerLintSwiftPath,
+            consumerPackageRoot: consumerPackageRoot
         )
         let evalRoot: Swift.String = try Lint.SingleFile.Materializer.materialize(
             consumerPackageRoot: consumerPackageRoot,
