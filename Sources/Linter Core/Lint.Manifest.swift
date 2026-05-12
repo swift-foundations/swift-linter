@@ -99,8 +99,20 @@ extension Lint.Manifest: JSON.Serializable {
     }
 
     public static func deserialize(_ json: JSON) throws(JSON.Error) -> Self {
-        let enabledRaw = try [Swift.String](json: json["enabledRuleIDs"])
-        let disabledRaw = try [Swift.String](json: json["disabledRuleIDs"])
+        // F-A3.1 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
+        // `[Lint.Rule.ID]` locals replace the prior `[Swift.String]
+        // enabledRaw / disabledRaw` bindings. Wire format remains
+        // bare strings on the JSON side per Manifest.swift's
+        // documented "JSON wire format" section; the typed lift
+        // happens immediately at the deserialization boundary so
+        // every downstream reference operates on `Lint.Rule.ID`.
+        // The `_Raw` suffix on the prior bindings advertised raw-
+        // string semantics that this pass closes; a Tagged-generic
+        // `JSON.Serializable` conformance would centralize the
+        // lift but lives at the wrong layer for now (L1 primitives
+        // package cannot depend on L3 JSON).
+        let enabledRuleIDs: [Lint.Rule.ID] = try [Swift.String](json: json["enabledRuleIDs"]).map { Lint.Rule.ID($0) }
+        let disabledRuleIDs: [Lint.Rule.ID] = try [Swift.String](json: json["disabledRuleIDs"]).map { Lint.Rule.ID($0) }
         let excludedRaw = try [Swift.String](json: json["excludedPaths"])
         let excludedPaths: [File.Path] = try excludedRaw.map { (string: Swift.String) throws(JSON.Error) -> File.Path in
             do {
@@ -113,8 +125,8 @@ extension Lint.Manifest: JSON.Serializable {
             }
         }
         return Self(
-            enabledRuleIDs: enabledRaw.map { Lint.Rule.ID($0) },
-            disabledRuleIDs: disabledRaw.map { Lint.Rule.ID($0) },
+            enabledRuleIDs: enabledRuleIDs,
+            disabledRuleIDs: disabledRuleIDs,
             excludedPaths: excludedPaths
         )
     }
