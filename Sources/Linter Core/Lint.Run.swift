@@ -74,27 +74,39 @@ extension Lint.Run {
     public static func run(
         paths: [File.Path],
         configuration: Lint.Configuration
-    ) throws(Error) -> [Diagnostic.Record] {
+    ) throws(Error) -> [Lint.Finding] {
         let outcome = try runCapturingSuppressed(paths: paths, configuration: configuration)
         return outcome.findings
     }
 
     /// Outcome of a lint run that distinguishes the surfaced findings
     /// from those elided by per-finding ``Lint/Suppression`` directives.
+    ///
+    /// Both fields carry ``Lint/Finding`` values rather than bare
+    /// ``Diagnostic_Primitives/Diagnostic/Record`` — the engine computes
+    /// the effective visibility of each finding's enclosing decl chain
+    /// via ``Lint/Source/Parsed/visibility(at:)`` and pairs it with the
+    /// rule-emitted record. Consumers that only need the underlying
+    /// record access `finding.record` directly.
     public struct Outcome: Sendable, Equatable {
         /// Findings the engine surfaces to the caller — survived
-        /// per-source ``Lint/Suppression`` consultation.
-        public let findings: [Diagnostic.Record]
+        /// per-source ``Lint/Suppression`` consultation. Each finding
+        /// pairs the rule-emitted ``Diagnostic_Primitives/Diagnostic/Record``
+        /// with the effective ``Lint/Visibility`` of its enclosing decl.
+        public let findings: [Lint.Finding]
 
         /// Findings the engine elided because a `swift-linter:disable`
         /// directive matched. Recorded for observability; never the
-        /// engine's exit-policy signal.
-        public let suppressed: [Diagnostic.Record]
+        /// engine's exit-policy signal. Visibility is computed for
+        /// suppressed findings too — empirical follow-ups can segment
+        /// the suppressed stream by visibility the same way as the
+        /// surfaced one.
+        public let suppressed: [Lint.Finding]
 
         @inlinable
         public init(
-            findings: [Diagnostic.Record] = [],
-            suppressed: [Diagnostic.Record] = []
+            findings: [Lint.Finding] = [],
+            suppressed: [Lint.Finding] = []
         ) {
             self.findings = findings
             self.suppressed = suppressed
@@ -124,8 +136,8 @@ extension Lint.Run {
         // factory hop, no per-entry filter branch.
         let effective = configuration.effectiveRules()
         var manager = Source.Manager()
-        var findings: [Diagnostic.Record] = []
-        var suppressed: [Diagnostic.Record] = []
+        var findings: [Lint.Finding] = []
+        var suppressed: [Lint.Finding] = []
         for root in paths {
             let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: root)
             for sourcePath in sourcePaths {
@@ -139,11 +151,23 @@ extension Lint.Run {
                     let candidates = entry.rule.findings(parsed, severity)
                     for record in candidates {
                         let ruleID = Lint.Rule.ID(_unchecked: record.identifier)
+                        // Visibility computation is post-rule: rules
+                        // emit bare records (so their findings closure
+                        // signatures stay stable), and the engine wraps
+                        // each record into a `Lint.Finding` tagged with
+                        // the effective visibility of the enclosing
+                        // decl chain. The reverse-position walk lives
+                        // in `Lint.Source.Parsed.visibility(at:)`.
+                        let visibility = parsed.visibility(at: record.location)
+                        let finding = Lint.Finding(
+                            record: record,
+                            visibility: visibility
+                        )
                         if suppression.suppresses(line: record.location.line, ruleID: ruleID) {
-                            suppressed.append(record)
+                            suppressed.append(finding)
                             continue
                         }
-                        findings.append(record)
+                        findings.append(finding)
                     }
                 }
             }

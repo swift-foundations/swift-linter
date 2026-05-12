@@ -42,19 +42,19 @@ extension Lint.Reporter {
 extension Lint.Reporter.SARIF {
     /// Emit a SARIF report via the given write surface.
     public static func emit(
-        findings: [Diagnostic.Record],
+        findings: [Lint.Finding],
         to write: Terminal.Stream.Write
     ) {
         try? write((report(for: findings) + "\n").utf8)
     }
 
     /// Build the SARIF document as a String (testable; CLI uses `emit`).
-    public static func report(for findings: [Diagnostic.Record]) -> Swift.String {
+    public static func report(for findings: [Lint.Finding]) -> Swift.String {
         let document = sarifLog(for: findings)
         return document.serialize(pretty: true)
     }
 
-    static func sarifLog(for findings: [Diagnostic.Record]) -> JSON {
+    static func sarifLog(for findings: [Lint.Finding]) -> JSON {
         [
             "version": "2.1.0",
             "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cs01/schemas/sarif-schema-2.1.0.json",
@@ -73,19 +73,20 @@ extension Lint.Reporter.SARIF {
         ]
     }
 
-    static func result(for finding: Diagnostic.Record) -> JSON {
-        let pathOrID = finding.location.filePath ?? finding.location.fileID
+    static func result(for finding: Lint.Finding) -> JSON {
+        let record = finding.record
+        let pathOrID = record.location.filePath ?? record.location.fileID
         return [
-            "ruleId": JSON(stringLiteral: finding.identifier),
-            "level": JSON(stringLiteral: level(for: finding.severity)),
-            "message": ["text": JSON(stringLiteral: finding.message)],
+            "ruleId": JSON(stringLiteral: record.identifier),
+            "level": JSON(stringLiteral: level(for: record.severity)),
+            "message": ["text": JSON(stringLiteral: record.message)],
             "locations": [
                 [
                     "physicalLocation": [
                         "artifactLocation": ["uri": JSON(stringLiteral: pathOrID)],
                         "region": [
-                            "startLine": JSON(integerLiteral: finding.location.line),
-                            "startColumn": JSON(integerLiteral: finding.location.column),
+                            "startLine": JSON(integerLiteral: record.location.line),
+                            "startColumn": JSON(integerLiteral: record.location.column),
                         ],
                     ],
                 ],

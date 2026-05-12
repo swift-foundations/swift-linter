@@ -56,7 +56,7 @@ extension Lint {
 
         do {
             let consumerPaths: [File.Path] = try pathStrings.map { try File.Path($0) }
-            let findings = try Lint.Run.run(paths: consumerPaths, configuration: configuration)
+            let findings: [Lint.Finding] = try Lint.Run.run(paths: consumerPaths, configuration: configuration)
             Lint.Reporter.Text.emit(findings: findings, to: Terminal.Stream.stdout.write)
         } catch {
             print("[Lint] error: \(error)")

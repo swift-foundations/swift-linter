@@ -101,7 +101,7 @@ extension Lint.Run.Test.Integration {
         }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 1)
-        #expect(findings.first?.location.filePath?.hasSuffix("/Sources/A/x.swift") == true)
+        #expect(findings.first?.record.location.filePath?.hasSuffix("/Sources/A/x.swift") == true)
     }
 
     @Test
@@ -112,7 +112,7 @@ extension Lint.Run.Test.Integration {
         }
         let findings = try Lint.Run.run(paths: [root], configuration: configuration)
         #expect(findings.count == 1)
-        #expect(findings.first?.location.filePath?.hasSuffix("/Sources/A/x.swift") == true)
+        #expect(findings.first?.record.location.filePath?.hasSuffix("/Sources/A/x.swift") == true)
     }
 
     @Test

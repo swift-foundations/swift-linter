@@ -89,9 +89,9 @@ struct SwiftLinter: ParsableCommand {
         // exactly once via `try File.Path(_:)` so the engine receives
         // typed paths from here down [IMPL-010].
         let typedPaths: [File.Path] = try paths.map { try File.Path($0) }
-        let findings = try Lint.Run.run(paths: typedPaths, configuration: configuration)
+        let findings: [Lint.Finding] = try Lint.Run.run(paths: typedPaths, configuration: configuration)
         emit(findings)
-        if exitPolicy == .strict && findings.contains(where: { $0.severity == .error }) {
+        if exitPolicy == .strict && findings.contains(where: { $0.record.severity == .error }) {
             throw ExitCode.failure
         }
     }
@@ -121,7 +121,7 @@ struct SwiftLinter: ParsableCommand {
         )
     }
 
-    func emit(_ findings: [Diagnostic.Record]) {
+    func emit(_ findings: [Lint.Finding]) {
         // Phase 2 Stream C: emit directly via Terminal.Stream.Write's
         // L2 syscall extension (POSIX: swift-iso-9945; Windows:
         // swift-windows-32). OQ-T2 from Phase 1.5 is closed.

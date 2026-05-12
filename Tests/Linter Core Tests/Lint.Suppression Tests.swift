@@ -290,5 +290,41 @@ extension Lint.Suppression.Test.EngineIntegration {
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         #expect(configuration.disabledRuleIDs.contains("suppression fixture"))
     }
+
+    @Test
+    func `Engine tags findings with the enclosing decl's effective visibility`() throws {
+        // `targetCall` is on line 2 inside a `private struct Outer`,
+        // so the effective visibility of the enclosing decl chain is
+        // `.private`. The engine computes this post-rule via
+        // `Lint.Source.Parsed.visibility(at:)` and pairs it into the
+        // emitted `Lint.Finding`.
+        let root = try Self.writeFixture(content: """
+        private struct Outer {
+            func body() { targetCall() }
+        }
+        """)
+        let configuration = Lint.Configuration {
+            .enable(.`suppression fixture`)
+        }
+        let findings = try Lint.Run.run(paths: [root], configuration: configuration)
+        #expect(findings.count == 1)
+        #expect(findings.first?.visibility == .private)
+    }
+
+    @Test
+    func `Top-level finding is tagged internal by default`() throws {
+        // `targetCall` is at file scope — no enclosing decl carries a
+        // modifier, so the effective visibility is `internal` (Swift's
+        // file-scope default).
+        let root = try Self.writeFixture(content: """
+        targetCall()
+        """)
+        let configuration = Lint.Configuration {
+            .enable(.`suppression fixture`)
+        }
+        let findings = try Lint.Run.run(paths: [root], configuration: configuration)
+        #expect(findings.count == 1)
+        #expect(findings.first?.visibility == .internal)
+    }
 }
 
