@@ -60,6 +60,18 @@ extension Lint.Reporter.Text {
     }
 
     /// Format a single finding as a SwiftLint-compatible textual line.
+    ///
+    /// Shape: `<path>:<line>:<column>: <severity>: <identifier>: <message>`
+    /// — matching SwiftLint's textual reporter form so existing CI
+    /// parsers / IDE problem-matchers detect findings without
+    /// configuration changes.
+    ///
+    /// When the finding carries a non-`nil` ``Lint/Finding/visibility``
+    /// the line is suffixed with ` [visibility: <case>]` (e.g.,
+    /// `[visibility: private]`). Visibility annotation is engine-
+    /// computed metadata; consumers parsing the SwiftLint shape
+    /// strictly can ignore the bracketed suffix — the
+    /// `path:line:col: severity:` prefix is unchanged.
     public static func line(for finding: Lint.Finding) -> Swift.String {
         let record = finding.record
         let location = record.location
@@ -67,6 +79,8 @@ extension Lint.Reporter.Text {
         let prefix = "\(pathOrID):\(location.line):\(location.column): "
         let severity = "\(record.severity.wireToken): "
         let body = "\(record.identifier): \(record.message)"
-        return prefix + severity + body
+        let line = prefix + severity + body
+        guard let visibility = finding.visibility else { return line }
+        return line + " [visibility: \(visibility.rawValue)]"
     }
 }
