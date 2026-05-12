@@ -213,7 +213,7 @@ extension Lint.Run {
         root: File.Path,
         relativePath: Lint.Source.Path,
         manager: inout Source.Manager,
-        brandTypes: Swift.Set<Swift.String>
+        brandTypes: Swift.Set<Lint.Brand>
     ) throws(Error) -> Lint.Source.Parsed {
         let absoluteString: Swift.String
         let filePath: File.Path

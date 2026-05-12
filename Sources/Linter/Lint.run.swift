@@ -115,7 +115,7 @@ extension Lint {
     /// `run(configuration: Lint.Configuration(brands: brands, rules: rules))`.
     public static func run(
         dependencies: [Lint.Dependency],
-        brands: Swift.Set<Swift.String> = [],
+        brands: Swift.Set<Lint.Brand> = [],
         @Array<Lint.Rule.Configuration>.Builder rules: () -> [Lint.Rule.Configuration]
     ) {
         _ = dependencies
