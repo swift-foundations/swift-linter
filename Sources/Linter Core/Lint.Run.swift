@@ -71,27 +71,6 @@ extension Lint.Run {
     /// (tens-of-thousands of files; corporate monorepos; aggregated
     /// dependency-graphs) should expect proportional memory residency
     /// and MAY chunk runs by sub-tree to bound the working set.
-    ///
-    /// ## Brand-type admission
-    ///
-    /// Recognizer-class rules consult the run's brand-newtype set
-    /// (`raw value access`, `chain`, `bitpattern`, `int parameter`).
-    /// The set is sourced from the configuration's
-    /// ``Lint/Configuration/effectiveBrands()`` — walking the parent
-    /// chain once at run start. The engine threads the result onto
-    /// every parsed source the walker emits so recognizer-class
-    /// rules can admit same-package access without firing —
-    /// preserving strict-superset for cross-package consumers.
-    ///
-    /// Shape γ consumers declare brands at the call site:
-    /// `Lint.run(dependencies: …, brands: ["Ordinal"]) { … }`.
-    ///
-    /// See
-    /// `swift-foundations/swift-linter-rules/Research/numerics-rule-recognizer-2026-05-12.md`
-    /// for the recognizer-class rule prose. The all-Swift kwarg shape
-    /// supersedes the prior `.swift-linter.json` per-file discovery
-    /// model — see `project_linter_config_all_swift.md` for the
-    /// convention.
     public static func run(
         paths: [File.Path],
         configuration: Lint.Configuration
@@ -156,14 +135,13 @@ extension Lint.Run {
         // findings closure — no existential dispatch, no `init(severity:)`
         // factory hop, no per-entry filter branch.
         let effective = configuration.effectiveRules()
-        let brandTypes = configuration.effectiveBrands()
         var manager = Source.Manager()
         var findings: [Lint.Finding] = []
         var suppressed: [Lint.Finding] = []
         for root in paths {
             let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: root)
             for sourcePath in sourcePaths {
-                let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager, brandTypes: brandTypes)
+                let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager)
                 let suppression = Lint.Suppression.scan(
                     tree: parsed.tree,
                     converter: parsed.converter
@@ -212,8 +190,7 @@ extension Lint.Run {
     static func parsedSource(
         root: File.Path,
         relativePath: Lint.Source.Path,
-        manager: inout Source.Manager,
-        brandTypes: Swift.Set<Lint.Brand>
+        manager: inout Source.Manager
     ) throws(Error) -> Lint.Source.Parsed {
         let absoluteString: Swift.String
         let filePath: File.Path
@@ -255,8 +232,7 @@ extension Lint.Run {
             file: sourceFile,
             path: relativePath,
             tree: tree,
-            converter: converter,
-            brandTypes: brandTypes
+            converter: converter
         )
     }
 }

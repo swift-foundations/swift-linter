@@ -103,19 +103,8 @@ extension Lint {
     /// resolved by SwiftPM and the rule-pack products are accessible
     /// via the `import` statements at the top of the consumer's
     /// `Lint.swift`.
-    ///
-    /// The `brands:` argument names the consumer package's brand-newtype
-    /// types (e.g., `["Ordinal"]`, `["Affine.Discrete.Vector"]`).
-    /// Recognizer-class rules (`raw value access`, `chain`,
-    /// `bitpattern`, `int parameter`) consult this set to admit
-    /// same-package `.rawValue` access without firing. Empty by default
-    /// — consumers that don't declare brand-newtypes need not pass it.
-    ///
-    /// Equivalent at runtime to
-    /// `run(configuration: Lint.Configuration(brands: brands, rules: rules))`.
     public static func run(
         dependencies: [Lint.Dependency],
-        brands: Swift.Set<Lint.Brand> = [],
         @Array<Lint.Rule.Configuration>.Builder rules: () -> [Lint.Rule.Configuration]
     ) {
         _ = dependencies
@@ -125,7 +114,7 @@ extension Lint {
             registry[entry.rule.id] = entry.rule
         }
         let parent: Lint.Configuration? = Lint.SingleFile.parentConfiguration(registry: registry)
-        let configuration = Lint.Configuration(inheriting: parent, brands: brands) { collected }
+        let configuration = Lint.Configuration(inheriting: parent) { collected }
         run(configuration: configuration)
     }
 }
