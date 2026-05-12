@@ -69,10 +69,13 @@ extension Lint.Source.Walker {
         }
 
         let directory = File.Directory(root)
-        guard let files = try? directory.glob.files(
-            include: includePatterns,
-            excluding: excludePatterns
-        ) else {
+        let files: [File]
+        do throws(Glob.Error) {
+            files = try directory.glob.files(
+                include: includePatterns,
+                excluding: excludePatterns
+            )
+        } catch {
             return []
         }
 

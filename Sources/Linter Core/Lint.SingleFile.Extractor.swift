@@ -295,7 +295,10 @@ extension Lint.SingleFile.Extractor {
     ///
     /// F-A1.4 in `swift-linter/Research/2026-05-12-typed-primitive-adoption-audit.md`.
     private static func basename(of path: Swift.String) -> Swift.String {
-        guard let typed = try? File.Path(path) else {
+        let typed: File.Path
+        do throws(Paths.Path.Error) {
+            typed = try File.Path(path)
+        } catch {
             return path
         }
         return typed.components.last?.string ?? path

@@ -132,10 +132,16 @@ extension Lint.Driver {
     /// typed `File.Path` on both parameter and return.
     public static func lintSwiftPath(at consumerPackageRoot: File.Path) -> File.Path? {
         let candidate: File.Path = consumerPackageRoot / "Lint.swift"
-        guard let directory = try? File.Directory(validating: consumerPackageRoot.string) else {
+        let directory: File.Directory
+        do throws(Paths.Path.Error) {
+            directory = try File.Directory(validating: consumerPackageRoot.string)
+        } catch {
             return nil
         }
-        guard let entries = try? directory.entries() else {
+        let entries: [File.Directory.Entry]
+        do throws(File.Directory.Contents.Error) {
+            entries = try directory.entries()
+        } catch {
             return nil
         }
         for entry in entries where Swift.String(entry.name) == "Lint.swift" {
@@ -202,7 +208,7 @@ extension Lint.Driver {
             onMissingLinterPath()
             return defaultConfiguration()
         }
-        do {
+        do throws(Manifest.Resolver<Lint.Manifest, Lint.Configuration>.Error) {
             return try Manifest.Resolver<Lint.Manifest, Lint.Configuration>.resolve(
                 consumerPackageRoot: manifestDirectory,
                 filename: manifestFilename,
@@ -293,9 +299,13 @@ extension Lint.Driver {
         // unresolved `..` segment, while `.parent` resolves to the
         // workspace directory directly. Silent-fallback `nil` on
         // parse failure mirrors the documented contract.
-        guard let linter: File.Path = try? File.Path(linterPath),
-              let workspace: File.Path = linter.parent
-        else {
+        let linter: File.Path
+        do throws(Paths.Path.Error) {
+            linter = try File.Path(linterPath)
+        } catch {
+            return nil
+        }
+        guard let workspace: File.Path = linter.parent else {
             return nil
         }
         return [
