@@ -32,8 +32,8 @@ extension Lint.SingleFile.Materializer {
 
 extension Lint.SingleFile.Materializer.Test.ResolveConsumerPath {
     @Test
-    func `Sibling-package path is prefixed with the eval-to-consumer hop`() {
-        let resolved = Lint.SingleFile.Materializer.resolveConsumerPath(
+    func `Sibling-package path is prefixed with the eval-to-consumer hop`() throws {
+        let resolved = try Lint.SingleFile.Materializer.resolveConsumerPath(
             "../../swift-primitives-linter-rules",
             relativeRoot: "../.."
         )
@@ -41,8 +41,8 @@ extension Lint.SingleFile.Materializer.Test.ResolveConsumerPath {
     }
 
     @Test
-    func `Absolute path is returned unchanged`() {
-        let resolved = Lint.SingleFile.Materializer.resolveConsumerPath(
+    func `Absolute path is returned unchanged`() throws {
+        let resolved = try Lint.SingleFile.Materializer.resolveConsumerPath(
             "/Users/coen/Developer/swift-linter-rules",
             relativeRoot: "../.."
         )
@@ -50,10 +50,10 @@ extension Lint.SingleFile.Materializer.Test.ResolveConsumerPath {
     }
 
     @Test
-    func `Self-reference dot collapses to relativeRoot without trailing slash-dot`() {
+    func `Self-reference dot collapses to relativeRoot without trailing slash-dot`() throws {
         // SwiftPM rejects `.package(path: "../../.")` with "unknown package '.'";
         // the self-reference shortcut returns the bare `relativeRoot` instead.
-        let resolved = Lint.SingleFile.Materializer.resolveConsumerPath(
+        let resolved = try Lint.SingleFile.Materializer.resolveConsumerPath(
             ".",
             relativeRoot: "../.."
         )
@@ -61,8 +61,8 @@ extension Lint.SingleFile.Materializer.Test.ResolveConsumerPath {
     }
 
     @Test
-    func `Self-reference empty string collapses to relativeRoot without trailing slash`() {
-        let resolved = Lint.SingleFile.Materializer.resolveConsumerPath(
+    func `Self-reference empty string collapses to relativeRoot without trailing slash`() throws {
+        let resolved = try Lint.SingleFile.Materializer.resolveConsumerPath(
             "",
             relativeRoot: "../.."
         )

@@ -46,7 +46,7 @@ extension Lint.SingleFile.Materializer {
             )
         }
 
-        let packageSwift: Swift.String = Self.renderPackageSwift(
+        let packageSwift: Swift.String = try Self.renderPackageSwift(
             consumerPackageRoot: consumerPackageRoot,
             evalRoot: evalRoot,
             linterPath: linterPath,
@@ -77,7 +77,7 @@ extension Lint.SingleFile.Materializer {
         evalRoot: Swift.String,
         linterPath: Swift.String,
         dependencies: [Lint.SingleFile.PackageDependency]
-    ) -> Swift.String {
+    ) throws(Lint.SingleFile.Error) -> Swift.String {
         // Consumer-declared `.package(path: X)` paths are written by
         // the consumer relative to the consumer's package root. The
         // eval project's Package.swift sits at
@@ -112,7 +112,7 @@ extension Lint.SingleFile.Materializer {
         for dep in dependencies {
             switch dep.source {
             case .path(let path):
-                let resolvedPath: Swift.String = Self.resolveConsumerPath(path, relativeRoot: evalRelativeToConsumer)
+                let resolvedPath: Swift.String = try Self.resolveConsumerPath(path, relativeRoot: evalRelativeToConsumer)
                 lines.append("        .package(path: \"\(resolvedPath)\"),")
             case .urlFrom(let url, let from):
                 lines.append("        .package(url: \"\(url)\", from: \"\(from)\"),")
@@ -167,7 +167,10 @@ extension Lint.SingleFile.Materializer {
     /// Example: consumer writes `.package(path: "../../swift-primitives-linter-rules")`.
     /// The eval Package.swift lives at `<consumerRoot>/.swift-lint/eval/`,
     /// two levels deeper than the consumer root. To reach the same
-    /// target, we prepend `../../` → `../../../../swift-primitives-linter-rules`.
+    /// target, the eval prepends `../../` → `../../../../swift-primitives-linter-rules`.
+    /// Joining goes through ``File/Path`` so separator semantics and
+    /// component validation come from the typed primitive — not raw
+    /// string concatenation.
     ///
     /// Self-reference shortcuts: `"."` and the empty string both name
     /// the consumer's own package root. Naive concatenation
@@ -175,21 +178,36 @@ extension Lint.SingleFile.Materializer {
     /// `.package(path:)` parser rejects with "unknown package '.'".
     /// Both forms collapse to `relativeRoot` here so a consumer can
     /// declare `.package(path: ".", products: [...])` to refer to its
-    /// own package.
+    /// own package. The shortcut runs ahead of `File.Path` construction
+    /// — `File.Path("")` throws `.empty`, and `Path("./X").appending(...)`
+    /// retains the leading `.` literal that SwiftPM rejects.
     @usableFromInline
     internal static func resolveConsumerPath(
         _ consumerPath: Swift.String,
         relativeRoot: Swift.String
-    ) -> Swift.String {
-        // Absolute paths are unchanged.
-        if consumerPath.hasPrefix("/") {
-            return consumerPath
-        }
-        // Self-reference shortcuts.
+    ) throws(Lint.SingleFile.Error) -> Swift.String {
+        // Self-reference shortcuts — both name the consumer's own
+        // package root, which is exactly `relativeRoot` from the eval
+        // project's vantage. Runs ahead of typed-path construction
+        // because both `""` and `"."` either fail `Path` validation or
+        // retain a `.` segment SwiftPM cannot resolve.
         if consumerPath.isEmpty || consumerPath == "." {
             return relativeRoot
         }
-        return relativeRoot + "/" + consumerPath
+        let consumer: File.Path
+        let base: File.Path
+        do throws(Paths.Path.Error) {
+            consumer = try File.Path(consumerPath)
+            base = try File.Path(relativeRoot)
+        } catch {
+            throw .materializationFailed(
+                reason: "invalid SwiftPM path-form dep `\(consumerPath)` (relative to `\(relativeRoot)`): \(error)"
+            )
+        }
+        // `Path.appending(_:)` returns `other` unchanged when absolute
+        // — preserves the prior absolute-passthrough behaviour without
+        // an explicit `hasPrefix("/")` branch.
+        return base.appending(consumer).string
     }
 
     /// Create a directory tree recursively.
