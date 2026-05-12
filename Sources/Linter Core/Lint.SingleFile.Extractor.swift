@@ -9,6 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
+internal import File_System
 internal import SwiftParser
 internal import SwiftSyntax
 
@@ -274,21 +275,19 @@ extension Lint.SingleFile.Extractor {
 
     /// Slash-trimmed basename of a path-shaped string.
     ///
-    /// Strips trailing slashes, then returns the segment after the
-    /// last remaining slash. Used by both `packageName(fromPath:)` and
+    /// Returns the last component of the typed-Path form of `path`.
+    /// Used by both `packageName(fromPath:)` and
     /// `packageName(fromPath:consumerPackageRoot:)` for the
-    /// non-self-reference case; extracting here avoids duplicating
-    /// the slash-stripping logic across the two derivations.
-
+    /// non-self-reference case; the typed primitive owns trailing-
+    /// slash trimming and component segmentation, so this helper is
+    /// a thin adapter at the bare-string boundary.
+    ///
+    /// F-A1.4 in `swift-linter/Research/2026-05-12-typed-primitive-adoption-audit.md`.
     private static func basename(of path: Swift.String) -> Swift.String {
-        var trimmed: Swift.String = path
-        while trimmed.hasSuffix("/") {
-            trimmed.removeLast()
+        guard let typed = try? File.Path(path) else {
+            return path
         }
-        if let lastSlash: Swift.String.Index = trimmed.lastIndex(of: "/") {
-            return Swift.String(trimmed[trimmed.index(after: lastSlash)...])
-        }
-        return trimmed
+        return typed.components.last?.string ?? path
     }
 
     /// Derive a SwiftPM package name from a `url:` argument's value.

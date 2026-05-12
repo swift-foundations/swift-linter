@@ -104,7 +104,17 @@ extension Lint.SingleFile {
     public static func detect(
         at consumerPackageRoot: Swift.String
     ) -> Swift.String? {
-        let candidate = consumerPackageRoot + "/Lint.swift"
+        // F-A1.9 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
+        // typed `File.Path` arithmetic replaces the prior
+        // `consumerPackageRoot + "/Lint.swift"` concat. The boundary
+        // remains `Swift.String` until Phase 2 types
+        // `consumerPackageRoot` itself; an invalid root falls
+        // through `nil` rather than throwing because `detect` is
+        // explicitly silent-fallback.
+        guard let consumerRoot: File.Path = try? File.Path(consumerPackageRoot) else {
+            return nil
+        }
+        let candidate: Swift.String = (consumerRoot / "Lint.swift").string
         guard let directory = try? File.Directory(validating: consumerPackageRoot) else {
             return nil
         }
@@ -181,7 +191,17 @@ extension Lint.SingleFile {
         at consumerPackageRoot: Swift.String,
         arguments: [Swift.String]
     ) throws(Lint.SingleFile.Error) -> Swift.Int32 {
-        let consumerLintSwiftPath: Swift.String = consumerPackageRoot + "/Lint.swift"
+        // F-A1.10 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
+        // typed `File.Path` arithmetic replaces the prior
+        // `consumerPackageRoot + "/Lint.swift"` concat. The
+        // surrounding boundary remains `Swift.String` until Phase 2.
+        let consumerRoot: File.Path
+        do throws(Paths.Path.Error) {
+            consumerRoot = try File.Path(consumerPackageRoot)
+        } catch {
+            throw .materializationFailed(reason: "invalid consumerPackageRoot `\(consumerPackageRoot)`: \(error)")
+        }
+        let consumerLintSwiftPath: Swift.String = (consumerRoot / "Lint.swift").string
         let source: Swift.String
         do {
             source = try Self.readFile(at: consumerLintSwiftPath)
@@ -259,16 +279,28 @@ extension Lint.SingleFile {
         guard let linterPath: Swift.String = Environment.read("SWIFT_LINTER_PATH") else {
             return nil
         }
-        let workspace: Swift.String = linterPath + "/.."
+        // F-A1.11 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
+        // `Paths.Path.parent` replaces the prior `linterPath + "/.."`
+        // dot-segment suffix; the typed primitive owns dot-segment
+        // semantics. The workspace is the parent directory of the
+        // swift-linter package — the env var points at the package
+        // root by contract. Parse / parent failure folds into the
+        // method's documented silent-fallback contract (return `nil`
+        // → no parent inheritance).
+        guard let linter: File.Path = try? File.Path(linterPath),
+              let workspace: File.Path = linter.parent
+        else {
+            return nil
+        }
         let parentDependencies: [Manifest.Dependency] = [
             Manifest.Dependency(
-                path: workspace + "/swift-json",
+                path: (workspace / "swift-json").string,
                 name: "swift-json",
                 product: "JSON",
                 imports: ["JSON"]
             ),
             Manifest.Dependency(
-                path: workspace + "/swift-file-system",
+                path: (workspace / "swift-file-system").string,
                 name: "swift-file-system",
                 product: "File System",
                 imports: ["File_System"]
@@ -299,9 +331,20 @@ extension Lint.SingleFile {
         let folded: Lint.Manifest = Self.foldParents(parentChain)
         let serialized: JSON = Lint.Manifest.serialize(folded)
         let jsonString: Swift.String = serialized.jsonString()
-        let tempPath: Swift.String = consumerPackageRoot + "/.swift-lint/parent-manifest.json"
+        // F-A1.12 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
+        // typed `File.Path` arithmetic replaces the prior
+        // `consumerPackageRoot + "/.swift-lint/parent-manifest.json"`
+        // concat. Component-literal `/` operator means the segment
+        // shapes are compile-time validated.
+        let filePath: File.Path
+        do throws(Paths.Path.Error) {
+            let consumerRoot = try File.Path(consumerPackageRoot)
+            filePath = consumerRoot / ".swift-lint" / "parent-manifest.json"
+        } catch {
+            throw .materializationFailed(reason: "invalid consumerPackageRoot `\(consumerPackageRoot)`: \(error)")
+        }
+        let tempPath: Swift.String = filePath.string
         do {
-            let filePath: File.Path = try File.Path(tempPath)
             try File(filePath).write.atomic(jsonString)
         } catch {
             throw .materializationFailed(reason: "write parent manifest \(tempPath): \(error)")

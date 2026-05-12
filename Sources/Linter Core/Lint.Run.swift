@@ -182,11 +182,11 @@ extension Lint.Run {
     /// (typed `File.Path`); `relativePath` is the walker-emitted
     /// ``Lint/Source/Path`` (run-root-relative). When `relativePath`
     /// is empty the walker is in single-file-root mode and `root`
-    /// itself is the file. Otherwise the resolver concatenates
-    /// `root.description + "/" + relativePath.underlying` to obtain
-    /// the absolute string for I/O. The concatenation is the typed
-    /// boundary's mechanism — bare strings exist here, in the
-    /// resolver body, and nowhere else in the engine.
+    /// itself is the file. Otherwise the resolver joins via
+    /// ``File/Path/appending(_:)`` — separator semantics and
+    /// component validation come from the typed primitive (see
+    /// `Lint.SingleFile.Materializer.resolveConsumerPath` at
+    /// `swift-linter@fe2c18e` for the same pattern).
     static func parsedSource(
         root: File.Path,
         relativePath: Lint.Source.Path,
@@ -198,14 +198,19 @@ extension Lint.Run {
             absoluteString = root.description
             filePath = root
         } else {
-            let rootString = root.description
-            let separator = rootString.hasSuffix("/") ? "" : "/"
-            absoluteString = rootString + separator + relativePath.underlying
-            do {
-                filePath = try File.Path(absoluteString)
+            // F-A1.3: typed `File.Path` appending replaces the prior
+            // `rootString + separator + relativePath.underlying`
+            // manual separator math. `relative` is constructed first
+            // so a malformed walker-emitted path surfaces a
+            // `Path.Error` rather than a downstream open-file failure.
+            let relative: File.Path
+            do throws(Paths.Path.Error) {
+                relative = try File.Path(relativePath.underlying)
             } catch {
-                throw .fileNotReadable(path: absoluteString)
+                throw .fileNotReadable(path: relativePath.underlying)
             }
+            filePath = root.appending(relative)
+            absoluteString = filePath.description
         }
         let file = File(filePath)
         let bytes: [UInt8]

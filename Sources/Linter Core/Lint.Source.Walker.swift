@@ -59,9 +59,10 @@ extension Lint.Source.Walker {
     /// ``Lint/Source/Path`` and ``Lint/Run/parsedSource(root:relativePath:manager:)``
     /// resolves I/O via `root` directly.
     public static func swiftSourcePaths(under root: File.Path) -> [Lint.Source.Path] {
-        let rootString = root.description
-
-        if rootString.hasSuffix(".swift") {
+        // F-A1.2 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
+        // single-file degenerate case keyed on the path's extension —
+        // ask the typed primitive, not the raw description.
+        if root.components.last?.extension?.string == "swift" {
             return [Lint.Source.Path("")]
         }
 
@@ -73,16 +74,18 @@ extension Lint.Source.Walker {
             return []
         }
 
-        let normalizedRoot = rootString.hasSuffix("/") ? rootString : rootString + "/"
+        // F-A1.1: prior shape manually normalized a trailing slash on
+        // `rootString` and used `hasPrefix` + `dropFirst(count)` to
+        // derive the relative remainder. `Paths.Path.relative(to:)`
+        // owns both prefix-match and remainder construction in one
+        // pass (component-level comparison, no separator arithmetic).
         var results: [Lint.Source.Path] = []
         results.reserveCapacity(files.count)
         for file in files {
-            let absolute = file.path.description
-            guard absolute.hasPrefix(normalizedRoot) else {
+            guard let relative = file.path.relative(to: root) else {
                 continue
             }
-            let relative = Swift.String(absolute.dropFirst(normalizedRoot.count))
-            results.append(Lint.Source.Path(relative))
+            results.append(Lint.Source.Path(relative.string))
         }
         return results.sorted(by: { $0.underlying < $1.underlying })
     }

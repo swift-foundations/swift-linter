@@ -32,8 +32,30 @@ extension Lint.SingleFile.Materializer {
         consumerLintSwiftPath: Swift.String,
         dependencies: [Lint.SingleFile.PackageDependency]
     ) throws(Lint.SingleFile.Error) -> Swift.String {
-        let evalRoot: Swift.String = consumerPackageRoot + "/.swift-lint/eval"
-        let sourcesDirectory: Swift.String = evalRoot + "/Sources/Lint"
+        // F-A1.5–F-A1.8 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
+        // typed `File.Path` arithmetic replaces the prior raw
+        // `consumerPackageRoot + "/.swift-lint/eval"` etc. concat.
+        // The strings remain `Swift.String` at this boundary pending
+        // Phase 2's typing of `consumerPackageRoot`; conversion at
+        // each site keeps Phase 1's local-edits invariant.
+        let consumerRoot: File.Path
+        do throws(Paths.Path.Error) {
+            consumerRoot = try File.Path(consumerPackageRoot)
+        } catch {
+            throw .materializationFailed(reason: "invalid consumerPackageRoot `\(consumerPackageRoot)`: \(error)")
+        }
+        // `/` operator's `(Path, Component)` overload — `Component`
+        // is `ExpressibleByStringLiteral`, so the segment literals
+        // typecheck without throwing component construction at call
+        // sites (compile-time-known component shapes can never fail
+        // path-component validation).
+        let evalRootPath: File.Path = consumerRoot / ".swift-lint" / "eval"
+        let sourcesDirectoryPath: File.Path = evalRootPath / "Sources" / "Lint"
+        let packageSwiftPath: File.Path = evalRootPath / "Package.swift"
+        let mainSwiftPath: File.Path = sourcesDirectoryPath / "main.swift"
+
+        let evalRoot: Swift.String = evalRootPath.string
+        let sourcesDirectory: Swift.String = sourcesDirectoryPath.string
 
         try Self.createDirectoryRecursive(at: sourcesDirectory)
 
@@ -52,10 +74,10 @@ extension Lint.SingleFile.Materializer {
             linterPath: linterPath,
             dependencies: dependencies
         )
-        try Self.writeAtomic(packageSwift, to: evalRoot + "/Package.swift")
+        try Self.writeAtomic(packageSwift, to: packageSwiftPath.string)
 
         let consumerSource: Swift.String = try Self.readFile(at: consumerLintSwiftPath)
-        try Self.writeAtomic(consumerSource, to: sourcesDirectory + "/main.swift")
+        try Self.writeAtomic(consumerSource, to: mainSwiftPath.string)
 
         return evalRoot
     }

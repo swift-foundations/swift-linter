@@ -281,16 +281,27 @@ extension Lint.Driver {
         guard let linterPath = Environment.read("SWIFT_LINTER_PATH") else {
             return nil
         }
-        let workspace = linterPath + "/.."
+        // F-A1.13 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
+        // sibling code path to `Lint.SingleFile.resolveParentChain`
+        // F-A1.11. `Paths.Path.parent` owns dot-segment semantics —
+        // the prior `linterPath + "/.."` produces a path with an
+        // unresolved `..` segment, while `.parent` resolves to the
+        // workspace directory directly. Silent-fallback `nil` on
+        // parse failure mirrors the documented contract.
+        guard let linter: File.Path = try? File.Path(linterPath),
+              let workspace: File.Path = linter.parent
+        else {
+            return nil
+        }
         return [
             Manifest.Dependency(
-                path: workspace + "/swift-json",
+                path: (workspace / "swift-json").string,
                 name: "swift-json",
                 product: "JSON",
                 imports: ["JSON"]
             ),
             Manifest.Dependency(
-                path: workspace + "/swift-file-system",
+                path: (workspace / "swift-file-system").string,
                 name: "swift-file-system",
                 product: "File System",
                 imports: ["File_System"]
