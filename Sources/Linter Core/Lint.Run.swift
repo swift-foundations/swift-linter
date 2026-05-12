@@ -72,21 +72,26 @@ extension Lint.Run {
     /// dependency-graphs) should expect proportional memory residency
     /// and MAY chunk runs by sub-tree to bound the working set.
     ///
-    /// ## Package-scoped brand-type admission
+    /// ## Brand-type admission
     ///
-    /// The engine threads a ``Lint/Brands`` cache through the parsed-
-    /// source resolver. For each file the resolver looks up the
-    /// owning SwiftPM package (one directory walk up to the nearest
-    /// `Package.swift`), reads any adjacent `.swift-linter.json`, and
-    /// caches the package's declared `brandTypes` set. Each
-    /// ``Lint/Source/Parsed`` value the engine emits carries the
-    /// owning package's brand-type set so recognizer-class rules can
-    /// admit same-package access without firing — preserving strict-
-    /// superset for cross-package consumers.
+    /// Recognizer-class rules consult the run's brand-newtype set
+    /// (`raw value access`, `chain`, `bitpattern`, `int parameter`).
+    /// The set is sourced from the configuration's
+    /// ``Lint/Configuration/effectiveBrands()`` — walking the parent
+    /// chain once at run start. The engine threads the result onto
+    /// every parsed source the walker emits so recognizer-class
+    /// rules can admit same-package access without firing —
+    /// preserving strict-superset for cross-package consumers.
+    ///
+    /// Shape γ consumers declare brands at the call site:
+    /// `Lint.run(dependencies: …, brands: ["Ordinal"]) { … }`.
     ///
     /// See
     /// `swift-foundations/swift-linter-rules/Research/numerics-rule-recognizer-2026-05-12.md`
-    /// for the rationale.
+    /// for the recognizer-class rule prose. The all-Swift kwarg shape
+    /// supersedes the prior `.swift-linter.json` per-file discovery
+    /// model — see `project_linter_config_all_swift.md` for the
+    /// convention.
     public static func run(
         paths: [File.Path],
         configuration: Lint.Configuration
@@ -151,14 +156,14 @@ extension Lint.Run {
         // findings closure — no existential dispatch, no `init(severity:)`
         // factory hop, no per-entry filter branch.
         let effective = configuration.effectiveRules()
+        let brandTypes = configuration.effectiveBrands()
         var manager = Source.Manager()
-        var brands = Lint.Brands()
         var findings: [Lint.Finding] = []
         var suppressed: [Lint.Finding] = []
         for root in paths {
             let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: root)
             for sourcePath in sourcePaths {
-                let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager, brands: &brands)
+                let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager, brandTypes: brandTypes)
                 let suppression = Lint.Suppression.scan(
                     tree: parsed.tree,
                     converter: parsed.converter
@@ -208,7 +213,7 @@ extension Lint.Run {
         root: File.Path,
         relativePath: Lint.Source.Path,
         manager: inout Source.Manager,
-        brands: inout Lint.Brands
+        brandTypes: Swift.Set<Swift.String>
     ) throws(Error) -> Lint.Source.Parsed {
         let absoluteString: Swift.String
         let filePath: File.Path
@@ -246,12 +251,6 @@ extension Lint.Run {
         let sourceFile = manager.file(for: id)
         let tree = Parser.parse(source: text)
         let converter = SourceLocationConverter(fileName: absoluteString, tree: tree)
-        let brandTypes: Swift.Set<Swift.String>
-        do {
-            brandTypes = try brands.brandTypes(forFile: absoluteString)
-        } catch {
-            throw .invalidLintConfiguration(reason: "\(error)")
-        }
         return Lint.Source.Parsed(
             file: sourceFile,
             path: relativePath,
