@@ -32,7 +32,7 @@ extension Lint.SingleFile.Materializer {
 
 extension Lint.SingleFile.Materializer.Test.ResolveConsumerPath {
     @Test
-    func `Sibling-package path is prefixed with the eval-to-consumer hop`() throws {
+    func `Sibling-package path is prefixed with the eval-to-consumer hop`() throws(Lint.SingleFile.Error) {
         let resolved = try Lint.SingleFile.Materializer.resolveConsumerPath(
             "../../swift-primitives-linter-rules",
             relativeRoot: "../.."
@@ -41,7 +41,7 @@ extension Lint.SingleFile.Materializer.Test.ResolveConsumerPath {
     }
 
     @Test
-    func `Absolute path is returned unchanged`() throws {
+    func `Absolute path is returned unchanged`() throws(Lint.SingleFile.Error) {
         let resolved = try Lint.SingleFile.Materializer.resolveConsumerPath(
             "/Users/coen/Developer/swift-linter-rules",
             relativeRoot: "../.."
@@ -50,7 +50,7 @@ extension Lint.SingleFile.Materializer.Test.ResolveConsumerPath {
     }
 
     @Test
-    func `Self-reference dot collapses to relativeRoot without trailing slash-dot`() throws {
+    func `Self-reference dot collapses to relativeRoot without trailing slash-dot`() throws(Lint.SingleFile.Error) {
         // SwiftPM rejects `.package(path: "../../.")` with "unknown package '.'";
         // the self-reference shortcut returns the bare `relativeRoot` instead.
         let resolved = try Lint.SingleFile.Materializer.resolveConsumerPath(
@@ -61,7 +61,7 @@ extension Lint.SingleFile.Materializer.Test.ResolveConsumerPath {
     }
 
     @Test
-    func `Self-reference empty string collapses to relativeRoot without trailing slash`() throws {
+    func `Self-reference empty string collapses to relativeRoot without trailing slash`() throws(Lint.SingleFile.Error) {
         let resolved = try Lint.SingleFile.Materializer.resolveConsumerPath(
             "",
             relativeRoot: "../.."

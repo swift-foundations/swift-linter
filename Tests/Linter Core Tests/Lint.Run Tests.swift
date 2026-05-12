@@ -69,7 +69,7 @@ extension Lint.Run.Test.Integration {
     ///
     /// Resolves from `#filePath` of the test source so the path is
     /// independent of the working directory at `swift test` time.
-    private static func fixtureRoot(testFile: Swift.String = #filePath) throws -> File.Path {
+    private static func fixtureRoot(testFile: Swift.String = #filePath) throws(Paths.Path.Error) -> File.Path {
         // testFile = .../swift-linter/Tests/Linter Core Tests/Lint.Run Tests.swift
         // Strip the filename and the test-target directory, leaving
         // .../swift-linter/Tests/, then descend into the fixture path.
@@ -84,8 +84,11 @@ extension Lint.Run.Test.Integration {
     }
 
     @Test
-    func `paths .all yields findings for both A and B`() throws {
-        let root = try Self.fixtureRoot()
+    func `paths .all yields findings for both A and B`() throws(Lint.Run.Error) {
+        // `fixtureRoot` validates a path composed from `#filePath`;
+        // failure indicates a compile-time invariant break, so `try!`
+        // is justified per [API-ERR-001]'s precondition exception.
+        let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .all)
         }
@@ -94,8 +97,8 @@ extension Lint.Run.Test.Integration {
     }
 
     @Test
-    func `paths .including A yields finding for A only`() throws {
-        let root = try Self.fixtureRoot()
+    func `paths .including A yields finding for A only`() throws(Lint.Run.Error) {
+        let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .including(["Sources/A"]))
         }
@@ -105,8 +108,8 @@ extension Lint.Run.Test.Integration {
     }
 
     @Test
-    func `paths .excluding B yields finding for A only`() throws {
-        let root = try Self.fixtureRoot()
+    func `paths .excluding B yields finding for A only`() throws(Lint.Run.Error) {
+        let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .excluding(["Sources/B"]))
         }
@@ -116,8 +119,8 @@ extension Lint.Run.Test.Integration {
     }
 
     @Test
-    func `paths .including non-matching yields no findings`() throws {
-        let root = try Self.fixtureRoot()
+    func `paths .including non-matching yields no findings`() throws(Lint.Run.Error) {
+        let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .including(["Tests/Fixtures/Other"]))
         }

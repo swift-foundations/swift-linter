@@ -90,7 +90,7 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
     }
 
     @Test
-    func `Excluded paths are carried through to Configuration`() throws {
+    func `Excluded paths are carried through to Configuration`() throws(Paths.Path.Error) {
         let manifest = Lint.Manifest(
             enabledRuleIDs: [],
             excludedPaths: [
