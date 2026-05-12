@@ -115,7 +115,7 @@ extension Lint.Manifest: JSON.Serializable {
         let disabledRuleIDs: [Lint.Rule.ID] = try [Swift.String](json: json["disabledRuleIDs"]).map { Lint.Rule.ID($0) }
         let excludedRaw = try [Swift.String](json: json["excludedPaths"])
         let excludedPaths: [File.Path] = try excludedRaw.map { (string: Swift.String) throws(JSON.Error) -> File.Path in
-            do {
+            do throws(Paths.Path.Error) {
                 return try File.Path(string)
             } catch {
                 throw JSON.Error.typeMismatch(

@@ -218,7 +218,7 @@ extension Lint.Run {
         }
         let file = File(filePath)
         let bytes: [UInt8]
-        do {
+        do throws(File.System.Read.Full.Error) {
             bytes = try file.read.full { (span: Span<UInt8>) in
                 var copy: [UInt8] = []
                 copy.reserveCapacity(span.count)
