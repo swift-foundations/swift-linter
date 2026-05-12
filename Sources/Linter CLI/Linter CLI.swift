@@ -11,6 +11,7 @@
 
 public import ArgumentParser
 import File_System
+import Kernel
 import Linter
 import Linter_Reporter_Text
 import Linter_Reporter_SARIF
@@ -59,7 +60,26 @@ struct SwiftLinter: ParsableCommand {
     // `Path.Error` via `try File.Path(_:)`, `Lint.Run.Error`) — they
     // unify to `any Error` at the boundary by necessity, not by choice.
     func run() throws {
-        let consumerRoot = paths.first ?? "."
+        // Resolve `"."` / empty to an absolute path before any
+        // engine-side path arithmetic. SwiftPM rejects the literal
+        // `"."` as a package name in the materialized eval project
+        // (yields `unknown package '.'`); the CLI is the boundary
+        // between user-supplied paths and engine internals, so cwd
+        // resolution lives here per the platform skill's L3-unifier
+        // composition discipline. Linter Core stays kernel-free.
+        let consumerRoot = Lint.SingleFile.canonicalize(
+            consumerRoot: paths.first ?? ".",
+            currentWorkingDirectory: {
+                try? Kernel.Directory.Working.withCurrentBytes { (span: Span<UInt8>) -> Swift.String in
+                    var bytes: [UInt8] = []
+                    bytes.reserveCapacity(span.count)
+                    for i in 0..<span.count {
+                        bytes.append(span[i])
+                    }
+                    return Swift.String(decoding: bytes, as: UTF8.self)
+                }
+            }
+        )
 
         // Single-file `Lint.swift` (Shape γ) dispatch — research
         // recommendation 2026-05-12-swift-linter-unified-consumer-manifest.md.

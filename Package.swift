@@ -38,6 +38,7 @@ let package = Package(
         .package(path: "../swift-environment"),
         .package(path: "../swift-file-system"),
         .package(path: "../swift-json"),
+        .package(path: "../swift-kernel"),
         .package(path: "../swift-manifests"),
         .package(path: "../swift-process"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", "602.0.0"..<"603.0.0"),
@@ -114,6 +115,7 @@ let package = Package(
             dependencies: [
                 "Linter",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "Kernel", package: "swift-kernel"),
             ]
         ),
         .testTarget(

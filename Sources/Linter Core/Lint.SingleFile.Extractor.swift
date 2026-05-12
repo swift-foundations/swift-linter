@@ -257,22 +257,10 @@ extension Lint.SingleFile.Extractor {
     ///
     /// The companion path-resolution shortcut lives at
     /// ``Lint/SingleFile/Materializer/resolveConsumerPath(_:relativeRoot:)``.
-    ///
-    /// TODO (deferred — see swift-foundations/swift-linter/Research/
-    /// 2026-05-12-eval-path-self-reference-unfinished.md): the
-    /// self-reference works only when `consumerPackageRoot` is a real
-    /// directory path. When the CLI is invoked as `swift-linter .` the
-    /// CLI passes `consumerPackageRoot == "."` and this derivation
-    /// returns `"."` again (basename of `"."` is `"."`), which SwiftPM
-    /// rejects with `unknown package '.'`. The fix is either CLI-side
-    /// normalization (resolve `consumerRoot` to the absolute current-
-    /// working-dir before passing to dispatch) or pulling a `getcwd`
-    /// primitive into the Linter Core dep graph (e.g.,
-    /// `ISO_9945.Kernel.Directory.Working.current`). Deferred until a
-    /// consumer needs `path: "."` to work end-to-end — current
-    /// consumers (the three numerics packages) use sibling-relative
-    /// paths and don't exercise the self-reference. Likely needed when
-    /// the rule-pack repos dogfood themselves.
+    /// `consumerPackageRoot` is canonicalized at the CLI boundary via
+    /// ``Lint/SingleFile/canonicalize(consumerRoot:currentWorkingDirectory:)``
+    /// before reaching this site, so basename derivation receives an
+    /// absolute path even when the CLI is invoked as `swift-linter .`.
 
     internal static func packageName(
         fromPath path: Swift.String,

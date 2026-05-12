@@ -68,6 +68,31 @@ extension Lint.SingleFile {
     /// callers fall through to the next detection path.
     public static let toolsVersionMagicComment: Swift.String = "swift-linter-tools-version:"
 
+    /// Canonicalize a CLI-supplied consumer-root path to its absolute
+    /// form. When the path is `"."` or empty (the canonical
+    /// `swift-linter .` invocation), substitutes the current working
+    /// directory yielded by `currentWorkingDirectory()`; otherwise
+    /// returns the path unchanged.
+    ///
+    /// SwiftPM rejects the literal `"."` as a package name in the
+    /// materialized eval project (`unknown package '.'`), so the CLI
+    /// must resolve `"."` to an absolute path before calling
+    /// ``dispatch(at:arguments:)``. The cwd-yielding closure is
+    /// injected so this helper stays platform-neutral and unit-testable
+    /// without pulling kernel-tier dependencies into Linter Core; the
+    /// CLI binds it to `Kernel.Directory.Working.current()` per the
+    /// platform skill's L3-unifier composition discipline.
+    @inlinable
+    public static func canonicalize(
+        consumerRoot: Swift.String,
+        currentWorkingDirectory: () -> Swift.String?
+    ) -> Swift.String {
+        if consumerRoot.isEmpty || consumerRoot == "." {
+            return currentWorkingDirectory() ?? consumerRoot
+        }
+        return consumerRoot
+    }
+
     /// Detect whether `<consumerPackageRoot>/Lint.swift` exists AND
     /// carries the Shape-γ magic-comment header.
     ///
