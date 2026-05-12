@@ -73,14 +73,22 @@ extension Lint.Reporter.SARIF {
         ]
     }
 
+    /// Map one ``Lint/Finding`` to its SARIF `result` object.
+    ///
+    /// When the finding carries a non-`nil` ``Lint/Finding/visibility``,
+    /// the `properties` bag receives a `visibility` field with the
+    /// enum's raw value (`"public"` / `"internal"` / `"fileprivate"` /
+    /// `"private"`). SARIF 2.1.0 admits arbitrary property bags on
+    /// `result` (§3.27.16), so consumers ignoring the field experience
+    /// no change in schema conformance.
     static func result(for finding: Lint.Finding) -> JSON {
         let record = finding.record
         let pathOrID = record.location.filePath ?? record.location.fileID
-        return [
-            "ruleId": JSON(stringLiteral: record.identifier),
-            "level": JSON(stringLiteral: level(for: record.severity)),
-            "message": ["text": JSON(stringLiteral: record.message)],
-            "locations": [
+        var fields: [(Swift.String, JSON)] = [
+            ("ruleId", JSON(stringLiteral: record.identifier)),
+            ("level", JSON(stringLiteral: level(for: record.severity))),
+            ("message", ["text": JSON(stringLiteral: record.message)] as JSON),
+            ("locations", [
                 [
                     "physicalLocation": [
                         "artifactLocation": ["uri": JSON(stringLiteral: pathOrID)],
@@ -90,8 +98,15 @@ extension Lint.Reporter.SARIF {
                         ],
                     ],
                 ],
-            ],
+            ] as JSON),
         ]
+        if let visibility = finding.visibility {
+            fields.append((
+                "properties",
+                ["visibility": JSON(stringLiteral: visibility.rawValue)] as JSON
+            ))
+        }
+        return JSON.object(fields)
     }
 
     /// SARIF maps `.remark → "note"` (SARIF's level vocabulary is
