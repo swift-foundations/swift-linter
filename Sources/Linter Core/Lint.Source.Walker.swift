@@ -45,16 +45,6 @@ extension Lint.Source.Walker {
         "**/*.docc/**",
     ]
 
-    /// Substrings that disqualify a discovered path even if the glob
-    /// exclusion didn't fire. Defensive post-filter — the canonical
-    /// exclusion is `excludePatterns`, but glob-level handling of
-    /// directory names containing spaces has been observed to leak
-    /// `*.docc/**` matches through.
-    @usableFromInline
-    internal static let pathExclusionSubstrings: [Swift.String] = [
-        ".docc/",
-    ]
-
     /// Walks the directory at `root` and emits run-root-relative typed
     /// source paths for every Swift file discovered.
     ///
@@ -92,9 +82,6 @@ extension Lint.Source.Walker {
                 continue
             }
             let relative = Swift.String(absolute.dropFirst(normalizedRoot.count))
-            if pathExclusionSubstrings.contains(where: { relative.contains($0) }) {
-                continue
-            }
             results.append(Lint.Source.Path(relative))
         }
         return results.sorted(by: { $0.underlying < $1.underlying })
