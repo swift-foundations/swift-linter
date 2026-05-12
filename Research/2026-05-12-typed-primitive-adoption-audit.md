@@ -17,6 +17,25 @@ addendum: 2026-05-12-typed-primitive-adoption-audit-addendum.md
 > (Real-Gap-promote / Acceptable / Defer). The v1.0.0 TRIAGE
 > classifications below are preserved unchanged; the addendum
 > extends rather than rewrites.
+>
+> **Post-remediation status** (2026-05-12):
+> - Real Gap remediations: Phases 0–3 landed (path-math, FS-path
+>   boundary, rule-ID typing).
+> - F-A4.3 (`topLevelCount: Cardinal`) landed at
+>   `swift-linter-rules@d32f8f3` (audit-followup dispatch).
+> - F-A3.3 (`includePatterns`/`excludePatterns: [Glob.Pattern]`)
+>   landed via:
+>   - `swift-glob-primitives@9ba5d4c` — new `Glob Primitives Standard
+>     Library Integration` target hosting `Glob.Pattern:
+>     ExpressibleByStringLiteral` ([ARCH-LAYER-011]).
+>   - `swift-file-system@4a5206f` — typed `[Glob.Pattern]` overloads
+>     on `glob.files` / `glob.directories` / `glob(...)`, string
+>     variants kept as parsing conveniences ([ARCH-LAYER-011]).
+>   - `swift-linter@73fd25e` — `Lint.Source.Walker` static lets
+>     pivoted to `[Glob.Pattern]` via SLI literal conformance.
+> - Dogfeed residue verified at unchanged counts pre vs post
+>   (swift-linter: 135, swift-linter-primitives: 6 — same baseline
+>   both sides; Phase 1/2 adoption did not perturb rule firings).
 
 ## Context
 

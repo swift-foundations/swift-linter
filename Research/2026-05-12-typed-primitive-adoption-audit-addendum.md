@@ -209,6 +209,22 @@ lets.
 
 **Action**: Include in the F-A4.3 follow-up dispatch.
 
+**Status update (2026-05-12)**: LANDED. Foundation-first adoption
+shape per `[ARCH-LAYER-011]`:
+- `swift-glob-primitives@9ba5d4c` — added `Glob Primitives Standard
+  Library Integration` target hosting `Glob.Pattern:
+  ExpressibleByStringLiteral` so static-let literal sites read as
+  `[Glob.Pattern] = ["**/*.swift", ...]` rather than `try!`-laden
+  initializers.
+- `swift-file-system@4a5206f` — added typed `[Glob.Pattern]`
+  overloads to `glob.files` / `glob.directories` / `glob(...)`
+  (both sync + async); the existing `[Swift.String]` variants
+  retained as parsing conveniences that delegate to the typed form.
+- `swift-linter@73fd25e` — `Lint.Source.Walker` static lets pivoted
+  to `[Glob.Pattern]`; the call to `directory.glob.files(include:,
+  excluding:)` resolves to the typed overload with no string
+  round-trip at the match site.
+
 ### F-A3.4 — `Lint.Dependency.products: [Swift.String]`
 
 **Disposition**: Defer
@@ -385,6 +401,16 @@ adoption left). The F-A3.3 site requires:
    [...].map(Glob.Pattern.init))` (or a static-let initializer
    pattern that fails build-time on a malformed literal). Mirror
    for `excludePatterns`.
+
+**Outcome (2026-05-12)**: LANDED via the foundation-first shape
+documented under the F-A3.3 status update. The original dispatch
+plan above is preserved as the recommendation snapshot at addendum
+write-time; the as-executed shape differs from step 3 (literal
+construction routes through `ExpressibleByStringLiteral` on the
+SLI target rather than `try!.map(Glob.Pattern.init)`) and adds
+upstream commits on `swift-glob-primitives` + `swift-file-system`
+per `[ARCH-LAYER-011]` (improve the foundation rather than force
+the consumer to choose between `try!` and round-trip-to-string).
 
 ## Outcome — Acceptable
 
