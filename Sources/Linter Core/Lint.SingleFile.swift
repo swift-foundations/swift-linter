@@ -109,10 +109,19 @@ extension Lint.SingleFile {
         at consumerPackageRoot: File.Path
     ) -> File.Path? {
         let candidate: File.Path = consumerPackageRoot / "Lint.swift"
-        guard let directory = try? File.Directory(validating: consumerPackageRoot.string) else {
+        let directory: File.Directory
+        do throws(Paths.Path.Error) {
+            directory = try File.Directory(validating: consumerPackageRoot.string)
+        } catch {
+            // Silent-fallback contract: invalid directory path falls
+            // through to "no Shape-γ manifest detected." The caller
+            // moves on to nested-package detection.
             return nil
         }
-        guard let entries = try? directory.entries() else {
+        let entries: [File.Directory.Entry]
+        do throws(File.Directory.Contents.Error) {
+            entries = try directory.entries()
+        } catch {
             return nil
         }
         var found = false
@@ -121,7 +130,10 @@ extension Lint.SingleFile {
             break
         }
         guard found else { return nil }
-        guard let source = try? Self.readFile(at: candidate) else {
+        let source: Swift.String
+        do throws(File.System.Read.Full.Error) {
+            source = try Self.readFile(at: candidate)
+        } catch {
             return nil
         }
         return Self.hasMagicComment(in: source) ? candidate : nil
@@ -146,7 +158,7 @@ extension Lint.SingleFile {
     ///
     /// F-A2.3 cascade: typed `File.Path` parameter.
     @usableFromInline
-    internal static func readFile(at path: File.Path) throws -> Swift.String {
+    internal static func readFile(at path: File.Path) throws(File.System.Read.Full.Error) -> Swift.String {
         let bytes: [UInt8] = try File(path).read.full { (span: Span<UInt8>) -> [UInt8] in
             var array: [UInt8] = []
             array.reserveCapacity(span.count)
@@ -193,7 +205,7 @@ extension Lint.SingleFile {
     ) throws(Lint.SingleFile.Error) -> Swift.Int32 {
         let consumerLintSwiftPath: File.Path = consumerPackageRoot / "Lint.swift"
         let source: Swift.String
-        do {
+        do throws(File.System.Read.Full.Error) {
             source = try Self.readFile(at: consumerLintSwiftPath)
         } catch {
             throw .readFailed(path: consumerLintSwiftPath, description: "\(error)")
@@ -277,9 +289,13 @@ extension Lint.SingleFile {
         // root by contract. Parse / parent failure folds into the
         // method's documented silent-fallback contract (return `nil`
         // → no parent inheritance).
-        guard let linter: File.Path = try? File.Path(linterPath),
-              let workspace: File.Path = linter.parent
-        else {
+        let linter: File.Path
+        do throws(Paths.Path.Error) {
+            linter = try File.Path(linterPath)
+        } catch {
+            return nil
+        }
+        guard let workspace: File.Path = linter.parent else {
             return nil
         }
         let parentDependencies: [Manifest.Dependency] = [
@@ -303,7 +319,7 @@ extension Lint.SingleFile {
             )
         ]
         let parentChain: [Lint.Manifest]
-        do {
+        do throws(Manifest.Resolver<Lint.Manifest, Lint.Manifest>.Error) {
             parentChain = try Manifest.Resolver<Lint.Manifest, Lint.Manifest>.walkParents(
                 from: consumerSource,
                 filename: "Lint.swift",
@@ -326,7 +342,7 @@ extension Lint.SingleFile {
         // operator means the segment shapes are compile-time
         // validated.
         let filePath: File.Path = consumerPackageRoot / ".swift-lint" / "parent-manifest.json"
-        do {
+        do throws(File.System.Write.Atomic.Error) {
             try File(filePath).write.atomic(jsonString)
         } catch {
             throw .materializationFailed(reason: "write parent manifest \(filePath.string): \(error)")
@@ -380,25 +396,29 @@ extension Lint.SingleFile {
     ) -> Lint.Configuration? {
         // F-A2.9 (env-boundary) — `SWIFT_LINTER_PARENT_MANIFEST` is a
         // raw bare string; convert to `File.Path` at the boundary.
-        guard let raw: Swift.String = Environment.read("SWIFT_LINTER_PARENT_MANIFEST"),
-              let path: File.Path = try? File.Path(raw)
-        else {
+        guard let raw: Swift.String = Environment.read("SWIFT_LINTER_PARENT_MANIFEST") else {
+            return nil
+        }
+        let path: File.Path
+        do throws(Paths.Path.Error) {
+            path = try File.Path(raw)
+        } catch {
             return nil
         }
         let source: Swift.String
-        do {
+        do throws(File.System.Read.Full.Error) {
             source = try Self.readFile(at: path)
         } catch {
             return nil
         }
         let parsed: JSON
-        do {
+        do throws(JSON.Error) {
             parsed = try JSON.parse(source)
         } catch {
             return nil
         }
         let manifest: Lint.Manifest
-        do {
+        do throws(JSON.Error) {
             manifest = try Lint.Manifest.deserialize(parsed)
         } catch {
             return nil
