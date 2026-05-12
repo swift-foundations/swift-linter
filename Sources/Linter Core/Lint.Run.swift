@@ -71,6 +71,22 @@ extension Lint.Run {
     /// (tens-of-thousands of files; corporate monorepos; aggregated
     /// dependency-graphs) should expect proportional memory residency
     /// and MAY chunk runs by sub-tree to bound the working set.
+    ///
+    /// ## Package-scoped brand-type admission
+    ///
+    /// The engine threads a ``Lint/Brands`` cache through the parsed-
+    /// source resolver. For each file the resolver looks up the
+    /// owning SwiftPM package (one directory walk up to the nearest
+    /// `Package.swift`), reads any adjacent `.swift-linter.json`, and
+    /// caches the package's declared `brandTypes` set. Each
+    /// ``Lint/Source/Parsed`` value the engine emits carries the
+    /// owning package's brand-type set so recognizer-class rules can
+    /// admit same-package access without firing — preserving strict-
+    /// superset for cross-package consumers.
+    ///
+    /// See
+    /// `swift-foundations/swift-linter-rules/Research/numerics-rule-recognizer-2026-05-12.md`
+    /// for the rationale.
     public static func run(
         paths: [File.Path],
         configuration: Lint.Configuration
@@ -136,12 +152,13 @@ extension Lint.Run {
         // factory hop, no per-entry filter branch.
         let effective = configuration.effectiveRules()
         var manager = Source.Manager()
+        var brands = Lint.Brands()
         var findings: [Lint.Finding] = []
         var suppressed: [Lint.Finding] = []
         for root in paths {
             let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: root)
             for sourcePath in sourcePaths {
-                let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager)
+                let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager, brands: &brands)
                 let suppression = Lint.Suppression.scan(
                     tree: parsed.tree,
                     converter: parsed.converter
@@ -190,7 +207,8 @@ extension Lint.Run {
     static func parsedSource(
         root: File.Path,
         relativePath: Lint.Source.Path,
-        manager: inout Source.Manager
+        manager: inout Source.Manager,
+        brands: inout Lint.Brands
     ) throws(Error) -> Lint.Source.Parsed {
         let absoluteString: Swift.String
         let filePath: File.Path
@@ -228,11 +246,18 @@ extension Lint.Run {
         let sourceFile = manager.file(for: id)
         let tree = Parser.parse(source: text)
         let converter = SourceLocationConverter(fileName: absoluteString, tree: tree)
+        let brandTypes: Swift.Set<Swift.String>
+        do {
+            brandTypes = try brands.brandTypes(forFile: absoluteString)
+        } catch {
+            throw .invalidLintConfiguration(reason: "\(error)")
+        }
         return Lint.Source.Parsed(
             file: sourceFile,
             path: relativePath,
             tree: tree,
-            converter: converter
+            converter: converter,
+            brandTypes: brandTypes
         )
     }
 }

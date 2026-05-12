@@ -13,5 +13,12 @@ extension Lint.Run {
     public enum Error: Swift.Error, Hashable, Sendable {
         case fileNotReadable(path: Swift.String)
         case nonUTF8(path: Swift.String)
+
+        /// Engine-side discovery of an enclosing SwiftPM package's
+        /// `.swift-linter.json` failed schema validation. The reason
+        /// is a textual rendering of the underlying
+        /// ``Lint/Brands/Error``; surfaced here so the run-level error
+        /// type stays a single sum.
+        case invalidLintConfiguration(reason: Swift.String)
     }
 }
