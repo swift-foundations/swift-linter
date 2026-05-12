@@ -7,8 +7,16 @@ last_updated: 2026-05-12
 status: TRIAGE
 tier: 2
 scope: cross-package
+addendum: 2026-05-12-typed-primitive-adoption-audit-addendum.md
 ---
 -->
+
+> **See also**:
+> [`2026-05-12-typed-primitive-adoption-audit-addendum.md`](2026-05-12-typed-primitive-adoption-audit-addendum.md)
+> — v1.0.0 RECOMMENDATION disposing the 11 Ambiguous findings
+> (Real-Gap-promote / Acceptable / Defer). The v1.0.0 TRIAGE
+> classifications below are preserved unchanged; the addendum
+> extends rather than rewrites.
 
 ## Context
 
