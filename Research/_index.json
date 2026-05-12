@@ -7,6 +7,17 @@
   "scope": "swift-linter (swift-foundations)",
   "documents": [
     {
+      "file": "2026-05-12-thread-e-public-dsl-rename-catalog.md",
+      "displayName": "thread-e-public-dsl-rename-catalog",
+      "topic": "Thread E Phase 2 — per-rename catalog covering 24 public-DSL compound-identifier + compound-type-name findings across swift-linter (15+3) and swift-linter-primitives (6), plus 1 carry-forward row from swift-primitives-linter-rules. Each row evaluates Shape A (rename only) vs Shape B (rename + typed-primitive adoption) through the maximal-ecosystem-reuse lens, with recommendation + cascade scope + principal-disposition checkbox. Phase 3 execution is gated on principal sign-off of each row.",
+      "date": "2026-05-12",
+      "status": "RECOMMENDATION",
+      "statusDetail": "AWAITING PRINCIPAL DISPOSITION per HANDOFF-thread-e-compound-identifier-sweep.md Phase 2 HALT. Phase 3 execution does NOT begin until each row is dispositioned.",
+      "statusRaw": "RECOMMENDATION",
+      "tier": 2,
+      "scope": "cross-package"
+    },
+    {
       "file": "2026-05-07-canonical-tier-rule-activation-design.md",
       "displayName": "canonical-tier-rule-activation-design",
       "topic": "Cross-package design analysis of three options for canonical-tier rule activation: (A) single-file Lint.swift + default rule-pack umbrella import; (B) Lint/ nested SwiftPM package as the canonical form with single-file as a sugar variant; (C) Lint.Manifest.defaults() factory baked into the linter binary. Recommends B for production use with A as a future Phase-5 sugar form; rejects C on binary-coupling grounds. Tier 2 design analysis grounded in the Phase A PoC and the post-Phase-B.1 decoupling.",
