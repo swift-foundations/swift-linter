@@ -77,12 +77,12 @@ extension Lint {
         public let rules: Rules
 
         /// Package-specific path-prefix exclusions.
-        public let excluded: [File.Path]
+        public let excluded: [File_System.File.Path]
 
         public init(
             enabled: Set<Lint.Rule.ID> = [],
             disabled: Set<Lint.Rule.ID> = [],
-            excluded: [File.Path] = []
+            excluded: [File_System.File.Path] = []
         ) {
             self.rules = Rules(enabled: enabled, disabled: disabled)
             self.excluded = excluded

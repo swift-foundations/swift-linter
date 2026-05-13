@@ -80,7 +80,7 @@ extension Lint {
             // between user-supplied paths and engine internals, so cwd
             // resolution lives here per the platform skill's L3-unifier
             // composition discipline. Linter Core stays kernel-free.
-            let consumerRootString: Swift.String = Lint.SingleFile.canonicalize(
+            let consumerRootString: Swift.String = Lint.File.Single.canonicalize(
                 consumerRoot: paths.first ?? ".",
                 currentWorkingDirectory: {
                     let result: Swift.String?
@@ -116,10 +116,10 @@ extension Lint {
             // project at `<consumerRoot>/.swift-lint/eval/`, and dispatches
             // `swift run --package-path <eval> Lint <args>`. The dispatched
             // executable IS the linter binary for the consumer.
-            if Lint.SingleFile.detect(at: consumerRoot) != nil {
+            if Lint.File.Single.detect(at: consumerRoot) != nil {
                 let dispatchedExitCode: Swift.Int32
-                do throws(Lint.SingleFile.Error) {
-                    dispatchedExitCode = try Lint.SingleFile.dispatch(
+                do throws(Lint.File.Single.Error) {
+                    dispatchedExitCode = try Lint.File.Single.dispatch(
                         at: consumerRoot,
                         arguments: paths
                     )

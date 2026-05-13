@@ -11,7 +11,7 @@
 
 public import File_System
 
-extension Lint.SingleFile {
+extension Lint.File.Single {
     /// Errors raised by the single-file (Shape γ) dispatch path.
     ///
     /// F-A2.13 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):

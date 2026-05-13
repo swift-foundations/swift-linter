@@ -318,7 +318,7 @@ extension Lint.Driver {
             return nil
         }
         // F-A1.13 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
-        // sibling code path to `Lint.SingleFile.resolveParentChain`
+        // sibling code path to `Lint.File.Single.resolveParentChain`
         // F-A1.11. `Paths.Path.parent` owns dot-segment semantics —
         // the prior `linterPath + "/.."` produces a path with an
         // unresolved `..` segment, while `.parent` resolves to the

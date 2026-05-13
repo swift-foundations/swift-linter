@@ -121,7 +121,7 @@ extension Lint {
         for entry in collected {
             registry[entry.rule.id] = entry.rule
         }
-        let parent: Lint.Configuration? = Lint.SingleFile.configuration(parentOf: registry)
+        let parent: Lint.Configuration? = Lint.File.Single.configuration(parentOf: registry)
         let configuration = Lint.Configuration(inheriting: parent) { collected }
         run(configuration: configuration)
     }

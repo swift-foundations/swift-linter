@@ -13,14 +13,14 @@ import File_System
 import Testing
 @testable import Linter_Core
 
-extension Lint.SingleFile.Extractor {
+extension Lint.File.Single.Extractor {
     @Suite
     struct Test {
         @Suite struct PackageName {}
     }
 }
 
-extension Lint.SingleFile {
+extension Lint.File.Single {
     @Suite
     struct Test {
         @Suite struct Canonicalize {}
@@ -37,10 +37,10 @@ extension Lint.SingleFile {
 // keeps Linter Core kernel-free; the CLI binds the closure to
 // Kernel.Directory.Working.withCurrentBytes per the platform skill.
 
-extension Lint.SingleFile.Test.Canonicalize {
+extension Lint.File.Single.Test.Canonicalize {
     @Test
     func `Dot consumerRoot resolves via cwd closure`() {
-        let resolved = Lint.SingleFile.canonicalize(
+        let resolved = Lint.File.Single.canonicalize(
             consumerRoot: ".",
             currentWorkingDirectory: { "/Users/coen/Developer/swift-cardinal-primitives" }
         )
@@ -49,7 +49,7 @@ extension Lint.SingleFile.Test.Canonicalize {
 
     @Test
     func `Empty consumerRoot resolves via cwd closure`() {
-        let resolved = Lint.SingleFile.canonicalize(
+        let resolved = Lint.File.Single.canonicalize(
             consumerRoot: "",
             currentWorkingDirectory: { "/Users/coen/Developer/swift-cardinal-primitives" }
         )
@@ -58,7 +58,7 @@ extension Lint.SingleFile.Test.Canonicalize {
 
     @Test
     func `Absolute path is returned unchanged`() {
-        let resolved = Lint.SingleFile.canonicalize(
+        let resolved = Lint.File.Single.canonicalize(
             consumerRoot: "/Users/coen/Developer/swift-cardinal-primitives",
             currentWorkingDirectory: { "/Users/elsewhere" }
         )
@@ -67,7 +67,7 @@ extension Lint.SingleFile.Test.Canonicalize {
 
     @Test
     func `Relative non-self path is returned unchanged`() {
-        let resolved = Lint.SingleFile.canonicalize(
+        let resolved = Lint.File.Single.canonicalize(
             consumerRoot: "./Sources",
             currentWorkingDirectory: { "/Users/elsewhere" }
         )
@@ -81,7 +81,7 @@ extension Lint.SingleFile.Test.Canonicalize {
         // SwiftPM resolution will then surface the historic
         // `unknown package '.'` error — failure is loud rather than
         // silently coercing to a bogus path.
-        let resolved = Lint.SingleFile.canonicalize(
+        let resolved = Lint.File.Single.canonicalize(
             consumerRoot: ".",
             currentWorkingDirectory: { nil }
         )
@@ -96,10 +96,10 @@ extension Lint.SingleFile.Test.Canonicalize {
 // from the consumer-root directory's basename instead — companion to the
 // `resolve(_:relativeTo:)` self-reference shortcut on the path-resolution side.
 
-extension Lint.SingleFile.Extractor.Test.PackageName {
+extension Lint.File.Single.Extractor.Test.PackageName {
     @Test
     func `Sibling-package relative path uses path's own basename`() {
-        let name = Lint.SingleFile.Extractor.packageName(
+        let name = Lint.File.Single.Extractor.packageName(
             at: "../swift-primitives-linter-rules",
             consumerPackageRoot: File.Path(stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives")
         )
@@ -108,7 +108,7 @@ extension Lint.SingleFile.Extractor.Test.PackageName {
 
     @Test
     func `Absolute path uses path's own basename`() {
-        let name = Lint.SingleFile.Extractor.packageName(
+        let name = Lint.File.Single.Extractor.packageName(
             at: "/Users/coen/Developer/swift-foundations/swift-linter-rules",
             consumerPackageRoot: File.Path(stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives")
         )
@@ -117,7 +117,7 @@ extension Lint.SingleFile.Extractor.Test.PackageName {
 
     @Test
     func `Self-reference dot derives package name from consumer-root basename`() {
-        let name = Lint.SingleFile.Extractor.packageName(
+        let name = Lint.File.Single.Extractor.packageName(
             at: ".",
             consumerPackageRoot: File.Path(stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives")
         )
@@ -126,7 +126,7 @@ extension Lint.SingleFile.Extractor.Test.PackageName {
 
     @Test
     func `Self-reference empty string derives package name from consumer-root basename`() {
-        let name = Lint.SingleFile.Extractor.packageName(
+        let name = Lint.File.Single.Extractor.packageName(
             at: "",
             consumerPackageRoot: File.Path(stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives")
         )
@@ -135,7 +135,7 @@ extension Lint.SingleFile.Extractor.Test.PackageName {
 
     @Test
     func `Self-reference dot strips trailing slash from consumer-root`() {
-        let name = Lint.SingleFile.Extractor.packageName(
+        let name = Lint.File.Single.Extractor.packageName(
             at: ".",
             consumerPackageRoot: File.Path(stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives/")
         )

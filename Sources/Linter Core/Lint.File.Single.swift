@@ -57,11 +57,11 @@ internal import Version_Primitives
 /// (`let manifest: Lint.Manifest`) paths are unchanged; callers
 /// detect in priority order: single-file Shape γ → nested-package →
 /// legacy inert.
-extension Lint {
-    public enum SingleFile: Swift.Sendable {}
+extension Lint.File {
+    public enum Single: Swift.Sendable {}
 }
 
-extension Lint.SingleFile {
+extension Lint.File.Single {
     /// The magic-comment header that identifies a Shape-γ
     /// `Lint.swift`.
     ///
@@ -226,7 +226,7 @@ extension Lint.SingleFile {
     public static func dispatch(
         at consumerPackageRoot: File.Path,
         arguments: [Swift.String]
-    ) throws(Lint.SingleFile.Error) -> Swift.Int32 {
+    ) throws(Lint.File.Single.Error) -> Swift.Int32 {
         let consumerLintSwiftPath: File.Path = consumerPackageRoot / "Lint.swift"
 
         // 1. Read source.
@@ -243,7 +243,7 @@ extension Lint.SingleFile {
         }
 
         // 3. Extract `Lint.run(dependencies:)` clauses.
-        let extractedDependencies: [Package.Dependency] = try Lint.SingleFile.Extractor.dependencies(
+        let extractedDependencies: [Package.Dependency] = try Lint.File.Single.Extractor.dependencies(
             from: source,
             sourcePath: consumerLintSwiftPath,
             consumerPackageRoot: consumerPackageRoot
@@ -310,7 +310,7 @@ extension Lint.SingleFile {
         )
 
         // 9. Hand off to Manifest.Executable.dispatch; map errors at
-        // the boundary so Lint.SingleFile.Error stays the consumer-
+        // the boundary so Lint.File.Single.Error stays the consumer-
         // facing throw shape.
         do throws(Manifest.Executable.Error) {
             return try Manifest.Executable.dispatch(configuration: configuration)
@@ -340,7 +340,7 @@ extension Lint.SingleFile {
     fileprivate static func resolveParentChain(
         consumerSource: Swift.String,
         consumerPackageRoot: File.Path
-    ) throws(Lint.SingleFile.Error) -> File.Path? {
+    ) throws(Lint.File.Single.Error) -> File.Path? {
         guard let linterPath: Swift.String = Environment.read("SWIFT_LINTER_PATH") else {
             return nil
         }
@@ -402,7 +402,7 @@ extension Lint.SingleFile {
         let jsonString: Swift.String = serialized.jsonString()
         // Ensure `.swift-lint/` exists before the atomic write. Pre-
         // Thread-I this directory was created as a side-effect of
-        // Lint.SingleFile.Materializer.materialize running first; the
+        // Lint.File.Single.Materializer.materialize running first; the
         // refactored dispatch resolves the parent chain BEFORE
         // handing off to Manifest.Executable.dispatch, so the helper
         // is now self-sufficient.

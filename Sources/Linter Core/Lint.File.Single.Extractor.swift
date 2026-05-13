@@ -14,7 +14,7 @@ public import Package_Primitives
 internal import SwiftParser
 internal import SwiftSyntax
 
-extension Lint.SingleFile {
+extension Lint.File.Single {
     /// Syntactic extraction of `.package(...)` dependency declarations
     /// from a consumer's `Lint.swift` source.
     ///
@@ -22,16 +22,16 @@ extension Lint.SingleFile {
     /// top-level `Lint.run(...)` (or unqualified `run(...)`) call
     /// expression containing a `dependencies:` labeled argument, and
     /// returns each `.package(...)` call as a structured
-    /// ``Lint/SingleFile/PackageDependency`` value.
+    /// ``Lint/File/Single/PackageDependency`` value.
     ///
     /// Extraction is purely syntactic — no semantic analysis, no
     /// resolution. The call site IS the source of truth; mistakes
     /// (typos in `path:`, missing `products:`) surface as typed
-    /// ``Lint/SingleFile/Error`` values rather than runtime traps.
+    /// ``Lint/File/Single/Error`` values rather than runtime traps.
     public enum Extractor {}
 }
 
-extension Lint.SingleFile.Extractor {
+extension Lint.File.Single.Extractor {
     /// Extract `.package(...)` dependency declarations from the
     /// `dependencies:` argument of the consumer's `Lint.run(...)`
     /// call.
@@ -52,7 +52,7 @@ extension Lint.SingleFile.Extractor {
         from source: Swift.String,
         sourcePath: File.Path,
         consumerPackageRoot: File.Path
-    ) throws(Lint.SingleFile.Error) -> [Package.Dependency] {
+    ) throws(Lint.File.Single.Error) -> [Package.Dependency] {
         let sourceFile: SourceFileSyntax = Parser.parse(source: source)
         guard let runCall: FunctionCallExprSyntax = findRunCall(in: sourceFile) else {
             throw .dependenciesNotFound(
@@ -125,13 +125,13 @@ extension Lint.SingleFile.Extractor {
     /// Parse a `.package(path:products:)` or
     /// `.package(url:from:products:)` or
     /// `.package(url:_:_:products:)` call into a
-    /// ``Lint/SingleFile/PackageDependency``.
+    /// ``Lint/File/Single/PackageDependency``.
 
     fileprivate static func parsePackageCall(
         _ call: FunctionCallExprSyntax,
         sourcePath: File.Path,
         consumerPackageRoot: File.Path
-    ) throws(Lint.SingleFile.Error) -> Package.Dependency {
+    ) throws(Lint.File.Single.Error) -> Package.Dependency {
         guard let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self),
               member.declName.baseName.text == "package"
         else {
@@ -229,7 +229,7 @@ extension Lint.SingleFile.Extractor {
     fileprivate static func extractStringLiteral(
         _ expr: ExprSyntax,
         sourcePath: File.Path
-    ) throws(Lint.SingleFile.Error) -> Swift.String {
+    ) throws(Lint.File.Single.Error) -> Swift.String {
         guard let literal: StringLiteralExprSyntax = expr.as(StringLiteralExprSyntax.self) else {
             throw .malformedPackageCall(
                 path: sourcePath,
@@ -261,7 +261,7 @@ extension Lint.SingleFile.Extractor {
     fileprivate static func extractRangeBounds(
         _ expr: ExprSyntax,
         sourcePath: File.Path
-    ) throws(Lint.SingleFile.Error) -> (Swift.String, Swift.String)? {
+    ) throws(Lint.File.Single.Error) -> (Swift.String, Swift.String)? {
         guard let sequence: SequenceExprSyntax = expr.as(SequenceExprSyntax.self) else {
             return nil
         }
@@ -283,7 +283,7 @@ extension Lint.SingleFile.Extractor {
     fileprivate static func extractStringArray(
         _ expr: ExprSyntax,
         sourcePath: File.Path
-    ) throws(Lint.SingleFile.Error) -> [Swift.String] {
+    ) throws(Lint.File.Single.Error) -> [Swift.String] {
         guard let arrayExpr: ArrayExprSyntax = expr.as(ArrayExprSyntax.self) else {
             throw .malformedPackageCall(
                 path: sourcePath,
@@ -309,9 +309,9 @@ extension Lint.SingleFile.Extractor {
     /// field (e.g., `swift-cardinal-primitives`).
     ///
     /// The companion path-resolution shortcut lives at
-    /// ``Lint/SingleFile/Materializer/resolve(_:relativeTo:)``.
+    /// ``Lint/File/Single/Materializer/resolve(_:relativeTo:)``.
     /// `consumerPackageRoot` is canonicalized at the CLI boundary via
-    /// ``Lint/SingleFile/canonicalize(consumerRoot:currentWorkingDirectory:)``
+    /// ``Lint/File/Single/canonicalize(consumerRoot:currentWorkingDirectory:)``
     /// before reaching this site, so basename derivation receives an
     /// absolute path even when the CLI is invoked as `swift-linter .`.
 
