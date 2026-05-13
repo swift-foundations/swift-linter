@@ -862,3 +862,88 @@ throughout: nested accessors read as namespace→specific
 | `swift-source-primitives` (already `@_exported` from `swift-linter-primitives`) | `Text.Line.Number` (via `Source.Location.position.line`) | 21 |
 
 Phase 3 begins.
+
+---
+
+## Phase 4 closeout (2026-05-13)
+
+**Status**: IMPLEMENTED (Rows 1-23 + 25; Row 24 deferred per disposition).
+
+### Per-row implementation map
+
+| Row | Final shape | Commit(s) |
+|-----|-------------|-----------|
+| 1   | `Lint.Configuration.rules.disabled: Set<Lint.Rule.ID>` | `swift-linter-primitives@ffb0936`, `swift-linter@6f7459a` |
+| 2   | `Lint.Configuration.rules.effective.entries` | (same) |
+| 3   | `Lint.Configuration.rules.effective.disabled` | (same) |
+| 4   | `Lint.Rule.with(default:)` | `swift-linter-primitives@a7a38c6` (Phase 3.A) |
+| 5   | `Lint.Rule.pinned(to:)` | (same) |
+| 6   | `Lint.Rule.severity.default` (Property.View) | `swift-linter-primitives@a590f0b` + cascade `0460578` / `b133386` / `53d97da` / `aa13687` |
+| 7   | `Lint.Driver.dispatch.nested(at:arguments:onDispatchError:)` | `swift-linter@9406ef2` |
+| 8   | `Lint.Driver.manifest.path(at:)` | (same) |
+| 9   | `Lint.Driver.configuration(at:manifestOverride:onMissingLinterPath:)` | (same) |
+| 10  | `Lint.Manifest.rules.enabled: Set<Lint.Rule.ID>` | `swift-linter@de1c2cb` |
+| 11  | `Lint.Manifest.rules.disabled: Set<Lint.Rule.ID>` | (same) |
+| 12  | `Lint.Manifest.excluded: [File.Path]` | (same) |
+| 13  | `Lint.Run.run(paths:configuration:capturing: CaptureMode)` | `swift-linter@e52196d` |
+| 14  | `Lint.SingleFile.Extractor.dependencies(from:...)` | `swift-linter@b846e01` |
+| 15  | `Lint.SingleFile.header` | (same) |
+| 16  | `Lint.SingleFile.configuration(parentOf:)` | (same) |
+| 17  | `Lint.Source.Walker.included: [Glob.Pattern]` | `swift-linter@c09ccfa` |
+| 18  | `Lint.Source.Walker.excluded: [Glob.Pattern]` | (same) |
+| 19  | `Lint.Source.Walker.paths(under:)` | (same) |
+| 20  | `Lint.Suppression.Entry.rule: Lint.Rule.ID` | (same) |
+| 21  | `Lint.Suppression.entries(suppressing: Text.Line.Number, rule:)` | (same) |
+| 22  | `Lint.Run.Policy` (type rename) | `swift-linter@e52196d` |
+| 23  | `Lint.SingleFile.PackageDependency.{name: Package.Name, products: [Product.Name]}` | `swift-linter@39243d8` |
+| 24  | DEFER — target `Lint.File.Single` in swift-manifests, separate thread | — |
+| 25  | `Lint.Rule.Bundle.primitives.excluding(rules:)` combinator | `swift-linter-primitives@7a7e941`, `swift-primitives-linter-rules@7549ef6`, ordinal `1d0d73c`, affine `32a0abd`, cardinal `9515259` |
+
+### Scope-#1 internal sweep (Phase 3.E)
+
+22 of 29 swift-linter internal compound-identifier findings closed via
+[API-NAME-002] visibility-scope amendment exempt class (`internal` →
+`fileprivate` on file-local helpers). 7 findings deferred:
+
+- 4 CLI bindings (`SwiftLinter` struct name, `lintSwiftPath` /
+  `exitPolicy` properties, `resolveConfiguration` — the latter shifted
+  to fileprivate post-closeout fixup `13b2790`). The property names
+  map to CLI flag names; proper rename is a coordinated CLI-flag
+  change out of Thread E scope.
+- 3 test-fixture-bound helpers (`Extractor.packageName(fromPath:)` /
+  `packageName(fromURL:)`, `Materializer.resolveConsumerPath`). Tests
+  exercise these directly; rename requires coordinated test-surface
+  update.
+
+### Dogfeed delta
+
+Pre-Thread E swift-linter Sources baseline:
+- 6 compound-identifier findings on swift-linter-primitives (public)
+- 56 findings on swift-linter (15 public-compound-id, 33 internal-compound-id, 3 public-compound-type, 5 internal-compound-type)
+- 1 finding on swift-primitives-linter-rules (`brandOwner`)
+- **Total: 63 findings in catalog scope.**
+
+Post-Thread E:
+- 0 findings on swift-linter-primitives
+- 9 findings on swift-linter Sources (4 CLI deferred, 3 test-bound deferred, 2 public-DSL deferred — `PackageDependency` per Row 23 future, `SingleFile` per Row 24 defer; +1 net new from `CaptureMode` per Row 13 disposition)
+- 0 findings on swift-primitives-linter-rules
+- **Total: 9 findings remain (86% reduction).**
+
+Plus 5 compound-suite-name findings on `Tests/Linter Core Tests/*`
+deferred to Thread F per the original catalog ambiguity (test-suite
+extension-pattern shape, separate from production code).
+
+### Ecosystem build gate
+
+All 6 affected packages build clean:
+- swift-linter-primitives ✓
+- swift-primitives-linter-rules ✓
+- swift-foundations/swift-linter-rules ✓
+- swift-foundations/swift-institute-linter-rules ✓
+- swift-foundations/swift-linter ✓
+- swift-ordinal-primitives / swift-affine-primitives / swift-cardinal-primitives ✓
+
+Test gate: swift-linter (46 tests pass), swift-linter-primitives (36
+tests pass). The 2 pre-existing test failures in
+`Lint.Rule.Structure.UsableFromInlineInternalImport Tests.swift`
+(swift-linter-rules) predate Thread E and are tracked separately.
