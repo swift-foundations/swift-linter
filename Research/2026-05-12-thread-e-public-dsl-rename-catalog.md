@@ -703,6 +703,22 @@ Phase 3 alongside the other 23 rows. Worth its own follow-up thread.
 The institute's `Nest.Name` rule clearly applies; the question is
 **when** to bear the cascade cost.
 
+**Update (2026-05-13, Thread I closure)**: the *swift-manifests
+coordination component* of Row 24 is **RESOLVED** via Thread I —
+the materialize-spawn-stdio-passthrough mechanics of
+`Lint.SingleFile.Materializer` relocated to a new
+`Manifest.Executable` generic in
+`swift-foundations/swift-manifests` (Option D from the Phase I.0
+design exploration). `Lint.SingleFile` was deliberately retained
+as the Lint-domain adapter (magic-comment detection, SwiftSyntax
+extraction, parent-chain fold). The `[API-NAME-001]` compound-name
+finding on `Lint.SingleFile` itself remains as a separate per-row
+disposition; the original `Lint.File.Single` target shape is still
+the catalog's recommendation, but it is now a bounded rename
+cascade (no architectural unknowns), not a dedicated thread.
+See `swift-foundations/swift-manifests/Research/2026-05-13-single-file-manifest-extraction-design.md`
+for the option taxonomy and selected seam.
+
 **Cascade scope**: ~200+ sites in `Lint.SingleFile.{Materializer,
 Extractor, PackageDependency, Error, Source}` — every nested type
 moves under the new namespace.
@@ -792,8 +808,12 @@ Workspace-wide grep per [HANDOFF-050] required.
 - [ ] For Row 12 (Glob semantic), verify the manifest's `excludedPaths`
       semantic (exact path match vs glob match) before choosing
       Shape A vs B.
-- [ ] For Row 24 (`Lint.SingleFile`), if accepted, plan a dedicated
-      dispatch (cascade scope ~200+ sites).
+- [x] For Row 24 (`Lint.SingleFile`), the swift-manifests coordination
+      component is **RESOLVED via Thread I** (2026-05-13). The
+      namespace-rename component (`Lint.SingleFile` → `Lint.File.Single`)
+      remains as a bounded follow-up per-row disposition, scoped down
+      from "~200+ sites" since Thread I's adapter pattern means most
+      references stay inside swift-linter's Linter Core target.
 - [ ] Each Shape B rename's commit MUST include both the rename AND
       the typed-primitive adoption as one coherent change per
       HANDOFF Phase 3 requirement.
@@ -812,7 +832,7 @@ throughout: nested accessors read as namespace→specific
 |----------|--------|
 | 33 internal swift-linter compound-identifier findings | RENAME (not visibility-shift) — proper renames per institute conventions. Folded into Phase 3 as a separate sub-thread. |
 | Row 25 `Lint.Rule.Bundle.brandOwner` | REFACTOR. The typed `Lint.Brand` infrastructure was rejected per `numerics-rule-recognizer-2026-05-12.md`; the bundle's "brand" vocabulary is the remaining vestige. Replace with general exclusion mechanism `Lint.Rule.Bundle.primitives.excluding(rules:)`. Cascade to 3 consumer Lint.swift files (swift-ordinal-primitives, swift-affine-primitives, swift-cardinal-primitives). |
-| Row 24 `Lint.SingleFile` | DEFER. Target shape `Lint.File.Single` (note the swap from `Lint.Single.File`); likely belongs in `swift-foundations/swift-manifests` (already exists with Manifest.Loader / Manifest.Resolver targets), coordinated with `swift-manifest-primitives` (L1). Dedicated thread. |
+| Row 24 `Lint.SingleFile` | **Coordination component RESOLVED via Thread I** (extraction of materialize-spawn-stdio-passthrough mechanics into `Manifest.Executable` at `swift-foundations/swift-manifests`; `swift-linter@5d8557f` + `swift-linter@afc2c67` + `swift-linter@e5be167`; `swift-manifests@1cbf615` + `swift-manifests@caad922`). Namespace-rename component (`Lint.SingleFile` → `Lint.File.Single`) remains as a bounded per-row disposition — `Lint.SingleFile` was deliberately retained as the Lint-domain adapter alongside `Manifest.Executable`. |
 
 ### Per-row dispositions
 
@@ -867,7 +887,10 @@ Phase 3 begins.
 
 ## Phase 4 closeout (2026-05-13)
 
-**Status**: IMPLEMENTED (Rows 1-23 + 25; Row 24 deferred per disposition).
+**Status**: IMPLEMENTED (Rows 1-23 + 25; Row 24 swift-manifests
+coordination component RESOLVED via Thread I on 2026-05-13;
+Row 24 namespace-rename component (`Lint.SingleFile` → `Lint.File.Single`)
+remains as a bounded follow-up disposition).
 
 ### Per-row implementation map
 
@@ -954,6 +977,14 @@ Post-Thread E (after Row 13 `CaptureMode` → `Capture.Mode` fixup):
 - 8 findings on swift-linter Sources (4 CLI deferred, 3 test-bound deferred, 2 public-DSL deferred — `PackageDependency` per Row 23 future, `SingleFile` per Row 24 defer; -1 from the `Capture.Mode` Nest.Name rename closing the `CaptureMode` finding the original Row 13 disposition spelling introduced)
 - 0 findings on swift-primitives-linter-rules
 - **Total: 8 findings remain (87% reduction).**
+
+Post-Thread I (2026-05-13): Row 24's swift-manifests coordination
+component closed; `Lint.SingleFile.PackageDependency` collapsed into
+`Manifest.Executable.PackageDependency` (Row 23 future therefore
+also touched via the typealias-then-drop sequence — Lint-side
+references to PackageDependency now route directly through the
+generic). The Row 24 `SingleFile` compound-name finding remains on
+disk pending the namespace rename.
 
 Plus 5 compound-suite-name findings on `Tests/Linter Core Tests/*`
 deferred to Thread F per the original catalog ambiguity (test-suite
