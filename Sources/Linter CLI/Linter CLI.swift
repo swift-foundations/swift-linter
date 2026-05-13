@@ -61,7 +61,7 @@ extension Lint {
         var format: Lint.Reporter.Format = .text
 
         @Option(name: .customLong("lint-swift-path"), help: "Path to Lint.swift. Defaults to <path>/Lint.swift if present.")
-        var linter: File.Path?
+        var linter: File_System.File.Path?
 
         @Option(name: [.customLong("exit-policy"), .customLong("strict")], help: "Exit policy. Choices: advisory (exit 0 always), strict (exit non-zero when any finding has severity:error). The legacy --strict flag is honored.")
         var policy: Lint.Run.Policy = .advisory
@@ -105,7 +105,7 @@ extension Lint {
             // bare-string → `File.Path` conversion happens once at the
             // CLI boundary per `[IMPL-010]`. Every engine surface below
             // receives the typed value.
-            let consumerRoot: File.Path = try File.Path(consumerRootString)
+            let consumerRoot: File_System.File.Path = try File_System.File.Path(consumerRootString)
 
             // Single-file `Lint.swift` (Shape γ) dispatch — research
             // recommendation 2026-05-12-swift-linter-unified-consumer-manifest.md.
@@ -174,7 +174,7 @@ extension Lint {
             // ArgumentParser hands `[String]`; validate at the CLI boundary
             // exactly once via `try File.Path(_:)` so the engine receives
             // typed paths from here down [IMPL-010].
-            let typedPaths: [File.Path] = try paths.map { try File.Path($0) }
+            let typedPaths: [File_System.File.Path] = try paths.map { try File_System.File.Path($0) }
             let findings: [Lint.Finding] = try Lint.Run.run(paths: typedPaths, configuration: configuration)
             emit(findings)
             if policy == .strict && findings.contains(where: { $0.record.severity == .error }) {
@@ -199,7 +199,7 @@ extension Lint {
         /// down. The `--lint-swift-path` flag binds directly to a
         /// `File.Path?` via `ExpressibleByArgument`, so the override is
         /// already typed by the time it reaches here.
-        fileprivate func resolveConfiguration(consumerRoot: File.Path) -> Lint.Configuration {
+        fileprivate func resolveConfiguration(consumerRoot: File_System.File.Path) -> Lint.Configuration {
             return Lint.Driver.configuration(
                 at: consumerRoot,
                 manifestOverride: linter,

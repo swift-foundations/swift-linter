@@ -83,10 +83,10 @@ extension Lint {
             ? [Swift.String](arguments.dropFirst())
             : ["."]
 
-        let consumerPaths: [File.Path]
+        let consumerPaths: [File_System.File.Path]
         do throws(Paths.Path.Error) {
             consumerPaths = try pathStrings.map { (raw: Swift.String) throws(Paths.Path.Error) in
-                try File.Path(raw)
+                try File_System.File.Path(raw)
             }
         } catch {
             print("[Lint] error: invalid path argument: \(error)")

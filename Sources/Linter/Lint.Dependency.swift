@@ -55,7 +55,7 @@ extension Lint {
         public let products: [Product.Name]
 
         public enum Kind: Swift.Sendable {
-            case path(File.Path)
+            case path(File_System.File.Path)
             case url(URI, from: Version.Semantic)
             case urlRange(URI, Version.Range<Version.Semantic>)
         }
@@ -73,7 +73,7 @@ extension Lint {
         /// must be expressed relative to that location (typically two
         /// levels deeper than the consumer's own `Package.swift`).
         public static func package(
-            path: File.Path,
+            path: File_System.File.Path,
             products: [Product.Name]
         ) -> Lint.Dependency {
             Lint.Dependency(kind: .path(path), products: products)
