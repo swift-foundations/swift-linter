@@ -242,7 +242,7 @@ extension Lint.SingleFile {
         }
 
         // 3. Extract `Lint.run(dependencies:)` clauses.
-        let extractedDependencies: [Lint.SingleFile.PackageDependency] = try Lint.SingleFile.Extractor.dependencies(
+        let extractedDependencies: [Manifest.Executable.PackageDependency] = try Lint.SingleFile.Extractor.dependencies(
             from: source,
             sourcePath: consumerLintSwiftPath,
             consumerPackageRoot: consumerPackageRoot
