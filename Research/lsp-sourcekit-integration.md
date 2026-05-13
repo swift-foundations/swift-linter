@@ -2,13 +2,22 @@
 
 <!--
 ---
-version: 1.3.0
+version: 1.4.0
 last_updated: 2026-05-13
 status: DECISION
 research_tier: 2
 applies_to: [swift-foundations/swift-linter, swift-foundations/swift-linter-rules]
 normative: false
 changelog:
+  - v1.4.0 (2026-05-13): Persists post-decision conversation work as
+    durable record. Adds Q8 (sister-product naming + capabilities map
+    — Concept A `swift-institute-lsp`, Concept B `swift-linter analyze`
+    mode, Concept C `swift-refactor` — operationalizes Q7's
+    abstract domain-framing) with bird's-eye stacking diagram.
+    Adds "Open Follow-ups" section enumerating the today-sized work
+    items surfaced during the arc, with current dispositions
+    (done / deferred / queued / handed-off). Captures the
+    conditional-~Copyable rule-design concern.
   - v1.3.0 (2026-05-13): Extended the experiment to batch-process
     multiple symbol graphs (two-pass union-then-match) so cross-module
     protocol→protocol refinements are detected. Ran the user-domain
@@ -138,7 +147,11 @@ posture and AI-harness mission?
 6. *(forward-looking)* Is type-aware enforcement still "linter" work, or
    does it cross into static-analysis as a sister or parent domain? How
    do other ecosystems draw that boundary? **[Q7, added v1.1.0]**
-7. What is the RECOMMENDATION with a concrete next step? **[Q5, in Outcome]**
+7. *(forward-looking)* If sister-product capabilities materialize, what
+   concrete package names + capability shapes apply, and how do they
+   stack against the existing `swift-linter` + `swift-linter-rules`?
+   **[Q8, added v1.4.0]**
+8. What is the RECOMMENDATION with a concrete next step? **[Q5, in Outcome]**
 
 ---
 
@@ -802,6 +815,147 @@ substrate (IndexStoreDB, symbol graphs) with swift-linter without the
 two being the same tool. **Substrate is the integration story; product
 is the consumer surface.**
 
+### Q8 — Sister-product naming and stacking
+
+**Added v1.4.0.** Q7 framed the domains abstractly (linter as
+sub-domain of static analysis; LSP as sister domain; substrate is the
+integration story, product is the consumer surface). This section
+operationalizes those abstractions with concrete package names and
+capability shapes.
+
+Three distinct sister concepts emerge. They're commonly conflated but
+answer different questions.
+
+#### Concept A — `swift-institute-lsp` (NEW sister)
+
+**Domain**: code intelligence / LSP server. Consumer is the IDE
+(Xcode, VSCode, Cursor, Vim, JetBrains), not CI. Different posture
+from `swift-linter`: interactive, partial-state-tolerant, live as the
+user types.
+
+**Naming**: `swift-institute-lsp` (RECOMMENDED) mirrors `sourcekit-lsp`'s
+convention. Alternatives: `swift-linter-lsp` (sister-to-swift-linter
+framing), `swift-code-intelligence` (broader scope).
+
+**Substrate**: live SourceKit (sourcekitd or sourcekit-lsp wrapped) for
+"type-at-this-location" queries; IndexStoreDB for cross-file
+declaration / reference queries.
+
+**Architecture sketch**:
+
+- Wraps or proxies SourceKit-LSP for built-in language features
+  (completion, jump-to-definition).
+- Layers institute rules on top — runs the `swift-linter-rules`
+  predicates against the typed AST sourcekitd produces.
+- Emits LSP diagnostics with `data.rule_id` + `data.skill_citation`
+  (the P5 spec from `HANDOFF-ai-harness-features-roadmap.md`).
+- LSP `codeAction` capability — surfaces rule autofixes as editor
+  quick-fixes with the skill citation in the action's title (P6 spec).
+- LSP `hover` capability — hovering an institute-typed primitive
+  shows the skill rule it embodies.
+
+**Killer features uniquely possible at this layer**:
+
+| Feature | What it does |
+|---|---|
+| Skill-citing squiggles | Real-time squiggles with the `[API-NAME-001]`-style rule ID inline |
+| Educational hover | Hovering over `Cardinal`, `Tagged`, `Index` shows the skill defining the convention |
+| Composition-aware completion | Suggests institute primitives over stdlib alternatives when typed context matches (e.g., suggests `Cardinal<…>` over `Int` for a count parameter) |
+| Quick-fix from skill | Cmd+. surfaces `[CONV-016]` retag opportunities, `[API-IMPL-005]` one-type-per-file splits, etc. |
+| AI-conversational scaffolding | An AI agent open in the LSP can query "what rules apply to this site?" via a custom request, avoiding a full lint re-run |
+
+#### Concept B — `swift-linter analyze` mode (EXTEND existing)
+
+**Domain**: type-aware linting at the same posture as `swift-linter`
+(deterministic, snapshot-driven, CI-friendly). Same binary, opt-in
+subcommand. SwiftLint's `lint` / `analyze` split is the operational
+precedent; Periphery 2.0's IndexStoreDB posture is the substrate
+precedent.
+
+**Shape**: NOT a separate package. A target inside `swift-linter`
+invoked as `swift run swift-linter analyze`. Q7's resolution argued
+for one binary with two modes — the consumer-facing name stays
+`swift-linter` regardless of which mode is invoked.
+
+**What it adds over the AST-only mode**:
+
+- Q6 Category 2 (expression-level audits).
+- Q6 Category 6 (whole-program invariants — dead public API,
+  conformance audits).
+- Q6 Category 3 high-confidence fix-its (type-validated alternatives).
+- The fully general `redundant refinement` form across user-defined
+  protocols (the Phase 2 oracle covers stdlib; the v1.3.0 finding
+  shows the user-domain extension needs path-aware matching).
+
+**Substrate**: IndexStoreDB on `swift build -Xswiftc -index-store-path`.
+Periphery 2.0's path; no live SourceKit needed.
+
+This is the more immediate sister product. LSP (Concept A) is a
+different bet (editor vs CI consumer).
+
+#### Concept C — `swift-refactor` (LATENT, currently inside P6)
+
+**Domain**: structural-transformation tool, distinct from both linter
+and LSP. Generates and applies non-trivial transformations:
+
+- "extract this protocol from these duplicated requirements"
+- "split this multi-type file per [API-IMPL-005]"
+- "rename `walkFiles` to `walk.files` and update all consumers"
+
+**Current state**: P6 (semantic + educational autofix from the
+AI-harness roadmap) is the seed. Once autofix grows beyond single-site
+rename / inline replacement, it crosses into refactoring territory.
+Periphery's "remove dead code" command is the cross-ecosystem
+precedent for "linter-adjacent transformation tool"; typescript-eslint's
+`--fix` is the JS-side reference.
+
+This stays inside `swift-linter --fix` for now. If it grows, factor
+out as `swift-refactor` consuming the same rule corpus.
+
+#### Bird's-eye view
+
+```
+                          Editor consumer
+                                │
+                    ┌───────────┴───────────┐
+                    │  swift-institute-lsp  │  ← Concept A, NEW sister
+                    │  (LSP server)         │
+                    └─────────┬─────────────┘
+                              │ consumes
+                  ┌───────────┴──────────────────┐
+                  │                              │
+              swift-linter                  swift-linter-rules
+              + analyze mode                (rules + autofixes)
+              ← Concept B, EXTEND            ← current package
+                  │
+                  │ consumes
+        ┌─────────┼──────────────────┐
+        │         │                  │
+     Shape F   Shape C            Shape A/B
+     (today)   (medium-term)      (long-term)
+     oracle    IndexStoreDB       live SourceKit
+```
+
+CI consumes the bottom-middle. Editors consume the top. Same rule
+corpus flows through both.
+
+Refactoring tools (Concept C) consume the same rule corpus but
+produce edits as their output rather than diagnostics. Latent until
+P6 autofix crosses a complexity threshold.
+
+#### Activation triggers
+
+| Concept | Status | Trigger to activate |
+|---|---|---|
+| B (`swift-linter analyze`) | EXTEND existing | 3+ Category-6 rules in skill review (per Long-term framing decision table) |
+| A (`swift-institute-lsp`) | NEW sister product | AI-harness mission strategic bet; needs explicit user authorization |
+| C (`swift-refactor`) | LATENT inside swift-linter | P6 autofix complexity exceeds single-site mechanical replacement |
+
+Concept B is the natural next step because it shares substrate with
+what already exists. Concept A is the strategic bet because every rule
+in the corpus becomes an editor-time signal, not just a CI signal —
+the AI-harness mission compounds at this layer.
+
 ### Cross-ecosystem literature study [RES-021]
 
 **Expanded v1.1.0.** The original (v1.0.0) prior-art survey was a 7-row
@@ -1427,6 +1581,59 @@ the "would require type resolution; the swift-linter stack is
 SwiftSyntax-only" framing should be replaced with "the rule consults
 a precomputed conformance oracle; the swift-linter stack remains AST-only
 by construction".
+
+---
+
+## Open Follow-ups (added v1.4.0)
+
+Items surfaced during the LSP/SourceKit-integration arc that didn't
+ship in this cycle, with current dispositions. This is the canonical
+durable list for future sessions picking the arc back up — anything
+in conversation but not here will rot.
+
+### Done in this arc
+
+| Item | Where landed |
+|---|---|
+| Spike: precomputed conformance oracle | v1.2.0 — 136 stdlib pairs extracted; experiment at `swift-foundations/swift-json/Experiments/symbol-graph-conformance-oracle/` |
+| Production oracle: regen script | v1.2.0 — `swift-linter-rules/Scripts/regenerate-stdlib-refinements.sh` |
+| Rule split + auto-generated stdlib table | v1.2.0 — `Lint.Rule.Idiom.RedundantRefinement.StdlibRefinementsTable.swift` is auto-generated and committed |
+| User-domain refinement scan | v1.3.0 — 2 institute pairs found (Comparison→Equation, Hash→Equation); leaf-collision finding recorded |
+| Sister-product naming + capabilities map | v1.4.0 — Q8 above |
+
+### Deferred with reason
+
+| Item | Why deferred |
+|---|---|
+| Encode `feedback_extension_implies_copyable` as a rule | Open design question raised in conversation: how would this rule handle **conditionally `~Copyable`** types? The explicit form `extension X where Element: ~Copyable` is unambiguous, but composite shapes (extensions whose generic constraint includes a protocol P where P's `~Copyable` suppression is conditional) make the rule's predicate ambiguous. Needs a separate design pass to enumerate the shapes a rule would need to handle — or narrow the rule's scope to flagging only the bare `extension X { }` case where X is generic AND has unambiguous `~Copyable` suppression visible in the same file. The MEMORY entry [feedback_extension_implies_copyable](file:///Users/coen/.claude/projects/-Users-coen-Developer/memory/feedback_extension_implies_copyable.md) captures the underlying convention; the rule encoding awaits design resolution |
+| Run `redundant refinement` against the full institute ecosystem | Explicitly out of scope; separate work track |
+| Productionize user-domain refinement table | v1.3.0 finding showed only 2 institute pairs; the rule would need path-aware matching (~10-line visitor change) to consume them. Productionization gated on that rule-design decision |
+
+### Queued (today-sized, hours each)
+
+| Item | Estimated effort | What it tells us |
+|---|---|---|
+| Symbol-graph attribute coverage experiment | ~1h | Does `swift-symbolgraph-extract` emit `@unsafe`, `@inlinable`, `@usableFromInline`, access levels? If yes, Shape D covers more than just protocol conformance and we stay on it longer |
+| IndexStoreDB minimum-viable spike | ~3h | First empirical bite at Shape C. ~100-line Swift package opening an indexstore and querying for declarations carrying a given attribute. Confirms feasibility for `@unsafe` cross-file detection (absorber-pattern condition 1d, currently dropped) |
+| P5 JSON reporter for ONE rule | ~4h | Minimum-viable `Linter Reporter AI` target emitting `redundant refinement` findings in the spec'd schema (per `HANDOFF-ai-harness-features-roadmap.md`). Resolves three of P5's Open Questions empirically by trying them |
+| P6 fix-it for `redundant refinement` | ~3h | Add `Lint.FixIt` to the rule; mechanical edit (delete redundant member at the reported position). Minimum-viable P6 demonstration |
+| P7a memory-inventory pass | ~1h | Scan `~/.claude/.../memory/feedback_*.md`, label each as `structurally-detectable` / `semantic-only` / `process-rule`. Empirical input for "is the P7 pipeline worth building?" — without yet building it |
+| Run regen script against Swift 6.4-dev nightly | ~5 min | Surface 6.3 → 6.4 stdlib refinement deltas early; sets up the toolchain-bump workflow concretely |
+
+### Handed off
+
+| Item | Handoff document |
+|---|---|
+| swift-json parse-performance investigation (128s on 86 MB) | `HANDOFF-swift-json-parse-performance.md` at workspace root; awaiting investigator findings; will append `## Findings` on completion |
+
+### Architectural decisions queued
+
+| Decision | Trigger to revisit |
+|---|---|
+| Make the rule's leaf-name matching path-aware | When user-domain rules surface AND the path-aware-matching design is worked out. Small visitor change; risk is in matching strategy across stdlib + user-domain + qualified forms (e.g., `Swift.Error` still needs to collapse to leaf "Error" while `Comparison.Protocol` needs to retain its qualified prefix) |
+| Commit to Concept B (`swift-linter analyze` mode) | When 3+ Category-6 rules surface in skill review |
+| Commit to Concept A (`swift-institute-lsp` NEW package) | Strategic bet — requires explicit user authorization. Not gated on a count; gated on harness-mission resource allocation |
+| Factor out `swift-refactor` (Concept C) | When P6 autofix accumulates structural transformations beyond single-site edits |
 
 ---
 
