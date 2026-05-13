@@ -34,7 +34,7 @@ extension Lint.Configuration {
     ///
     /// `disabledRuleIDs` and `excludedPaths` flow through verbatim:
     /// rule-wide disables apply regardless of which layer registered
-    /// the rule (per `Lint.Configuration.effectiveRules()`);
+    /// the rule (per `Lint.Configuration.rules.effective`);
     /// excluded-path filters compose at the walker.
     public static func lift(
         manifest: Lint.Manifest,
@@ -51,7 +51,7 @@ extension Lint.Configuration {
         return Lint.Configuration(
             inheriting: parent,
             excluded: exclusions,
-            disabledRuleIDs: manifest.disabledRuleIDs
+            disabled: Set(manifest.disabledRuleIDs)
         ) {
             entries
         }

@@ -44,7 +44,7 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
     func `Empty manifest with nil parent produces empty effective rules`() {
         let manifest = Lint.Manifest(enabledRuleIDs: [])
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
-        #expect(configuration.effectiveRules().isEmpty)
+        #expect(configuration.rules.effective.entries.isEmpty)
     }
 
     @Test
@@ -54,7 +54,7 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
         // rules at this layer.
         let manifest = Lint.Manifest(enabledRuleIDs: ["unchecked_call_site"])
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
-        #expect(configuration.effectiveRules().isEmpty)
+        #expect(configuration.rules.effective.entries.isEmpty)
     }
 
     @Test
@@ -66,7 +66,7 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
             disabledRuleIDs: ["unchecked_call_site"]
         )
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
-        #expect(configuration.effectiveRules().isEmpty)
+        #expect(configuration.rules.effective.entries.isEmpty)
     }
 
     @Test
@@ -86,7 +86,7 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
             from: childManifest,
             parent: parentConfiguration
         )
-        #expect(childConfiguration.effectiveRules().isEmpty)
+        #expect(childConfiguration.rules.effective.entries.isEmpty)
     }
 
     @Test
@@ -110,6 +110,6 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
         // continues to assert the silent-ignore semantic.
         let manifest = Lint.Manifest(enabledRuleIDs: ["nonexistent_rule"])
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
-        #expect(configuration.effectiveRules().isEmpty)
+        #expect(configuration.rules.effective.entries.isEmpty)
     }
 }

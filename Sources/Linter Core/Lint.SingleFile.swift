@@ -353,7 +353,7 @@ extension Lint.SingleFile {
     /// Fold a parent-first chain of `Lint.Manifest` values into a
     /// single effective Manifest. Order is preserved (root-most first,
     /// closest-to-consumer last); the consumer's
-    /// ``Lint/Configuration/effectiveRules()`` handles dedup and
+    /// ``Lint/Configuration/Rules/effective`` handles dedup and
     /// override semantics (later wins per rule ID).
     internal static func foldParents(_ chain: [Lint.Manifest]) -> Lint.Manifest {
         var enabled: [Lint.Rule.ID] = []

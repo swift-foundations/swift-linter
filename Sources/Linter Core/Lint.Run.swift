@@ -37,7 +37,7 @@ extension Lint.Run {
     /// Two scoping mechanisms compose at distinct stages:
     ///
     /// 1. ``Lint/Rule/Configuration/Mode/disabled`` short-circuits at
-    ///    ``Lint/Configuration/effectiveRules()`` — disabled entries
+    ///    ``Lint/Configuration/Rules/effective`` — disabled entries
     ///    never reach this loop.
     /// 2. The per-rule ``Lint/Rule/Configuration/paths`` filter
     ///    (``Lint/Path/Filter``) applies HERE, per (rule, source-path)
@@ -122,8 +122,8 @@ extension Lint.Run {
     /// ``Lint/Suppression/scan(tree:converter:)``, then consults the
     /// map for each finding before adding it to the return value. The
     /// rule-wide-disable axis is honored at
-    /// ``Lint/Configuration/effectiveRules()`` — rule IDs in
-    /// ``Lint/Configuration/disabledRuleIDs`` never reach this loop.
+    /// ``Lint/Configuration/Rules/effective`` — rule IDs in
+    /// ``Lint/Configuration/Rules/disabled`` never reach this loop.
     public static func runCapturingSuppressed(
         paths: [File.Path],
         configuration: Lint.Configuration
@@ -134,7 +134,7 @@ extension Lint.Run {
         // engine simply resolves severity and invokes the witness's
         // findings closure — no existential dispatch, no `init(severity:)`
         // factory hop, no per-entry filter branch.
-        let effective = configuration.effectiveRules()
+        let effective = configuration.rules.effective.entries
         var manager = Source.Manager()
         var findings: [Lint.Finding] = []
         var suppressed: [Lint.Finding] = []

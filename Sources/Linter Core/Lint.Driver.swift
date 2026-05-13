@@ -250,9 +250,9 @@ extension Lint.Driver {
     /// `Lint/` executable (which links rule packs and instantiates
     /// `Lint.Configuration` directly with concrete witnesses). The
     /// manifest's `disabledRuleIDs` list, however, is threaded
-    /// through to ``Lint/Configuration/disabledRuleIDs``: the engine
+    /// through to ``Lint/Configuration/Rules/disabled``: the engine
     /// applies the rule-wide disable wholesale at
-    /// ``Lint/Configuration/effectiveRules()``, dropping any rule
+    /// ``Lint/Configuration/Rules/effective``, dropping any rule
     /// whose ID matches regardless of which layer registered it.
     /// Per-line `// swift-linter:disable:next <id>` directives compose
     /// on top of this rule-wide disable per decision 2026-05-11.
@@ -262,7 +262,7 @@ extension Lint.Driver {
     /// inherits via `Lint.Configuration(inheriting: parent)` and
     /// threads `excluded` paths plus `disabledRuleIDs` from the
     /// manifest; layered override semantics are computed by
-    /// ``Lint/Configuration/effectiveRules()``.
+    /// ``Lint/Configuration/Rules/effective``.
     internal static func configuration(
         from manifest: Lint.Manifest,
         parent: Lint.Configuration?
@@ -270,7 +270,7 @@ extension Lint.Driver {
         Lint.Configuration(
             inheriting: parent,
             excluded: manifest.excludedPaths.map(Lint.Filter.Prefix.init),
-            disabledRuleIDs: manifest.disabledRuleIDs
+            disabled: Set(manifest.disabledRuleIDs)
         ) { }
     }
 

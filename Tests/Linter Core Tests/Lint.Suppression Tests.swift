@@ -269,15 +269,15 @@ extension Lint.Suppression.Test.EngineIntegration {
     }
 
     @Test
-    func `Configuration disabledRuleIDs elides all findings for that rule`() throws(Lint.Run.Error) {
+    func `Configuration rules disabled elides all findings for that rule`() throws(Lint.Run.Error) {
         // Two calls fire the fixture rule; configuration disables it
-        // wholesale via disabledRuleIDs — both elided.
+        // wholesale via rules.disabled — both elided.
         let root = Self.writeFixture(content: """
         targetCall()
         targetCall()
         """)
         let configuration = Lint.Configuration(
-            disabledRuleIDs: ["suppression fixture"]
+            disabled: ["suppression fixture"]
         ) {
             .enable(.`suppression fixture`)
         }
@@ -286,16 +286,16 @@ extension Lint.Suppression.Test.EngineIntegration {
     }
 
     @Test
-    func `Manifest disabledRuleIDs threads through Driver to Configuration`() {
+    func `Manifest disabledRuleIDs threads through Driver to Configuration rules disabled`() {
         // The Driver-level threading: a Manifest with disabledRuleIDs
-        // produces a Configuration whose disabledRuleIDs carries the
+        // produces a Configuration whose rules.disabled carries the
         // same IDs.
         let manifest = Lint.Manifest(
             enabledRuleIDs: [],
             disabledRuleIDs: ["suppression fixture"]
         )
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
-        #expect(configuration.disabledRuleIDs.contains("suppression fixture"))
+        #expect(configuration.rules.disabled.contains("suppression fixture"))
     }
 
     @Test
