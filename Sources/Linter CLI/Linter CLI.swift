@@ -139,8 +139,8 @@ struct SwiftLinter: ParsableCommand {
         // (silently suppressed at the library boundary) into a stderr
         // diagnostic. Without this hook the user sees a bare non-zero
         // exit with no explanation when the nested-package spawn fails.
-        if let dispatchedExitCode = Lint.Driver.dispatchNestedIfPresent(
-            consumerPackageRoot: consumerRoot,
+        if let dispatchedExitCode = Lint.Driver.dispatch.nested(
+            at: consumerRoot,
             arguments: paths,
             onDispatchError: { description in
                 do throws(ISO_9945.Kernel.IO.Write.Error) {
@@ -190,9 +190,9 @@ struct SwiftLinter: ParsableCommand {
         let typedOverride: File.Path? = try lintSwiftPath.map { (raw: Swift.String) throws(Paths.Path.Error) in
             try File.Path(raw)
         }
-        return Lint.Driver.resolveConfiguration(
-            consumerPackageRoot: consumerRoot,
-            lintSwiftPathOverride: typedOverride,
+        return Lint.Driver.configuration(
+            at: consumerRoot,
+            manifestOverride: typedOverride,
             onMissingLinterPath: {
                 do throws(ISO_9945.Kernel.IO.Write.Error) {
                     _ = try Terminal.Stream.stderr.write(

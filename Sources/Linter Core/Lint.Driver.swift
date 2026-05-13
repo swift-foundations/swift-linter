@@ -61,101 +61,128 @@ extension Lint {
     public enum Driver {}
 }
 
+// MARK: - Namespace accessors (Property.View metatype trick)
+
 extension Lint.Driver {
-    /// Detect a nested `Lint/` SwiftPM package at the consumer's
-    /// package root and, if present, dispatch the lint run to the
-    /// consumer's `Lint` executable via
-    /// `swift run --package-path <consumerRoot>/Lint Lint <args>`.
-    ///
-    /// PoC of the Lint/ nested-package mechanism (architecture cohort
-    /// Phase A — `HANDOFF-architecture-poc-lint-nested-package.md`).
-    /// Under Option 1 the Lint/ executable IS the linter binary for
-    /// the consumer (linking engine + rule packs declared in its
-    /// `Lint/Package.swift`); swift-linter (this CLI) becomes a
-    /// coordinator that delegates the run when the consumer opts into
-    /// the nested-package shape.
-    ///
-    /// Library output discipline: this helper does NOT write to stdout
-    /// or stderr. Dispatch errors are surfaced via the optional
-    /// `onDispatchError` closure; the default no-op preserves the
-    /// silent-fallback behavior for non-CLI callers. The CLI binding
-    /// supplies a closure that emits to `Terminal.Stream.stderr.write`
-    /// so end users see a typed-error diagnostic instead of a bare
-    /// non-zero exit.
-    ///
-    /// - Parameters:
-    ///   - consumerPackageRoot: Filesystem path to the consumer's
-    ///     package root (the directory containing the consumer's
-    ///     `Package.swift`).
-    ///   - arguments: Arguments forwarded to the dispatched `Lint`
-    ///     executable.
-    ///   - onDispatchError: Optional closure invoked when
-    ///     ``Manifest_Resolver/Manifest/NestedPackage/dispatch(at:arguments:)``
-    ///     throws. Receives the error's textual description; CLI
-    ///     callers translate this to a stderr diagnostic. Defaults to
-    ///     a no-op so library callers retain the silent-fallback
-    ///     contract.
-    /// - Returns: `nil` when no nested package is detected — the
-    ///   caller should fall through to the single-file `Lint.swift`
-    ///   path. Otherwise the dispatched executable's exit code (an
-    ///   `Int32`); `0` indicates success, non-zero indicates findings
-    ///   or error per the dispatched executable's exit policy. When
-    ///   the dispatch itself fails (spawn error), returns `1` after
-    ///   invoking `onDispatchError`.
-    public static func dispatchNestedIfPresent(
-        consumerPackageRoot: File.Path,
-        arguments: [Swift.String],
-        onDispatchError: (Swift.String) -> Void = { _ in }
-    ) -> Swift.Int32? {
-        // `Manifest.NestedPackage.detect / dispatch` operate at the
-        // SwiftPM-shim boundary on `Swift.String` paths; convert at
-        // the boundary while the engine surface above stays typed.
-        let rootString: Swift.String = consumerPackageRoot.string
-        guard Manifest.NestedPackage.detect(at: rootString) else {
-            return nil
-        }
-        do throws(Manifest.NestedPackage.Error) {
-            return try Manifest.NestedPackage.dispatch(
-                at: rootString,
-                arguments: arguments
-            )
-        } catch {
-            onDispatchError("\(error)")
-            return 1
+    /// Namespace accessor for dispatch operations. Reads as
+    /// `Lint.Driver.dispatch.nested(at: ..., arguments: ...)`.
+    @inlinable
+    public static var dispatch: Dispatch.Type { Dispatch.self }
+
+    /// Namespace accessor for manifest-detection operations. Reads as
+    /// `Lint.Driver.manifest.path(at: ...)`.
+    @inlinable
+    public static var manifest: Manifest.Type { Manifest.self }
+}
+
+// MARK: - Dispatch namespace
+
+extension Lint.Driver {
+    public enum Dispatch {
+        /// Detect a nested `Lint/` SwiftPM package at the consumer's
+        /// package root and, if present, dispatch the lint run to the
+        /// consumer's `Lint` executable via
+        /// `swift run --package-path <consumerRoot>/Lint Lint <args>`.
+        ///
+        /// PoC of the Lint/ nested-package mechanism (architecture cohort
+        /// Phase A — `HANDOFF-architecture-poc-lint-nested-package.md`).
+        /// Under Option 1 the Lint/ executable IS the linter binary for
+        /// the consumer (linking engine + rule packs declared in its
+        /// `Lint/Package.swift`); swift-linter (this CLI) becomes a
+        /// coordinator that delegates the run when the consumer opts into
+        /// the nested-package shape.
+        ///
+        /// Library output discipline: this helper does NOT write to stdout
+        /// or stderr. Dispatch errors are surfaced via the optional
+        /// `onDispatchError` closure; the default no-op preserves the
+        /// silent-fallback behavior for non-CLI callers. The CLI binding
+        /// supplies a closure that emits to `Terminal.Stream.stderr.write`
+        /// so end users see a typed-error diagnostic instead of a bare
+        /// non-zero exit.
+        ///
+        /// - Parameters:
+        ///   - at: Filesystem path to the consumer's package root (the
+        ///     directory containing the consumer's `Package.swift`).
+        ///   - arguments: Arguments forwarded to the dispatched `Lint`
+        ///     executable.
+        ///   - onDispatchError: Optional closure invoked when
+        ///     ``Manifest_Resolver/Manifest/NestedPackage/dispatch(at:arguments:)``
+        ///     throws. Receives the error's textual description; CLI
+        ///     callers translate this to a stderr diagnostic. Defaults to
+        ///     a no-op so library callers retain the silent-fallback
+        ///     contract.
+        /// - Returns: `nil` when no nested package is detected — the
+        ///   caller should fall through to the single-file `Lint.swift`
+        ///   path. Otherwise the dispatched executable's exit code (an
+        ///   `Int32`); `0` indicates success, non-zero indicates findings
+        ///   or error per the dispatched executable's exit policy. When
+        ///   the dispatch itself fails (spawn error), returns `1` after
+        ///   invoking `onDispatchError`.
+        public static func nested(
+            at consumerPackageRoot: File.Path,
+            arguments: [Swift.String],
+            onDispatchError: (Swift.String) -> Void = { _ in }
+        ) -> Swift.Int32? {
+            // `Manifest.NestedPackage.detect / dispatch` operate at the
+            // SwiftPM-shim boundary on `Swift.String` paths; convert at
+            // the boundary while the engine surface above stays typed.
+            let rootString: Swift.String = consumerPackageRoot.string
+            guard Manifest_Resolver.Manifest.NestedPackage.detect(at: rootString) else {
+                return nil
+            }
+            do throws(Manifest_Resolver.Manifest.NestedPackage.Error) {
+                return try Manifest_Resolver.Manifest.NestedPackage.dispatch(
+                    at: rootString,
+                    arguments: arguments
+                )
+            } catch {
+                onDispatchError("\(error)")
+                return 1
+            }
         }
     }
+}
 
-    /// Detects whether a `Lint.swift` exists at the consumer's
-    /// package root.
-    ///
-    /// F-A2.2 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
-    /// typed `File.Path` on both parameter and return.
-    public static func lintSwiftPath(at consumerPackageRoot: File.Path) -> File.Path? {
-        let candidate: File.Path = consumerPackageRoot / "Lint.swift"
-        let directory: File.Directory
-        do throws(Paths.Path.Error) {
-            directory = try File.Directory(validating: consumerPackageRoot.string)
-        } catch {
+// MARK: - Manifest namespace (Lint.Driver.Manifest — distinct from Lint.Manifest)
+
+extension Lint.Driver {
+    public enum Manifest {
+        /// Detects whether a `Lint.swift` exists at the consumer's
+        /// package root.
+        ///
+        /// F-A2.2 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
+        /// typed `File.Path` on both parameter and return.
+        public static func path(at consumerPackageRoot: File.Path) -> File.Path? {
+            let candidate: File.Path = consumerPackageRoot / "Lint.swift"
+            let directory: File.Directory
+            do throws(Paths.Path.Error) {
+                directory = try File.Directory(validating: consumerPackageRoot.string)
+            } catch {
+                return nil
+            }
+            let entries: [File.Directory.Entry]
+            do throws(File.Directory.Contents.Error) {
+                entries = try directory.entries()
+            } catch {
+                return nil
+            }
+            for entry in entries where Swift.String(entry.name) == "Lint.swift" {
+                return candidate
+            }
             return nil
         }
-        let entries: [File.Directory.Entry]
-        do throws(File.Directory.Contents.Error) {
-            entries = try directory.entries()
-        } catch {
-            return nil
-        }
-        for entry in entries where Swift.String(entry.name) == "Lint.swift" {
-            return candidate
-        }
-        return nil
     }
+}
 
+// MARK: - Top-level configuration resolution
+
+extension Lint.Driver {
     /// Resolve the configuration for the given consumer root.
     ///
     /// Determines the manifest's `(directory, filename)` from either
-    /// `lintSwiftPathOverride` or via detection at
-    /// `consumerPackageRoot`, then delegates parent-chain resolution
-    /// to ``Manifest_Resolver/Manifest/Resolver/resolve(consumerPackageRoot:filename:dependencies:defaultConfiguration:buildConfiguration:)``.
+    /// `manifestOverride` or via detection at `consumerPackageRoot`,
+    /// then delegates parent-chain resolution to
+    /// ``Manifest_Resolver/Manifest/Resolver/resolve(consumerPackageRoot:filename:dependencies:defaultConfiguration:buildConfiguration:)``.
     ///
     /// Fall-back paths:
     /// - No `Lint.swift` at consumer root and no override → defaults-everything.
@@ -174,9 +201,8 @@ extension Lint.Driver {
     /// silent-fallback contract.
     ///
     /// - Parameters:
-    ///   - consumerPackageRoot: Filesystem path to the consumer's
-    ///     package root.
-    ///   - lintSwiftPathOverride: Optional explicit path to the
+    ///   - at: Filesystem path to the consumer's package root.
+    ///   - manifestOverride: Optional explicit path to the
     ///     consumer's `Lint.swift`; overrides default detection at
     ///     `<consumerPackageRoot>/Lint.swift`.
     ///   - onMissingLinterPath: Optional closure invoked when the
@@ -184,20 +210,19 @@ extension Lint.Driver {
     ///     is a no-op so library callers retain the silent-fallback
     ///     contract.
     /// F-A2.1 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
-    /// `consumerPackageRoot` and `lintSwiftPathOverride` are typed
-    /// `File.Path`.
-    public static func resolveConfiguration(
-        consumerPackageRoot: File.Path,
-        lintSwiftPathOverride: File.Path? = nil,
+    /// path parameters are typed `File.Path`.
+    public static func configuration(
+        at consumerPackageRoot: File.Path,
+        manifestOverride: File.Path? = nil,
         onMissingLinterPath: () -> Void = { }
     ) -> Lint.Configuration {
         let manifestDirectory: Swift.String
         let manifestFilename: Swift.String
-        if let override = lintSwiftPathOverride {
+        if let override = manifestOverride {
             manifestDirectory = override.parent.map { $0.description } ?? "."
             manifestFilename = override.components.last.map { $0.string } ?? "Lint.swift"
         } else {
-            guard lintSwiftPath(at: consumerPackageRoot) != nil else {
+            guard Self.manifest.path(at: consumerPackageRoot) != nil else {
                 return defaultConfiguration()
             }
             manifestDirectory = consumerPackageRoot.string
@@ -208,8 +233,8 @@ extension Lint.Driver {
             onMissingLinterPath()
             return defaultConfiguration()
         }
-        do throws(Manifest.Resolver<Lint.Manifest, Lint.Configuration>.Error) {
-            return try Manifest.Resolver<Lint.Manifest, Lint.Configuration>.resolve(
+        do throws(Manifest_Resolver.Manifest.Resolver<Lint.Manifest, Lint.Configuration>.Error) {
+            return try Manifest_Resolver.Manifest.Resolver<Lint.Manifest, Lint.Configuration>.resolve(
                 consumerPackageRoot: manifestDirectory,
                 filename: manifestFilename,
                 dependencies: dependencies,
@@ -277,14 +302,14 @@ extension Lint.Driver {
     /// The dependency set the driver shim compiles against.
     ///
     /// Derived from `SWIFT_LINTER_PATH`. Returns `nil` when the
-    /// variable is unset — `resolveConfiguration` interprets `nil`
+    /// variable is unset — `configuration(at:)` interprets `nil`
     /// as "no manifest evaluation possible" and returns the empty
     /// default Configuration. The shim needs:
     ///
     ///   - `JSON` (for `.jsonString()` on the typed value),
     ///   - `File_System` (for the `File.write.atomic` output sink),
     ///   - `Linter` (for the ``Lint/Manifest`` type).
-    internal static func manifestDependencies() -> [Manifest.Dependency]? {
+    internal static func manifestDependencies() -> [Manifest_Primitives.Manifest.Dependency]? {
         // Library output discipline: silently return nil when
         // SWIFT_LINTER_PATH is unset. The CLI is responsible for
         // validating preconditions and surfacing the env-var error
@@ -309,19 +334,19 @@ extension Lint.Driver {
             return nil
         }
         return [
-            Manifest.Dependency(
+            Manifest_Primitives.Manifest.Dependency(
                 path: (workspace / "swift-json").string,
                 name: "swift-json",
                 product: "JSON",
                 imports: ["JSON"]
             ),
-            Manifest.Dependency(
+            Manifest_Primitives.Manifest.Dependency(
                 path: (workspace / "swift-file-system").string,
                 name: "swift-file-system",
                 product: "File System",
                 imports: ["File_System"]
             ),
-            Manifest.Dependency(
+            Manifest_Primitives.Manifest.Dependency(
                 path: linterPath,
                 name: "swift-linter",
                 product: "Linter",
@@ -330,4 +355,3 @@ extension Lint.Driver {
         ]
     }
 }
-

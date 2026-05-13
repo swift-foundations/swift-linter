@@ -269,7 +269,7 @@ extension Lint.SingleFile {
     /// parent directive is found.
     ///
     /// Parent eval uses the same dependency set as
-    /// ``Lint/Driver/resolveConfiguration(consumerPackageRoot:lintSwiftPathOverride:onMissingLinterPath:)``
+    /// ``Lint/Driver/configuration(at:manifestOverride:onMissingLinterPath:)``
     /// — JSON, File_System, Linter — resolved against
     /// `SWIFT_LINTER_PATH`. When the env var is unset the resolver
     /// cannot evaluate parents; the method returns `nil` and lint
