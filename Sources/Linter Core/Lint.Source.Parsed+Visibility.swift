@@ -63,12 +63,17 @@ extension Lint.Source.Parsed {
     /// out-of-range location yields `nil` rather than tripping a
     /// converter precondition.
     private func absolutePosition(for location: Source.Location) -> AbsolutePosition? {
-        let line = location.line
-        let column = location.column
-        guard line >= 1, column >= 1 else { return nil }
+        // Comparison stays typed via `Text.Line.Number`'s
+        // `ExpressibleByIntegerLiteral` + `Comparable` conformances;
+        // conversion to `Int` happens only at the SwiftSyntax boundary
+        // (`SourceLocationConverter.position(ofLine:column:)` is Int-based).
+        guard location.line >= 1, location.column >= 1 else { return nil }
         let lineStarts = converter.sourceLines
-        guard line <= lineStarts.count else { return nil }
-        return converter.position(ofLine: line, column: column)
+        guard location.line.underlying <= UInt(lineStarts.count) else { return nil }
+        return converter.position(
+            ofLine: Int(location.line.underlying),
+            column: location.column
+        )
     }
 
     /// Deepest syntax node whose source-accurate range

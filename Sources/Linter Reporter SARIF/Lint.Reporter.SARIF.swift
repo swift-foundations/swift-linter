@@ -99,7 +99,7 @@ extension Lint.Reporter.SARIF {
                     "physicalLocation": [
                         "artifactLocation": ["uri": JSON(stringLiteral: pathOrID)],
                         "region": [
-                            "startLine": JSON(integerLiteral: record.location.line),
+                            "startLine": JSON(integerLiteral: Int(record.location.line.underlying)),
                             "startColumn": JSON(integerLiteral: record.location.column),
                         ],
                     ],
