@@ -18,7 +18,7 @@ import Linter_Reporter_SARIF
 import Terminal_Primitives
 
 extension Lint.Reporter.Format: ExpressibleByArgument {}
-extension Lint.Run.ExitPolicy: ExpressibleByArgument {}
+extension Lint.Run.Policy: ExpressibleByArgument {}
 
 @main
 struct SwiftLinter: ParsableCommand {
@@ -52,7 +52,7 @@ struct SwiftLinter: ParsableCommand {
     var lintSwiftPath: Swift.String?
 
     @Option(name: [.long, .customLong("strict")], help: "Exit policy. Choices: advisory (exit 0 always), strict (exit non-zero when any finding has severity:error). The legacy --strict flag is honored.")
-    var exitPolicy: Lint.Run.ExitPolicy = .advisory
+    var exitPolicy: Lint.Run.Policy = .advisory
 
     // ArgumentParser's `ParsableCommand.run()` protocol requirement is
     // bare-throws; typed throws is unavailable here until upstream

@@ -75,7 +75,7 @@ extension Lint.Run {
         paths: [File.Path],
         configuration: Lint.Configuration
     ) throws(Error) -> [Lint.Finding] {
-        let outcome = try runCapturingSuppressed(paths: paths, configuration: configuration)
+        let outcome = try run(paths: paths, configuration: configuration, capturing: .all)
         return outcome.findings
     }
 
@@ -113,20 +113,21 @@ extension Lint.Run {
         }
     }
 
-    /// Variant that returns the suppressed-finding observability
-    /// stream alongside the engine's surfaced findings.
+    /// Outcome-returning variant; the ``CaptureMode`` controls which
+    /// streams (findings, suppressed, or both) the engine populates.
     ///
     /// Per-finding disable mechanism (decision 2026-05-11, hybrid
     /// line-comment + config-file): for each parsed source file the
     /// engine first builds a ``Lint/Suppression`` map via
     /// ``Lint/Suppression/scan(tree:converter:)``, then consults the
-    /// map for each finding before adding it to the return value. The
-    /// rule-wide-disable axis is honored at
+    /// map for each finding before deciding which stream(s) it joins.
+    /// The rule-wide-disable axis is honored at
     /// ``Lint/Configuration/Rules/effective`` — rule IDs in
     /// ``Lint/Configuration/Rules/disabled`` never reach this loop.
-    public static func runCapturingSuppressed(
+    public static func run(
         paths: [File.Path],
-        configuration: Lint.Configuration
+        configuration: Lint.Configuration,
+        capturing mode: CaptureMode
     ) throws(Error) -> Outcome {
         // Witness-shape engine. Each effective entry stores a `Lint.Rule`
         // witness with any per-rule path filter already folded in via
@@ -164,10 +165,14 @@ extension Lint.Run {
                             visibility: visibility
                         )
                         if suppression.suppresses(line: record.location.position.line, rule: ruleID) {
-                            suppressed.append(finding)
+                            if mode != .findings {
+                                suppressed.append(finding)
+                            }
                             continue
                         }
-                        findings.append(finding)
+                        if mode != .suppressed {
+                            findings.append(finding)
+                        }
                     }
                 }
             }

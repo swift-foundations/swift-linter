@@ -235,7 +235,7 @@ extension Lint.Suppression.Test.EngineIntegration {
         let configuration = Lint.Configuration {
             .enable(.`suppression fixture`)
         }
-        let outcome = try Lint.Run.runCapturingSuppressed(paths: [root], configuration: configuration)
+        let outcome = try Lint.Run.run(paths: [root], configuration: configuration, capturing: .all)
         #expect(outcome.findings.isEmpty)
         #expect(outcome.suppressed.count == 1)
     }
@@ -249,7 +249,7 @@ extension Lint.Suppression.Test.EngineIntegration {
         let configuration = Lint.Configuration {
             .enable(.`suppression fixture`)
         }
-        let outcome = try Lint.Run.runCapturingSuppressed(paths: [root], configuration: configuration)
+        let outcome = try Lint.Run.run(paths: [root], configuration: configuration, capturing: .all)
         #expect(outcome.findings.isEmpty)
         #expect(outcome.suppressed.count == 1)
     }

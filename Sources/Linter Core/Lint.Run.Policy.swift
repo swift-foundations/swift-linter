@@ -20,7 +20,7 @@ extension Lint.Run {
     /// Phase 1.6 promotes it to a typed enum so future policies
     /// (`.warningsAsErrors`, `.thresholdCount(_:)`, `.severityFloor(_:)`)
     /// extend the closed vocabulary without flag explosion.
-    public enum ExitPolicy: Swift.String, Sendable, Hashable, CaseIterable {
+    public enum Policy: Swift.String, Sendable, Hashable, CaseIterable {
         case advisory
         case strict
     }
