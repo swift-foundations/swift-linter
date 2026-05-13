@@ -46,7 +46,7 @@ extension Lint.Source.Parsed {
     /// `internal import SwiftSyntax` precludes a `public` signature
     /// (would expose internally-imported types); engine callers are
     /// the only intended consumers anyway.
-    internal func visibility(at location: Source.Location) -> Lint.Visibility {
+    internal borrowing func visibility(at location: Source.Location) -> Lint.Visibility {
         guard let position = absolutePosition(for: location) else {
             return .internal
         }
@@ -62,7 +62,7 @@ extension Lint.Source.Parsed {
     /// reuse directly; this wrapper only adds the bounds guard so an
     /// out-of-range location yields `nil` rather than tripping a
     /// converter precondition.
-    private func absolutePosition(for location: Source.Location) -> AbsolutePosition? {
+    private borrowing func absolutePosition(for location: Source.Location) -> AbsolutePosition? {
         // Comparison stays typed: `Text.Line.Number` and
         // `Text.Line.Column` both conform to `ExpressibleByIntegerLiteral`
         // + `Comparable` via the Tagged-literal SLI conformance chain.
@@ -83,7 +83,7 @@ extension Lint.Source.Parsed {
     /// `[positionAfterLeadingTrivia, endPosition)` contains
     /// `position`. Returns `nil` when no node contains the position
     /// (e.g., position is past the file's end).
-    private func deepestNode(containing position: AbsolutePosition) -> Syntax? {
+    private borrowing func deepestNode(containing position: AbsolutePosition) -> Syntax? {
         let root = Syntax(tree)
         guard root.positionAfterSkippingLeadingTrivia <= position,
               position < root.endPosition else {
