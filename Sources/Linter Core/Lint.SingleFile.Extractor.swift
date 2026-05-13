@@ -159,10 +159,23 @@ extension Lint.SingleFile.Extractor {
                 productsArg = try Self.extractStringArray(arg.expression, sourcePath: sourcePath)
             case nil:
                 // Unlabeled positional arg — accepted for the
-                // `.package(url:_:_:products:)` range form's lower
-                // and upper bounds.
-                let value: Swift.String = try Self.extractStringLiteral(arg.expression, sourcePath: sourcePath)
-                rangeBounds.append(value)
+                // `.package(url:_:products:)` range form.
+                //
+                // Thread G G.1 (HANDOFF
+                // `HANDOFF-thread-g-dependency-typed-primitive-adoption.md`)
+                // moved the call-site shape from two positional string
+                // literals to a single `Swift.Range<Version.Semantic>`
+                // literal (`"X"..<"Y"`). The Extractor recognises both:
+                // a `..<` range expression yields both bounds in one
+                // arg; a bare string literal yields one bound (legacy
+                // two-positional form).
+                if let (lower, upper) = try Self.extractRangeBounds(arg.expression, sourcePath: sourcePath) {
+                    rangeBounds.append(lower)
+                    rangeBounds.append(upper)
+                } else {
+                    let value: Swift.String = try Self.extractStringLiteral(arg.expression, sourcePath: sourcePath)
+                    rangeBounds.append(value)
+                }
             default:
                 throw .malformedPackageCall(
                     path: sourcePath,
@@ -232,6 +245,36 @@ extension Lint.SingleFile.Extractor {
             )
         }
         return segment.content.text
+    }
+
+    /// Extract the `(lower, upper)` string-literal bounds from a
+    /// `"X"..<"Y"` range expression. Returns `nil` when the
+    /// expression is not a half-open range with string-literal
+    /// operands, so the caller can fall back to single-literal
+    /// extraction.
+    ///
+    /// SwiftPM's `Range<Version>` form is parsed by SwiftSyntax as
+    /// a `SequenceExprSyntax` with three elements: lower-literal,
+    /// the `..<` binary operator, upper-literal. The Extractor
+    /// runs unfolded (no `SwiftOperators.foldAll`), so the
+    /// recognition is the raw three-element shape.
+    fileprivate static func extractRangeBounds(
+        _ expr: ExprSyntax,
+        sourcePath: File.Path
+    ) throws(Lint.SingleFile.Error) -> (Swift.String, Swift.String)? {
+        guard let sequence: SequenceExprSyntax = expr.as(SequenceExprSyntax.self) else {
+            return nil
+        }
+        let elements: [ExprSyntax] = Array(sequence.elements)
+        guard elements.count == 3,
+              let op: BinaryOperatorExprSyntax = elements[1].as(BinaryOperatorExprSyntax.self),
+              op.operator.text == "..<"
+        else {
+            return nil
+        }
+        let lower: Swift.String = try Self.extractStringLiteral(elements[0], sourcePath: sourcePath)
+        let upper: Swift.String = try Self.extractStringLiteral(elements[2], sourcePath: sourcePath)
+        return (lower, upper)
     }
 
     /// Extract a `[String]` value from an `ArrayExprSyntax` whose

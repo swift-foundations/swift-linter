@@ -108,8 +108,8 @@ extension Lint.SingleFile.Materializer {
         let evalRelativeToConsumer: Swift.String = "../.."
 
         // The eval project's SwiftPM tools version. Routed through
-        // `Version.Tools` per F-A2.7 (audit
-        // `Research/2026-05-12-typed-primitive-adoption-audit.md`) —
+        // `Version.Tools` per Thread G phase G.2 (HANDOFF
+        // `HANDOFF-thread-g-dependency-typed-primitive-adoption.md`) —
         // the literal flows through the typed primitive so a change
         // here surfaces as a typed-value edit, not a raw-string edit.
         let evalToolsVersion: Version.Tools = "6.3.1"
