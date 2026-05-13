@@ -1,11 +1,21 @@
 {
   "$schema": "https://swift-institute.org/schemas/research-index-v1.json",
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-05-07",
+  "generatedAt": "2026-05-13",
   "title": "Research Index",
   "blurb": "swift-linter package research and verification records.",
   "scope": "swift-linter (swift-foundations)",
   "documents": [
+    {
+      "file": "lsp-sourcekit-integration.md",
+      "displayName": "lsp-sourcekit-integration",
+      "topic": "Surveys 6 integration shapes against the deferred-rule cohort; RECOMMENDS Shape F (precomputed conformance oracle), DEFERS live LSP/SourceKit. v1.1.0 adds Q6 (design-space exploration: 6 forward-looking rule categories), Q7 (domain framing: linter as sub-domain of static analysis), and a full cross-ecosystem literature study (TS/typescript-eslint, C#/Roslyn, Go/analysis, Rust/clippy+dylint, Python/ruff+mypy, Java/SpotBugs+Error Prone, Swift fragmented landscape) extracting four architectural patterns. v1.2.0 (2026-05-13) promotes RECOMMENDATION → DECISION after spike execution: 136 protocol-protocol refinement pairs extracted from Swift stdlib's symbol graph, all 26 entries of hardcoded `idiomKnownStdlibRefinements` reproduced + 110 additional refinements. Spike landed at swift-foundations/swift-json/Experiments/symbol-graph-conformance-oracle/ (placement corrected per [EXP-022]: highest-layer dep is swift-json, not swift-institute). Rule docstring amended to remove the 'requires type resolution' framing.",
+      "date": "2026-05-13",
+      "status": "DECISION",
+      "statusRaw": "DECISION",
+      "tier": 2,
+      "scope": "cross-package"
+    },
     {
       "file": "2026-05-12-thread-e-public-dsl-rename-catalog.md",
       "displayName": "thread-e-public-dsl-rename-catalog",
