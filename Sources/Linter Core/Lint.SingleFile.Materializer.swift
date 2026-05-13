@@ -90,8 +90,7 @@ extension Lint.SingleFile.Materializer {
     ///   product per dependency.
     /// - One ecosystem `SwiftSetting` block matching the swift-linter
     ///   target settings (strict memory safety, upcoming features).
-    @usableFromInline
-    internal static func renderPackageSwift(
+    fileprivate static func renderPackageSwift(
         consumerPackageRoot: File.Path,
         evalRoot: File.Path,
         linterPath: File.Path,
@@ -230,8 +229,7 @@ extension Lint.SingleFile.Materializer {
     }
 
     /// Create a directory tree recursively.
-    @usableFromInline
-    internal static func createDirectoryRecursive(
+    fileprivate static func createDirectoryRecursive(
         at path: File.Path
     ) throws(Lint.SingleFile.Error) {
         do throws(File.System.Create.Directory.Error) {
@@ -242,8 +240,7 @@ extension Lint.SingleFile.Materializer {
     }
 
     /// Write a string to a file atomically.
-    @usableFromInline
-    internal static func writeAtomic(
+    fileprivate static func writeAtomic(
         _ contents: Swift.String,
         to path: File.Path
     ) throws(Lint.SingleFile.Error) {
@@ -255,8 +252,7 @@ extension Lint.SingleFile.Materializer {
     }
 
     /// Read a file's full contents into a `Swift.String`.
-    @usableFromInline
-    internal static func readFile(at path: File.Path) throws(Lint.SingleFile.Error) -> Swift.String {
+    fileprivate static func readFile(at path: File.Path) throws(Lint.SingleFile.Error) -> Swift.String {
         let bytes: [UInt8]
         do throws(File.System.Read.Full.Error) {
             bytes = try File(path).read.full { (span: Span<UInt8>) -> [UInt8] in

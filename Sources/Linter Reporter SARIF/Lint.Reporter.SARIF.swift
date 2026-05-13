@@ -60,7 +60,7 @@ extension Lint.Reporter.SARIF {
         return document.serialize(pretty: true)
     }
 
-    static func sarifLog(for findings: [Lint.Finding]) -> JSON {
+    fileprivate static func sarifLog(for findings: [Lint.Finding]) -> JSON {
         [
             "version": "2.1.0",
             "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cs01/schemas/sarif-schema-2.1.0.json",

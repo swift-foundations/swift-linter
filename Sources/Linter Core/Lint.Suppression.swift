@@ -104,11 +104,11 @@ extension Lint.Suppression {
 extension Lint.Suppression {
     /// Static-prefix tokens scanned for. Centralized so the scanner
     /// and any future audit tooling agree on the syntax surface.
-    internal static let disableNextPrefix: Swift.String = "// swift-linter:disable:next "
+    fileprivate static let disableNextPrefix: Swift.String = "// swift-linter:disable:next "
 
-    internal static let disableLinePrefix: Swift.String = "// swift-linter:disable:line "
+    fileprivate static let disableLinePrefix: Swift.String = "// swift-linter:disable:line "
 
-    internal static let reasonPrefix: Swift.String = "// REASON:"
+    fileprivate static let reasonPrefix: Swift.String = "// REASON:"
 }
 
 extension Lint.Suppression {
@@ -156,7 +156,7 @@ extension Lint.Suppression {
         return Lint.Suppression(entries: entries)
     }
 
-    internal static func scanTrivia(
+    fileprivate static func scanTrivia(
         _ trivia: Trivia,
         tokenStartPosition: AbsolutePosition,
         tokenContentLine: Swift.Int,
@@ -258,7 +258,7 @@ extension Lint.Suppression {
     /// inside the suffix would shadow the rule ID — but Swift only
     /// admits one `//` per logical comment, so the entire remaining
     /// text is the rule ID. Trim trailing whitespace.
-    internal static func ruleIDFromDirectiveSuffix(_ suffix: Swift.String) -> Lint.Rule.ID {
+    fileprivate static func ruleIDFromDirectiveSuffix(_ suffix: Swift.String) -> Lint.Rule.ID {
         var trimmed = suffix
         while let last = trimmed.last, last.isWhitespace {
             trimmed.removeLast()
@@ -269,7 +269,7 @@ extension Lint.Suppression {
     /// Finds the next source line that contains non-comment content
     /// (i.e., a real code token), starting strictly after
     /// `directiveLine`.
-    internal static func nextCodeLine(
+    fileprivate static func nextCodeLine(
         afterDirectiveLine directiveLine: Swift.Int,
         tree: SourceFileSyntax,
         converter: SourceLocationConverter
@@ -285,7 +285,7 @@ extension Lint.Suppression {
 }
 
 extension Swift.String {
-    internal func trimmingPrefixWhitespace() -> Swift.String {
+    fileprivate func trimmingPrefixWhitespace() -> Swift.String {
         var copy = self
         while let first = copy.first, first.isWhitespace {
             copy.removeFirst()

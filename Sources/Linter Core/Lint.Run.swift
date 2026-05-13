@@ -192,7 +192,7 @@ extension Lint.Run {
     /// component validation come from the typed primitive (see
     /// `Lint.SingleFile.Materializer.resolveConsumerPath` at
     /// `swift-linter@fe2c18e` for the same pattern).
-    static func parsedSource(
+    fileprivate static func parsedSource(
         root: File.Path,
         relativePath: Lint.Source.Path,
         manager: inout Source.Manager

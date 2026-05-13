@@ -141,8 +141,7 @@ extension Lint.SingleFile {
 
     /// Scan the leading 30 lines of `source` for the
     /// ``header`` substring.
-    @inlinable
-    internal static func hasMagicComment(in source: Swift.String) -> Swift.Bool {
+    fileprivate static func hasMagicComment(in source: Swift.String) -> Swift.Bool {
         var lineCount = 0
         for line in source.split(separator: "\n", maxSplits: 30, omittingEmptySubsequences: false) {
             if line.contains(Self.header) {
@@ -157,8 +156,7 @@ extension Lint.SingleFile {
     /// Read a file's full contents into a `Swift.String`.
     ///
     /// F-A2.3 cascade: typed `File.Path` parameter.
-    @usableFromInline
-    internal static func readFile(at path: File.Path) throws(File.System.Read.Full.Error) -> Swift.String {
+    fileprivate static func readFile(at path: File.Path) throws(File.System.Read.Full.Error) -> Swift.String {
         let bytes: [UInt8] = try File(path).read.full { (span: Span<UInt8>) -> [UInt8] in
             var array: [UInt8] = []
             array.reserveCapacity(span.count)
@@ -274,7 +272,7 @@ extension Lint.SingleFile {
     /// `SWIFT_LINTER_PATH`. When the env var is unset the resolver
     /// cannot evaluate parents; the method returns `nil` and lint
     /// proceeds without parent inheritance.
-    internal static func resolveParentChain(
+    fileprivate static func resolveParentChain(
         consumerSource: Swift.String,
         consumerPackageRoot: File.Path
     ) throws(Lint.SingleFile.Error) -> File.Path? {
@@ -355,7 +353,7 @@ extension Lint.SingleFile {
     /// closest-to-consumer last); the consumer's
     /// ``Lint/Configuration/Rules/effective`` handles dedup and
     /// override semantics (later wins per rule ID).
-    internal static func foldParents(_ chain: [Lint.Manifest]) -> Lint.Manifest {
+    fileprivate static func foldParents(_ chain: [Lint.Manifest]) -> Lint.Manifest {
         var enabled: Set<Lint.Rule.ID> = []
         var disabled: Set<Lint.Rule.ID> = []
         var excluded: [File.Path] = []

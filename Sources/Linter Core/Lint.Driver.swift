@@ -263,7 +263,7 @@ extension Lint.Driver {
     /// built-in rules, so this returns an empty-rules Configuration —
     /// the run produces zero findings unless the consumer extends
     /// the engine with rule registration of their own.
-    internal static func defaultConfiguration() -> Lint.Configuration {
+    fileprivate static func defaultConfiguration() -> Lint.Configuration {
         Lint.Configuration { }
     }
 
@@ -309,7 +309,7 @@ extension Lint.Driver {
     ///   - `JSON` (for `.jsonString()` on the typed value),
     ///   - `File_System` (for the `File.write.atomic` output sink),
     ///   - `Linter` (for the ``Lint/Manifest`` type).
-    internal static func manifestDependencies() -> [Manifest_Primitives.Manifest.Dependency]? {
+    fileprivate static func manifestDependencies() -> [Manifest_Primitives.Manifest.Dependency]? {
         // Library output discipline: silently return nil when
         // SWIFT_LINTER_PATH is unset. The CLI is responsible for
         // validating preconditions and surfacing the env-var error

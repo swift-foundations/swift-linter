@@ -95,7 +95,7 @@ extension Lint.SingleFile.Extractor {
     /// Find the first top-level expression that is a `Lint.run(...)`
     /// or unqualified `run(...)` function call.
 
-    internal static func findRunCall(in sourceFile: SourceFileSyntax) -> FunctionCallExprSyntax? {
+    fileprivate static func findRunCall(in sourceFile: SourceFileSyntax) -> FunctionCallExprSyntax? {
         for item in sourceFile.statements {
             guard let expr: ExprSyntax = item.item.as(ExprSyntax.self) else { continue }
             guard let call: FunctionCallExprSyntax = expr.as(FunctionCallExprSyntax.self) else { continue }
@@ -108,7 +108,7 @@ extension Lint.SingleFile.Extractor {
 
     /// Match `Lint.run(...)` (qualified) or `run(...)` (unqualified).
 
-    internal static func isLintRunCall(_ call: FunctionCallExprSyntax) -> Swift.Bool {
+    fileprivate static func isLintRunCall(_ call: FunctionCallExprSyntax) -> Swift.Bool {
         if let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self) {
             guard member.declName.baseName.text == "run" else { return false }
             guard let base: DeclReferenceExprSyntax = member.base?.as(DeclReferenceExprSyntax.self) else {
@@ -127,7 +127,7 @@ extension Lint.SingleFile.Extractor {
     /// `.package(url:_:_:products:)` call into a
     /// ``Lint/SingleFile/PackageDependency``.
 
-    internal static func parsePackageCall(
+    fileprivate static func parsePackageCall(
         _ call: FunctionCallExprSyntax,
         sourcePath: File.Path,
         consumerPackageRoot: File.Path
@@ -213,7 +213,7 @@ extension Lint.SingleFile.Extractor {
     /// Extract the literal string value from a
     /// `StringLiteralExprSyntax`.
 
-    internal static func extractStringLiteral(
+    fileprivate static func extractStringLiteral(
         _ expr: ExprSyntax,
         sourcePath: File.Path
     ) throws(Lint.SingleFile.Error) -> Swift.String {
@@ -237,7 +237,7 @@ extension Lint.SingleFile.Extractor {
     /// Extract a `[String]` value from an `ArrayExprSyntax` whose
     /// elements are string literals.
 
-    internal static func extractStringArray(
+    fileprivate static func extractStringArray(
         _ expr: ExprSyntax,
         sourcePath: File.Path
     ) throws(Lint.SingleFile.Error) -> [Swift.String] {
