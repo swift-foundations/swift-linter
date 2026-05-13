@@ -9,13 +9,24 @@
 //
 // ===----------------------------------------------------------------------===//
 
-/// Namespace for capture-related types on ``Lint/Run``.
-///
-/// Currently nests only ``Mode``; future siblings (e.g.,
-/// `Capture.Filter`, `Capture.Strategy`) extend the namespace
-/// without API churn. The Nest.Name shape (``Capture/Mode``) is
-/// preferred over a top-level compound type name (`CaptureMode`)
-/// per [API-NAME-001].
 extension Lint.Run {
-    public enum Capture {}
+    /// What an `Outcome`-returning run should capture.
+    ///
+    /// - `.findings`: capture only surfaced findings (suppressed
+    ///   findings are dropped, not surfaced).
+    /// - `.suppressed`: capture only the suppressed-finding
+    ///   observability stream (surfaced findings dropped).
+    /// - `.all`: capture both surfaced and suppressed streams; the
+    ///   pre-rename `runCapturingSuppressed` semantic.
+    ///
+    /// The single-word `Capture` name mirrors `Lint.Run.Policy` (Row 22
+    /// of the Thread E catalog) and avoids the [API-NAME-001] compound
+    /// type name (`CaptureMode`) and the [API-NAME-001a] single-type-
+    /// no-namespace shape (an outer `Capture` namespace nesting only
+    /// `Mode`).
+    public enum Capture: Swift.String, Sendable, Hashable, CaseIterable {
+        case findings
+        case suppressed
+        case all
+    }
 }
