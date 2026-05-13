@@ -2,13 +2,25 @@
 
 <!--
 ---
-version: 1.2.0
+version: 1.3.0
 last_updated: 2026-05-13
 status: DECISION
 research_tier: 2
 applies_to: [swift-foundations/swift-linter, swift-foundations/swift-linter-rules]
 normative: false
 changelog:
+  - v1.3.0 (2026-05-13): Extended the experiment to batch-process
+    multiple symbol graphs (two-pass union-then-match) so cross-module
+    protocol→protocol refinements are detected. Ran the user-domain
+    scan against 28 symbol-graph files covering 15 swift-primitives
+    packages. Empirical finding: 2 institute refinement pairs (Comparison
+    → Equation, Hash → Equation) — far fewer than stdlib's 136 — and
+    BOTH have leaf-name collisions ("Protocol" on both sides) due to the
+    institute's `Namespace.\`Protocol\`` convention. Rule's current
+    leaf-name matching can't consume institute pairs without becoming
+    path-aware. Added Phase 2.5 (user-domain scan) section to Outcome
+    documenting the finding. The user-domain table is NOT shipped to
+    swift-linter-rules — rule update is a separate decision.
   - v1.2.0 (2026-05-13): Spike executed and CONFIRMED. Status promoted
     RECOMMENDATION → DECISION. Phase 1 (spike) replaced with the
     executed result: 136 protocol-protocol refinement pairs extracted
@@ -1088,6 +1100,105 @@ optional field) or via a sidecar configuration value the rules consult.
 4. The regression of #1–#4 of the linter's distinguishing properties
    (fast, deterministic, toolchain-decoupled, no build dep) is severe
    under A/B/C and minimal under D/F.
+
+### Phase 2.5 — User-domain scan empirical findings (added v1.3.0, 2026-05-13)
+
+After Phase 2 landed the stdlib oracle, the experiment was extended
+to batch-process multiple symbol graphs with a two-pass
+union-then-match approach. This unlocks **cross-module** protocol→protocol
+refinement detection — when one institute package's protocol refines
+another package's protocol (e.g., `Comparison.Protocol: Equation.Protocol`
+where the two protocols live in different `.symbols.json` files).
+
+**Scope**: 28 symbol-graph files covering 15 swift-primitives packages
+(algebra-{field,group,magma,module,monoid,ring,semigroup,semilattice,semiring},
+bifunctor, comparison, equation, hash, property, tagged, witness).
+
+**Empirical results**:
+
+| Metric | Value |
+|---|---|
+| Modules scanned | 28 symbol-graph files |
+| Protocol-kind symbols (union) | 4 (Comparison.Protocol, Equation.Protocol, Hash.Protocol, Witness.Protocol) |
+| `conformsTo` relationships across all inputs | 122 |
+| Protocol→protocol refinements detected | **2** |
+
+**The two pairs found**:
+
+| Refining | Refined |
+|---|---|
+| `Comparison_Primitives_Core.Comparison.Protocol` | `Equation_Primitives_Core.Equation.Protocol` |
+| `Hash_Primitives_Core.Hash.Protocol` | `Equation_Primitives_Core.Equation.Protocol` |
+
+These are legitimate institute refinements — `Comparison: Equation`
+(comparable values are equatable) and `Hash: Equation` (hashable
+values are equatable). Both are cross-module: the source's symbol
+graph references a target defined in another module's symbol graph.
+The two-pass approach detects them; a single-pass approach
+(processing one graph at a time without a union table) would miss
+them entirely.
+
+**Critical finding — institute convention causes leaf-name collision**:
+
+The institute uses the `Namespace.\`Protocol\`` naming pattern (per
+[PKG-NAME-*] conventions): every institute protocol's *leaf* name is
+literally the string "Protocol", and the discriminator is the
+namespace prefix (`Comparison`, `Equation`, `Hash`, ...).
+
+| Institute pair (full path) | Leaf-name pair |
+|---|---|
+| `Comparison.Protocol → Equation.Protocol` | `("Protocol", "Protocol")` |
+| `Hash.Protocol → Equation.Protocol` | `("Protocol", "Protocol")` |
+
+The current `Lint.Rule.Idiom.RedundantRefinement` rule matches on
+leaf names (`Error`, `Comparable`, `Hashable`, ...). For stdlib
+protocols, leaf names are unique and this works. For institute
+protocols, leaf names collide and the rule's table becomes degenerate
+— `("Protocol", "Protocol")` repeated for every institute refinement.
+
+**Implication for rule design**:
+
+To consume user-domain refinement pairs, the rule's matching strategy
+must become *path-aware*: extract the full member-access chain at each
+leaf of a `CompositionTypeSyntax` (e.g., recognize `Comparison.Protocol`
+as the path `["Comparison", "Protocol"]`, not just the leaf `Protocol`),
+and match against full-path entries in the user-domain table.
+
+The change to the visitor is small (~10 lines), but it raises a
+secondary question: when a user writes `Equation.Protocol & Comparison.Protocol`
+in the SAME composition, the rule must flag the redundancy. With
+path-aware matching, the entries `(Comparison.Protocol, Equation.Protocol)`
+and `(Hash.Protocol, Equation.Protocol)` would catch the relevant
+cases. Stdlib entries remain leaf-based as today.
+
+**Decision deferred**: the user-domain table is NOT shipped to
+swift-linter-rules in this cycle. Promoting it would require the
+path-aware matching update — a separate scope-bounded decision.
+The empirical data is recorded; the rule update is queued.
+
+**Why so few institute pairs (2 vs stdlib's 136)?**
+
+Two structural reasons surfaced:
+
+1. **The institute uses witness-as-value over protocol-inheritance.** The
+   algebra packages (Magma, Semigroup, Monoid, Group, Ring, Field,
+   Module, Semilattice, Semiring) define `Algebra.Magma<Element>` and
+   friends as STRUCTS wrapping operations, not as protocols. The
+   "Monoid: Semigroup" refinement chain you'd see in Haskell or Rust
+   typeclasses simply doesn't exist in institute code — there are no
+   institute-defined Monoid / Semigroup protocols.
+2. **Tagged + Carrier as concrete types, not protocols.** swift-tagged-primitives
+   declares `Tagged` as a struct, and the symbol graph shows 24
+   `conformsTo` relationships from Tagged to various protocols
+   (Sendable, Hashable, etc.) — all type-to-protocol, none
+   protocol-to-protocol.
+
+The institute's protocol-refinement surface is genuinely small and
+likely to stay so. The hand-curated `Comparison: Equation` and
+`Hash: Equation` pairs may be effectively the entire institute table.
+
+**Provenance**: experiment run output is committed at
+`swift-foundations/swift-json/Experiments/symbol-graph-conformance-oracle/Outputs/run-userdomain.txt`.
 
 ### Long-term framing (added v1.1.0 per Q6 + Q7)
 
