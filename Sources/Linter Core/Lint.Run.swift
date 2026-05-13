@@ -29,7 +29,7 @@ extension Lint.Run {
     /// (parent-merged, override-applied, disabled-dropped) rule set.
     ///
     /// Each effective entry instantiates its rule via the typed metatype
-    /// path: `entry.rule.init(severity: entry.severity ?? entry.rule.defaultSeverity)`.
+    /// path: `entry.rule.init(severity: entry.severity ?? entry.rule.severity.default)`.
     /// No string-name lookup; identity flows through `.self`.
     ///
     /// ## Composition order (per-rule scope)
@@ -147,7 +147,7 @@ extension Lint.Run {
                     converter: parsed.converter
                 )
                 for entry in effective {
-                    let severity = entry.severity ?? entry.rule.defaultSeverity
+                    let severity = entry.severity ?? entry.rule.severity.default
                     let candidates = entry.rule.findings(parsed, severity)
                     for record in candidates {
                         let ruleID = Lint.Rule.ID(_unchecked: record.identifier)

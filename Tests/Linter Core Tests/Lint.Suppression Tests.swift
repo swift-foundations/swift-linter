@@ -144,7 +144,7 @@ extension Lint.Suppression.Test.Scanner {
 extension Lint.Rule {
     fileprivate static let `suppression fixture` = Lint.Rule(
         id: "suppression fixture",
-        defaultSeverity: .warning,
+        default: .warning,
         findings: { source, severity in
             // The visitor emits one finding per `targetCall` token —
             // a stand-in for any rule that walks the tree.
