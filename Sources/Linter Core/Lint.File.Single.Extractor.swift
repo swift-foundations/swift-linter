@@ -195,7 +195,7 @@ extension Lint.File.Single.Extractor {
         let derivedName: Swift.String
         if let path: Swift.String = pathArg {
             source = .path(path)
-            derivedName = Self.packageName(at: path, consumerPackageRoot: consumerPackageRoot)
+            derivedName = Self.name(at: path, consumerPackageRoot: consumerPackageRoot)
         } else if let url: Swift.String = urlArg {
             if let from: Swift.String = fromArg {
                 source = .urlFrom(url: url, from: from)
@@ -207,7 +207,7 @@ extension Lint.File.Single.Extractor {
                     description: "`.package(url:...)` requires either `from:` or two positional version-range arguments; got `\(call.description)`"
                 )
             }
-            derivedName = Self.packageName(at: url)
+            derivedName = Self.name(at: url)
         } else {
             throw .malformedPackageCall(
                 path: sourcePath,
@@ -315,7 +315,7 @@ extension Lint.File.Single.Extractor {
     /// before reaching this site, so basename derivation receives an
     /// absolute path even when the CLI is invoked as `swift-linter .`.
 
-    internal static func packageName(
+    internal static func name(
         at path: Swift.String,
         consumerPackageRoot: File.Path
     ) -> Swift.String {
@@ -332,7 +332,7 @@ extension Lint.File.Single.Extractor {
     /// Slash-trimmed basename of a path-shaped string.
     ///
     /// Returns the last component of the typed-Path form of `path`.
-    /// Used by both `packageName(at:)` overloads for the
+    /// Used by both `name(at:)` overloads for the
     /// non-self-reference case; the typed primitive owns trailing-
     /// slash trimming and component segmentation, so this helper is
     /// a thin adapter at the bare-string boundary.
@@ -350,7 +350,7 @@ extension Lint.File.Single.Extractor {
 
     /// Derive a SwiftPM package name from a `url:` argument's value.
 
-    internal static func packageName(at url: Swift.String) -> Swift.String {
+    internal static func name(at url: Swift.String) -> Swift.String {
         var trimmed: Swift.String = url
         while trimmed.hasSuffix("/") {
             trimmed.removeLast()
