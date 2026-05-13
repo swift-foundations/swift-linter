@@ -9,6 +9,11 @@
 //
 // ===----------------------------------------------------------------------===//
 
+@_exported public import File_System
+@_exported public import Package_Primitives
+@_exported public import URI_Standard_Library_Integration
+@_exported public import Version_Primitives_Standard_Library_Integration
+
 /// A SwiftPM dependency declared at the consumer's `Lint.swift` call site.
 ///
 /// `Lint.Dependency` values appear in the `dependencies:` argument of
@@ -31,19 +36,31 @@
 ///     from: "1.0.0",
 ///     products: ["Foo"]
 /// )
+///
+/// Lint.Dependency.package(
+///     url: "https://github.com/swiftlang/swift-syntax.git",
+///     "602.0.0"..<"603.0.0",
+///     products: ["SwiftSyntax"]
+/// )
 /// ```
+///
+/// Each typed primitive carries a string-literal conformance via its
+/// Standard Library Integration target, so consumer call sites stay
+/// literal-shaped while the type system carries domain identity:
+/// `File.Path`, `URI`, `Version.Semantic`, `Version.Range<Version.Semantic>`,
+/// `Product.Name`.
 extension Lint {
     public struct Dependency: Swift.Sendable {
         public let kind: Kind
-        public let products: [Swift.String]
+        public let products: [Product.Name]
 
         public enum Kind: Swift.Sendable {
-            case path(Swift.String)
-            case url(Swift.String, from: Swift.String)
-            case urlRange(Swift.String, Swift.String, Swift.String)
+            case path(File.Path)
+            case url(URI, from: Version.Semantic)
+            case urlRange(URI, Version.Range<Version.Semantic>)
         }
 
-        public init(kind: Kind, products: [Swift.String]) {
+        public init(kind: Kind, products: [Product.Name]) {
             self.kind = kind
             self.products = products
         }
@@ -56,30 +73,39 @@ extension Lint {
         /// must be expressed relative to that location (typically two
         /// levels deeper than the consumer's own `Package.swift`).
         public static func package(
-            path: Swift.String,
-            products: [Swift.String]
+            path: File.Path,
+            products: [Product.Name]
         ) -> Lint.Dependency {
             Lint.Dependency(kind: .path(path), products: products)
         }
 
         /// A URL-based SwiftPM dependency with `from: "X.Y.Z"` version range.
         public static func package(
-            url: Swift.String,
-            from version: Swift.String,
-            products: [Swift.String]
+            url: URI,
+            from version: Version.Semantic,
+            products: [Product.Name]
         ) -> Lint.Dependency {
             Lint.Dependency(kind: .url(url, from: version), products: products)
         }
 
         /// A URL-based SwiftPM dependency with an explicit `lower..<upper`
         /// version range.
+        ///
+        /// Consumers express the range as a half-open
+        /// `Swift.Range<Version.Semantic>`; the stored shape is
+        /// `Version.Range<Version.Semantic>` with `.inclusive(lower)` /
+        /// `.exclusive(upper)` bounds — matching SwiftPM's canonical
+        /// `lower..<upper` semantics.
         public static func package(
-            url: Swift.String,
-            _ lower: Swift.String,
-            _ upper: Swift.String,
-            products: [Swift.String]
+            url: URI,
+            _ range: Swift.Range<Version.Semantic>,
+            products: [Product.Name]
         ) -> Lint.Dependency {
-            Lint.Dependency(kind: .urlRange(url, lower, upper), products: products)
+            let typedRange = Version.Range<Version.Semantic>(
+                lowerBound: .inclusive(range.lowerBound),
+                upperBound: .exclusive(range.upperBound)
+            )
+            return Lint.Dependency(kind: .urlRange(url, typedRange), products: products)
         }
     }
 }

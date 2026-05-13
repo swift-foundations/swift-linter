@@ -34,6 +34,7 @@ let package = Package(
         .package(path: "../../swift-primitives/swift-parser-primitives"),
         .package(path: "../../swift-primitives/swift-standard-library-extensions"),
         .package(path: "../../swift-primitives/swift-terminal-primitives"),
+        .package(path: "../../swift-primitives/swift-version-primitives"),
         .package(path: "../../swift-iso/swift-iso-9945"),
         .package(path: "../../swift-microsoft/swift-windows-32"),
         .package(path: "../../swift-standards/swift-uri-standard"),
@@ -99,6 +100,8 @@ let package = Package(
                 .product(name: "Parser Literal Primitives", package: "swift-parser-primitives"),
                 .product(name: "Process", package: "swift-process"),
                 .product(name: "URI Standard", package: "swift-uri-standard"),
+                .product(name: "Version Primitives", package: "swift-version-primitives"),
+                .product(name: "Version Primitives Standard Library Integration", package: "swift-version-primitives"),
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
                 .product(name: "SwiftOperators", package: "swift-syntax"),
@@ -111,8 +114,11 @@ let package = Package(
                 "Linter Reporter Text",
                 "Linter Reporter SARIF",
                 .product(name: "File System", package: "swift-file-system"),
+                .product(name: "Package Primitives", package: "swift-package-primitives"),
                 .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
+                .product(name: "URI Standard Library Integration", package: "swift-uri-standard"),
+                .product(name: "Version Primitives Standard Library Integration", package: "swift-version-primitives"),
             ]
         ),
         .executableTarget(

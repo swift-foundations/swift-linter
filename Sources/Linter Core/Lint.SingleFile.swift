@@ -16,6 +16,7 @@ internal import Manifest_Loader
 internal import Manifest_Primitives
 internal import Manifest_Resolver
 internal import Process
+internal import Version_Primitives
 
 /// Detection + dispatch for the unified single-file consumer manifest
 /// shape (research recommendation Shape γ; see
@@ -140,17 +141,41 @@ extension Lint.SingleFile {
     }
 
     /// Scan the leading 30 lines of `source` for the
-    /// ``header`` substring.
-    fileprivate static func hasMagicComment(in source: Swift.String) -> Swift.Bool {
+    /// ``header`` substring and parse the typed
+    /// ``Version/Tools`` value that follows it.
+    ///
+    /// Returns `nil` when no magic-comment line is present, OR when
+    /// the version following the header fails to parse as
+    /// ``Version/Tools``. The boolean ``hasMagicComment(in:)``
+    /// wrapper delegates here for the existing detection contract.
+    fileprivate static func parseMagicCommentToolsVersion(
+        in source: Swift.String
+    ) -> Version.Tools? {
         var lineCount = 0
         for line in source.split(separator: "\n", maxSplits: 30, omittingEmptySubsequences: false) {
             if line.contains(Self.header) {
-                return true
+                let parts = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+                guard parts.count == 2 else { return nil }
+                var versionSlice = parts[1]
+                while let first = versionSlice.first, first == " " || first == "\t" {
+                    versionSlice = versionSlice.dropFirst()
+                }
+                while let last = versionSlice.last, last == " " || last == "\t" {
+                    versionSlice = versionSlice.dropLast()
+                }
+                return Version.Tools(Swift.String(versionSlice))
             }
             lineCount += 1
             if lineCount >= 30 { break }
         }
-        return false
+        return nil
+    }
+
+    /// Detect whether `source`'s leading 30 lines contain a Shape-γ
+    /// magic-comment line whose version parses as
+    /// ``Version/Tools``.
+    fileprivate static func hasMagicComment(in source: Swift.String) -> Swift.Bool {
+        Self.parseMagicCommentToolsVersion(in: source) != nil
     }
 
     /// Read a file's full contents into a `Swift.String`.
