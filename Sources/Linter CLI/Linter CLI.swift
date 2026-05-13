@@ -186,7 +186,7 @@ struct SwiftLinter: ParsableCommand {
     /// F-A2.1 / F-A2.2: typed `File.Path` artery from CLI boundary
     /// down. The override path is parsed once at the CLI boundary;
     /// engine receives the typed value.
-    func resolveConfiguration(consumerRoot: File.Path) throws(Paths.Path.Error) -> Lint.Configuration {
+    fileprivate func resolveConfiguration(consumerRoot: File.Path) throws(Paths.Path.Error) -> Lint.Configuration {
         let typedOverride: File.Path? = try lintSwiftPath.map { (raw: Swift.String) throws(Paths.Path.Error) in
             try File.Path(raw)
         }
