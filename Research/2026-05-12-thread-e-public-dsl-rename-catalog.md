@@ -973,3 +973,123 @@ Test gate: swift-linter (46 tests pass), swift-linter-primitives (36
 tests pass). The 2 pre-existing test failures in
 `Lint.Rule.Structure.UsableFromInlineInternalImport Tests.swift`
 (swift-linter-rules) predate Thread E and are tracked separately.
+
+---
+
+## Phase 4 amendment: action-class substitution per-site enumeration (2026-05-13 cleanup dispatch)
+
+**Status**: amends the Phase 4 closeout record (above) with a per-site
+enumeration of the visibility-shift sweep landed across commits
+`d17d607` and `13b2790`. The catalog stays at **v1.0.0 RECOMMENDATION**;
+this amendment updates the IMPLEMENTATION RECORD, not the design
+intent (per-row dispositions at line 819-845 stand unchanged).
+
+**Principal authorization** (`HANDOFF-thread-e-cleanup.md`,
+2026-05-13): the visibility-shift substitution for the internal
+compound-identifier findings is institute-sanctioned per [API-NAME-002]'s
+visibility-scope amendment (`fileprivate` / `private` declarations are
+exempt; helpers in question are file-local). The cleanup dispatch
+**retroactively authorizes** the substitution. This amendment records
+the per-site landings and reconciles the count discrepancies surfaced
+in the Phase 4 closeout text above.
+
+### Per-site landings — commit `d17d607` (Phase 3.E visibility-shift sweep)
+
+24 helper declarations shifted `internal` → `fileprivate` in `d17d607`
+("Closes 22 of 29 internal compound-identifier findings"). The commit
+body's per-file breakdown enumerates 24 helpers; the subject's "22 of 29
+findings" reflects the dogfeed-finding count (see § Count reconciliation
+below):
+
+| # | File | Helper | Compound-name segmentation |
+|--:|------|--------|----------------------------|
+| 1 | `Lint.Suppression.swift` | `disableNextPrefix` | disable + Next + Prefix |
+| 2 | `Lint.Suppression.swift` | `disableLinePrefix` | disable + Line + Prefix |
+| 3 | `Lint.Suppression.swift` | `reasonPrefix` | reason + Prefix |
+| 4 | `Lint.Suppression.swift` | `scanTrivia` | scan + Trivia |
+| 5 | `Lint.Suppression.swift` | `ruleIDFromDirectiveSuffix` | rule + ID + From + Directive + Suffix |
+| 6 | `Lint.Suppression.swift` | `nextCodeLine` | next + Code + Line |
+| 7 | `Lint.Suppression.swift` | `trimmingPrefixWhitespace` (String extension) | trimming + Prefix + Whitespace |
+| 8 | `Lint.SingleFile.Extractor.swift` | `findRunCall` | find + Run + Call |
+| 9 | `Lint.SingleFile.Extractor.swift` | `isLintRunCall` | is + Lint + Run + Call (boolean `is` prefix — likely exempt per [API-NAME-002] § Exception — boolean naming) |
+| 10 | `Lint.SingleFile.Extractor.swift` | `parsePackageCall` | parse + Package + Call |
+| 11 | `Lint.SingleFile.Extractor.swift` | `extractStringLiteral` | extract + String + Literal |
+| 12 | `Lint.SingleFile.Extractor.swift` | `extractStringArray` | extract + String + Array |
+| 13 | `Lint.SingleFile.Materializer.swift` | `renderPackageSwift` | render + Package + Swift |
+| 14 | `Lint.SingleFile.Materializer.swift` | `createDirectoryRecursive` | create + Directory + Recursive |
+| 15 | `Lint.SingleFile.Materializer.swift` | `writeAtomic` | write + Atomic |
+| 16 | `Lint.SingleFile.Materializer.swift` | `readFile` | read + File |
+| 17 | `Lint.SingleFile.swift` | `readFile` | read + File |
+| 18 | `Lint.SingleFile.swift` | `resolveParentChain` | resolve + Parent + Chain |
+| 19 | `Lint.SingleFile.swift` | `foldParents` | fold + Parents |
+| 20 | `Lint.SingleFile.swift` | `hasMagicComment` | has + Magic + Comment (boolean `has` prefix — likely exempt per [API-NAME-002] § Exception — boolean naming) |
+| 21 | `Lint.Driver.swift` | `defaultConfiguration` | default + Configuration (`default` prefix — potentially DEFER-FOR-CONSISTENCY per Row 6's [API-NAME-002] amendment thread) |
+| 22 | `Lint.Driver.swift` | `manifestDependencies` | manifest + Dependencies |
+| 23 | `Lint.Run.swift` | `parsedSource` | parsed + Source |
+| 24 | `Lint.Reporter.SARIF.swift` | `sarifLog` | sarif + Log |
+
+### Per-site landings — commit `13b2790` (Phase 4 fixup)
+
+1 additional helper shifted `internal` → `fileprivate`:
+
+| # | File | Helper | Compound-name segmentation |
+|--:|------|--------|----------------------------|
+| 25 | `Linter CLI.swift` | `resolveConfiguration` (CLI command struct's per-flag helper — file-local, called only within `Linter CLI.swift`; distinct from the deferred public-API `Lint.Driver.resolveConfiguration` (Row 9) and from the post-rename `Lint.Driver.configuration(at:)`) | resolve + Configuration |
+
+### Count reconciliation
+
+Three counts circulate around this sweep; they reconcile compatibly:
+
+| Count | Source | Reading |
+|------:|--------|---------|
+| **22** | `d17d607` commit subject + brief (`HANDOFF-thread-e-cleanup.md` F.2 framing) | Dogfeed-finding closes attributable to the d17d607 commit (22 of 29 pre-existing internal compound-identifier findings closed) |
+| **24** | `d17d607` commit body per-file breakdown | Helper declarations shifted `internal` → `fileprivate` in `d17d607` |
+| **25** | total across both commits (24 + 1) | Helper declarations shifted `internal` → `fileprivate` in `d17d607` + `13b2790` |
+| **23** | dogfeed-finding closes total (22 + 1) | 22 closed by `d17d607` + 1 closed by `13b2790` |
+
+The 24-helper / 22-finding gap in `d17d607` corresponds to two helpers
+that were shifted alongside their siblings for naming-consistency but
+whose names did NOT independently fire [API-NAME-002]. The most likely
+candidates are rows 9 (`isLintRunCall` — `is` boolean prefix exemption)
+and 20 (`hasMagicComment` — `has` boolean prefix exemption); row 21
+(`defaultConfiguration`) is a tertiary candidate via the Row 6 `default`-
+prefix DEFER-FOR-CONSISTENCY posture. Per-helper finding attribution
+remains as **principal-verification work**; the amendment records all
+three counts as found rather than collapsing to one.
+
+The Phase 4 closeout sub-batch table at lines 915-924 above reports
+totals per file (7 + 5 + 4 + 4 + 2 + 1 + 1 + 1 = 25) — that table's "Findings
+closed" header should be read as "helper declarations shifted" given
+the reconciliation above. The amendment does not rewrite the sub-batch
+table; the per-site enumeration here is the authoritative shift record.
+
+### Remaining deferred items (no action this dispatch)
+
+Post-13b2790, **6 findings remain deferred** (the Phase 4 closeout text
+above states "7 findings remain deferred" but pre-counted the
+`Linter CLI.resolveConfiguration` finding that `13b2790` closed —
+the post-fixup count is 6):
+
+| # | File | Helper | Deferral reason |
+|--:|------|--------|-----------------|
+| 1 | `Linter CLI.swift` | `SwiftLinter` (struct name) — `:24` | [API-NAME-001] compound type name. CLI executable-target binding (`.executable(name: "swift-linter", targets: ["Linter CLI"])`); proper rename requires a coordinated executable-target shape change out of Thread E scope. |
+| 2 | `Linter CLI.swift` | `lintSwiftPath` (property) — `:52` | [API-NAME-002] compound identifier. ArgumentParser `@Option(name: .long)` binds the property name to the `--lint-swift-path` CLI flag; rename breaks the binding without a flag migration. |
+| 3 | `Linter CLI.swift` | `exitPolicy` (property) — `:55` | [API-NAME-002] compound identifier. ArgumentParser `@Option` binds the property name to the `--exit-policy` flag; rename breaks the binding without a flag migration. |
+| 4 | `Lint.SingleFile.Extractor.swift` | `packageName(fromPath:)` — `:275` | [API-NAME-002] compound identifier. Tests exercise this directly via the `PackageName` suite; rename requires coordinated test-surface update. |
+| 5 | `Lint.SingleFile.Extractor.swift` | `packageName(fromURL:)` — `:311` | [API-NAME-002] compound identifier. Same as #4. |
+| 6 | `Lint.SingleFile.Materializer.swift` | `resolveConsumerPath` — `:203` | [API-NAME-002] compound identifier. Tests exercise this directly via the `ResolveConsumerPath` suite; rename requires coordinated test-surface update. |
+
+These 6 findings are Thread G or later candidates; this cleanup dispatch
+**authorizes NO action** on them. (The Phase 4 closeout text's claim of
+"4 CLI bindings" overcounted by 1 — there are 3 CLI compound findings
+post-13b2790; the 4th implicit binding was `resolveConfiguration` which
+`13b2790` closed.)
+
+### Supervision learning (carried forward unchanged)
+
+The Phase 4 closeout's supervision-learning note at lines 926-931
+(subordinates MUST escalate action-class substitutions via [SUPER-005]
+class-(c) BEFORE acting, not disclose after-the-fact) stays as the
+canonical lesson. This amendment is the orchestrator's authoritative
+record of what landed; it does NOT retroactively normalize the
+escalation gap — the gap was real and the lesson stands.
