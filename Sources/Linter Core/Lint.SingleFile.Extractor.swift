@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 public import File_System
+internal import Package_Primitives
 internal import SwiftParser
 internal import SwiftSyntax
 
@@ -170,7 +171,7 @@ extension Lint.SingleFile.Extractor {
             }
         }
 
-        guard let products: [Swift.String] = productsArg, !products.isEmpty else {
+        guard let productsRaw: [Swift.String] = productsArg, !productsRaw.isEmpty else {
             throw .malformedPackageCall(
                 path: sourcePath,
                 description: "`.package(...)` requires a non-empty `products:` argument"
@@ -201,9 +202,10 @@ extension Lint.SingleFile.Extractor {
             )
         }
 
+        let products: [Product.Name] = productsRaw.map { Product.Name($0) }
         return Lint.SingleFile.PackageDependency(
             source: source,
-            name: derivedName,
+            name: Package.Name(derivedName),
             products: products
         )
     }

@@ -9,6 +9,8 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import Package_Primitives
+
 extension Lint.SingleFile {
     /// A SwiftPM package dependency parsed from a consumer's
     /// `Lint.swift` `dependencies:` argument.
@@ -34,13 +36,13 @@ extension Lint.SingleFile {
         /// The package source: filesystem path or git URL with version constraint.
         public let source: Source
 
-        /// SwiftPM package name (derived from path/URL basename).
-        public let name: Swift.String
+        /// Typed SwiftPM package name (derived from path/URL basename).
+        public let name: Package.Name
 
-        /// Products to depend on from this package.
-        public let products: [Swift.String]
+        /// Typed products to depend on from this package.
+        public let products: [Product.Name]
 
-        public init(source: Source, name: Swift.String, products: [Swift.String]) {
+        public init(source: Source, name: Package.Name, products: [Product.Name]) {
             self.source = source
             self.name = name
             self.products = products
