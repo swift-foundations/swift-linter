@@ -830,7 +830,7 @@ throughout: nested accessors read as namespace→specific
 | 10  | `Lint.Manifest.Configuration.rules.enabled: Set<Lint.Rule.ID>` | `rules` namespace (paired with 11). |
 | 11  | `Lint.Manifest.Configuration.rules.disabled: Set<Lint.Rule.ID>` | Sibling of 10. |
 | 12  | `Lint.Manifest.Configuration.excluded: [File.Path]` | Top-level (no Glob promotion — semantic verified as exact paths via `try File.Path(string)` in JSON deserialization). |
-| 13  | `Lint.Run.run(capturing: .suppressed)` | Enum `CaptureMode { .suppressed, .findings, .all }`. |
+| 13  | `Lint.Run.run(capturing: .suppressed)` | Enum `Lint.Run.Capture { .suppressed, .findings, .all }`. Note: catalog originally named the enum `CaptureMode`; renamed to `Capture` in Phase 4 post-closeout fixup to avoid the [API-NAME-001] compound type name and mirror the `Lint.Run.Policy` single-word shape from Row 22. |
 | 14  | `Lint.SingleFile.Extractor.dependencies(from:)` | Drop "extract" prefix. |
 | 15  | `Lint.SingleFile.header: Swift.String` | Single-word leaf. |
 | 16  | `Lint.SingleFile.configuration(parentOf:)` | Single-form labeled method. |
@@ -885,7 +885,7 @@ Phase 3 begins.
 | 10  | `Lint.Manifest.rules.enabled: Set<Lint.Rule.ID>` | `swift-linter@de1c2cb` |
 | 11  | `Lint.Manifest.rules.disabled: Set<Lint.Rule.ID>` | (same) |
 | 12  | `Lint.Manifest.excluded: [File.Path]` | (same) |
-| 13  | `Lint.Run.run(paths:configuration:capturing: CaptureMode)` | `swift-linter@e52196d` |
+| 13  | `Lint.Run.run(paths:configuration:capturing: Capture)` | `swift-linter@e52196d` (initial as `CaptureMode`) + post-closeout fixup renaming `CaptureMode` → `Capture` |
 | 14  | `Lint.SingleFile.Extractor.dependencies(from:...)` | `swift-linter@b846e01` |
 | 15  | `Lint.SingleFile.header` | (same) |
 | 16  | `Lint.SingleFile.configuration(parentOf:)` | (same) |
@@ -901,15 +901,41 @@ Phase 3 begins.
 
 ### Scope-#1 internal sweep (Phase 3.E)
 
-22 of 29 swift-linter internal compound-identifier findings closed via
-[API-NAME-002] visibility-scope amendment exempt class (`internal` →
-`fileprivate` on file-local helpers). 7 findings deferred:
+**ORCHESTRATOR DISPOSITION ON SUBSTITUTION** (post-implementation,
+2026-05-13): the catalog dispositioned scope #1 as "rename instead"
+(not visibility-shift). The subordinate substituted visibility-shift
+to `fileprivate` on 22 of 29 findings on its own judgment without
+[SUPER-005] class-(c) escalation; the substitution was disclosed
+after-the-fact in the closeout report. Orchestrator ACCEPTED the
+substitution on technical merits — visibility-shift to `fileprivate`
+IS the institute-sanctioned exempt path per [API-NAME-002]'s
+visibility-scope amendment, and the helpers in question are
+genuinely file-local. This amendment records what landed:
+
+| Sub-batch | Findings closed | Mechanism |
+|---|---|---|
+| Lint.Suppression.swift internals | 7 | `internal` → `fileprivate` |
+| Lint.SingleFile.Extractor.swift internals | 5 | `internal` → `fileprivate` |
+| Lint.SingleFile.Materializer.swift internals | 4 | `internal` → `fileprivate` |
+| Lint.SingleFile.swift internals | 4 | `internal` → `fileprivate` |
+| Lint.Driver.swift internals | 2 | `internal` → `fileprivate` |
+| Lint.Run.swift internals | 1 | `internal` → `fileprivate` |
+| Lint.Reporter.SARIF.swift internals | 1 | `internal` → `fileprivate` |
+| CLI.resolveConfiguration (post-closeout fixup) | 1 | `internal` → `fileprivate` |
+
+**Supervision learning** (recorded for future threads): subordinates
+MUST escalate action-class substitutions (e.g., "rename instead" →
+"visibility-shift instead") via [SUPER-005] class-(c) BEFORE acting,
+not disclose after-the-fact. The visibility-shift substitution here
+was defensible but not pre-authorized; the right interaction was
+escalation at the substitution moment.
+
+7 findings remain deferred (could not visibility-shift):
 
 - 4 CLI bindings (`SwiftLinter` struct name, `lintSwiftPath` /
-  `exitPolicy` properties, `resolveConfiguration` — the latter shifted
-  to fileprivate post-closeout fixup `13b2790`). The property names
-  map to CLI flag names; proper rename is a coordinated CLI-flag
-  change out of Thread E scope.
+  `exitPolicy` properties — the latter are CLI-flag-mapped, can't
+  fileprivate-shift without breaking the flag binding). Proper
+  rename is a coordinated CLI-flag change out of Thread E scope.
 - 3 test-fixture-bound helpers (`Extractor.packageName(fromPath:)` /
   `packageName(fromURL:)`, `Materializer.resolveConsumerPath`). Tests
   exercise these directly; rename requires coordinated test-surface
@@ -923,11 +949,11 @@ Pre-Thread E swift-linter Sources baseline:
 - 1 finding on swift-primitives-linter-rules (`brandOwner`)
 - **Total: 63 findings in catalog scope.**
 
-Post-Thread E:
+Post-Thread E (after Row 13 `CaptureMode` → `Capture.Mode` fixup):
 - 0 findings on swift-linter-primitives
-- 9 findings on swift-linter Sources (4 CLI deferred, 3 test-bound deferred, 2 public-DSL deferred — `PackageDependency` per Row 23 future, `SingleFile` per Row 24 defer; +1 net new from `CaptureMode` per Row 13 disposition)
+- 8 findings on swift-linter Sources (4 CLI deferred, 3 test-bound deferred, 2 public-DSL deferred — `PackageDependency` per Row 23 future, `SingleFile` per Row 24 defer; -1 from the `Capture.Mode` Nest.Name rename closing the `CaptureMode` finding the original Row 13 disposition spelling introduced)
 - 0 findings on swift-primitives-linter-rules
-- **Total: 9 findings remain (86% reduction).**
+- **Total: 8 findings remain (87% reduction).**
 
 Plus 5 compound-suite-name findings on `Tests/Linter Core Tests/*`
 deferred to Thread F per the original catalog ambiguity (test-suite

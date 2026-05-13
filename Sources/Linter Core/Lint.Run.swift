@@ -113,7 +113,7 @@ extension Lint.Run {
         }
     }
 
-    /// Outcome-returning variant; the ``CaptureMode`` controls which
+    /// Outcome-returning variant; the ``Capture/Mode`` controls which
     /// streams (findings, suppressed, or both) the engine populates.
     ///
     /// Per-finding disable mechanism (decision 2026-05-11, hybrid
@@ -127,7 +127,7 @@ extension Lint.Run {
     public static func run(
         paths: [File.Path],
         configuration: Lint.Configuration,
-        capturing mode: CaptureMode
+        capturing mode: Capture.Mode
     ) throws(Error) -> Outcome {
         // Witness-shape engine. Each effective entry stores a `Lint.Rule`
         // witness with any per-rule path filter already folded in via

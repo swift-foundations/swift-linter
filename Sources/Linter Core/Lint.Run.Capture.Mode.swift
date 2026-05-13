@@ -9,7 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
-extension Lint.Run {
+extension Lint.Run.Capture {
     /// What an `Outcome`-returning run should capture.
     ///
     /// - `.findings`: capture only surfaced findings (suppressed
@@ -18,7 +18,7 @@ extension Lint.Run {
     ///   observability stream (surfaced findings dropped).
     /// - `.all`: capture both surfaced and suppressed streams; the
     ///   pre-rename `runCapturingSuppressed` semantic.
-    public enum CaptureMode: Swift.String, Sendable, Hashable, CaseIterable {
+    public enum Mode: Swift.String, Sendable, Hashable, CaseIterable {
         case findings
         case suppressed
         case all
