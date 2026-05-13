@@ -195,7 +195,7 @@ extension Lint.SingleFile.Extractor {
         let derivedName: Swift.String
         if let path: Swift.String = pathArg {
             source = .path(path)
-            derivedName = Self.packageName(fromPath: path, consumerPackageRoot: consumerPackageRoot)
+            derivedName = Self.packageName(at: path, consumerPackageRoot: consumerPackageRoot)
         } else if let url: Swift.String = urlArg {
             if let from: Swift.String = fromArg {
                 source = .urlFrom(url: url, from: from)
@@ -207,7 +207,7 @@ extension Lint.SingleFile.Extractor {
                     description: "`.package(url:...)` requires either `from:` or two positional version-range arguments; got `\(call.description)`"
                 )
             }
-            derivedName = Self.packageName(fromURL: url)
+            derivedName = Self.packageName(at: url)
         } else {
             throw .malformedPackageCall(
                 path: sourcePath,
@@ -309,14 +309,14 @@ extension Lint.SingleFile.Extractor {
     /// field (e.g., `swift-cardinal-primitives`).
     ///
     /// The companion path-resolution shortcut lives at
-    /// ``Lint/SingleFile/Materializer/resolveConsumerPath(_:relativeRoot:)``.
+    /// ``Lint/SingleFile/Materializer/resolve(_:relativeTo:)``.
     /// `consumerPackageRoot` is canonicalized at the CLI boundary via
     /// ``Lint/SingleFile/canonicalize(consumerRoot:currentWorkingDirectory:)``
     /// before reaching this site, so basename derivation receives an
     /// absolute path even when the CLI is invoked as `swift-linter .`.
 
     internal static func packageName(
-        fromPath path: Swift.String,
+        at path: Swift.String,
         consumerPackageRoot: File.Path
     ) -> Swift.String {
         // `path` is the AST-extracted SwiftPM literal (genuinely
@@ -332,8 +332,7 @@ extension Lint.SingleFile.Extractor {
     /// Slash-trimmed basename of a path-shaped string.
     ///
     /// Returns the last component of the typed-Path form of `path`.
-    /// Used by both `packageName(fromPath:)` and
-    /// `packageName(fromPath:consumerPackageRoot:)` for the
+    /// Used by both `packageName(at:)` overloads for the
     /// non-self-reference case; the typed primitive owns trailing-
     /// slash trimming and component segmentation, so this helper is
     /// a thin adapter at the bare-string boundary.
@@ -351,7 +350,7 @@ extension Lint.SingleFile.Extractor {
 
     /// Derive a SwiftPM package name from a `url:` argument's value.
 
-    internal static func packageName(fromURL url: Swift.String) -> Swift.String {
+    internal static func packageName(at url: Swift.String) -> Swift.String {
         var trimmed: Swift.String = url
         while trimmed.hasSuffix("/") {
             trimmed.removeLast()

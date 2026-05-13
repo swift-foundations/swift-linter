@@ -139,7 +139,7 @@ extension Lint.SingleFile.Materializer {
         for dep in dependencies {
             switch dep.source {
             case .path(let path):
-                let resolvedPath: Swift.String = try Self.resolveConsumerPath(path, relativeRoot: evalRelativeToConsumer)
+                let resolvedPath: Swift.String = try Self.resolve(path, relativeTo: evalRelativeToConsumer)
                 lines.append("        .package(path: \"\(resolvedPath)\"),")
             case .urlFrom(let url, let from):
                 lines.append("        .package(url: \"\(url)\", from: \"\(from)\"),")
@@ -209,26 +209,26 @@ extension Lint.SingleFile.Materializer {
     /// — `File.Path("")` throws `.empty`, and `Path("./X").appending(...)`
     /// retains the leading `.` literal that SwiftPM rejects.
     @usableFromInline
-    internal static func resolveConsumerPath(
+    internal static func resolve(
         _ consumerPath: Swift.String,
-        relativeRoot: Swift.String
+        relativeTo root: Swift.String
     ) throws(Lint.SingleFile.Error) -> Swift.String {
         // Self-reference shortcuts — both name the consumer's own
-        // package root, which is exactly `relativeRoot` from the eval
+        // package root, which is exactly `root` from the eval
         // project's vantage. Runs ahead of typed-path construction
         // because both `""` and `"."` either fail `Path` validation or
         // retain a `.` segment SwiftPM cannot resolve.
         if consumerPath.isEmpty || consumerPath == "." {
-            return relativeRoot
+            return root
         }
         let consumer: File.Path
         let base: File.Path
         do throws(Paths.Path.Error) {
             consumer = try File.Path(consumerPath)
-            base = try File.Path(relativeRoot)
+            base = try File.Path(root)
         } catch {
             throw .materializationFailed(
-                reason: "invalid SwiftPM path-form dep `\(consumerPath)` (relative to `\(relativeRoot)`): \(error)"
+                reason: "invalid SwiftPM path-form dep `\(consumerPath)` (relative to `\(root)`): \(error)"
             )
         }
         // `Path.appending(_:)` returns `other` unchanged when absolute
