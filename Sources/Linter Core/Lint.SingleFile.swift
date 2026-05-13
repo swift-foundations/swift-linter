@@ -12,10 +12,10 @@
 internal import Environment
 public import File_System
 internal import JSON
+internal import Manifest_Executable
 internal import Manifest_Loader
 internal import Manifest_Primitives
 internal import Manifest_Resolver
-internal import Process
 internal import Version_Primitives
 
 /// Detection + dispatch for the unified single-file consumer manifest
@@ -227,36 +227,57 @@ extension Lint.SingleFile {
         arguments: [Swift.String]
     ) throws(Lint.SingleFile.Error) -> Swift.Int32 {
         let consumerLintSwiftPath: File.Path = consumerPackageRoot / "Lint.swift"
+
+        // 1. Read source.
         let source: Swift.String
         do throws(File.System.Read.Full.Error) {
             source = try Self.readFile(at: consumerLintSwiftPath)
         } catch {
             throw .readFailed(path: consumerLintSwiftPath, description: "\(error)")
         }
+
+        // 2. Validate magic-comment.
         guard Self.hasMagicComment(in: source) else {
             throw .missingToolsVersion(path: consumerLintSwiftPath)
         }
-        let dependencies: [Lint.SingleFile.PackageDependency] = try Lint.SingleFile.Extractor.dependencies(
+
+        // 3. Extract `Lint.run(dependencies:)` clauses.
+        let extractedDependencies: [Lint.SingleFile.PackageDependency] = try Lint.SingleFile.Extractor.dependencies(
             from: source,
             sourcePath: consumerLintSwiftPath,
             consumerPackageRoot: consumerPackageRoot
         )
-        let evalRoot: File.Path = try Lint.SingleFile.Materializer.materialize(
-            consumerPackageRoot: consumerPackageRoot,
-            consumerLintSwiftPath: consumerLintSwiftPath,
-            dependencies: dependencies
-        )
 
-        // Parent-chain resolution. The folded parent Manifest is
-        // serialized to a temp file and passed to the dispatched
-        // executable via env var.
+        // 4. Resolve parent chain (Lint-specific; writes the folded
+        // `Lint.Manifest` to a temp JSON file and returns its path).
+        // The helper self-creates `.swift-lint/` so it runs cleanly
+        // before Manifest.Executable.dispatch materializes
+        // `.swift-lint/eval/` over the same parent directory.
         let parentManifestPath: File.Path? = try Self.resolveParentChain(
             consumerSource: source,
             consumerPackageRoot: consumerPackageRoot
         )
 
-        let invocation: [Swift.String] =
-            ["swift", "run", "--package-path", evalRoot.string, "Lint"] + arguments
+        // 5. Look up SWIFT_LINTER_PATH for the engine dep that the
+        // generated Package.swift must reference.
+        let linterPath: Swift.String
+        if let raw: Swift.String = Environment.read("SWIFT_LINTER_PATH") {
+            linterPath = raw
+        } else {
+            throw .materializationFailed(
+                reason: "SWIFT_LINTER_PATH environment variable not set; cannot resolve swift-linter dependency for the eval project."
+            )
+        }
+
+        // 6. Prepend the engine dep to the consumer's extracted deps.
+        let linterDependency = Manifest.Executable.PackageDependency(
+            source: .path(linterPath),
+            name: "swift-linter",
+            products: ["Linter"]
+        )
+        let dependencies: [Manifest.Executable.PackageDependency] = [linterDependency] + extractedDependencies
+
+        // 7. Build environment (parent-chain env var when present).
         let environment: [Swift.String: Swift.String]?
         if let path: File.Path = parentManifestPath {
             var snapshot: Environment.Snapshot = Environment.Snapshot.current()
@@ -265,24 +286,42 @@ extension Lint.SingleFile {
         } else {
             environment = nil
         }
-        let spawnConfiguration = Process.Spawn.Configuration(
-            executable: "/usr/bin/env",
-            arguments: invocation,
-            environment: environment
+
+        // 8. Build Manifest.Executable.Configuration.
+        let evalRoot: File.Path = consumerPackageRoot / ".swift-lint" / "eval"
+        let configuration = Manifest.Executable.Configuration(
+            consumerPackageRoot: consumerPackageRoot,
+            consumerSourcePath: consumerLintSwiftPath,
+            evalRoot: evalRoot,
+            executableName: "Lint",
+            dependencies: dependencies,
+            platforms: [".macOS(.v26)"],
+            swiftLanguageModes: [".v6"],
+            ecosystemSettings: [
+                ".enableUpcomingFeature(\"ExistentialAny\")",
+                ".enableUpcomingFeature(\"InternalImportsByDefault\")",
+                ".enableUpcomingFeature(\"MemberImportVisibility\")",
+                ".enableUpcomingFeature(\"NonisolatedNonsendingByDefault\")",
+            ],
+            arguments: arguments,
+            environment: environment,
+            toolsVersion: "6.3.1"
         )
-        let status: Process.Status
-        do throws(Process.Error) {
-            status = try Process.Spawn.run(spawnConfiguration)
+
+        // 9. Hand off to Manifest.Executable.dispatch; map errors at
+        // the boundary so Lint.SingleFile.Error stays the consumer-
+        // facing throw shape.
+        do throws(Manifest.Executable.Error) {
+            return try Manifest.Executable.dispatch(configuration: configuration)
         } catch {
-            throw .spawnFailed(
-                consumerPackageRoot: consumerPackageRoot,
-                description: "\(error)"
-            )
-        }
-        switch status {
-        case .exited(let code): return code
-        case .signaled(let s): return -s
-        case .stopped(let s): return -s
+            switch error {
+            case .readFailed(let path, let description):
+                throw .readFailed(path: path, description: description)
+            case .materializationFailed(let reason):
+                throw .materializationFailed(reason: reason)
+            case .spawnFailed(let consumerPackageRoot, let description):
+                throw .spawnFailed(consumerPackageRoot: consumerPackageRoot, description: description)
+            }
         }
     }
 
@@ -360,11 +399,19 @@ extension Lint.SingleFile {
         let folded: Lint.Manifest = Self.foldParents(parentChain)
         let serialized: JSON = Lint.Manifest.serialize(folded)
         let jsonString: Swift.String = serialized.jsonString()
-        // F-A1.12 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
-        // typed `File.Path` arithmetic — component-literal `/`
-        // operator means the segment shapes are compile-time
-        // validated.
-        let filePath: File.Path = consumerPackageRoot / ".swift-lint" / "parent-manifest.json"
+        // Ensure `.swift-lint/` exists before the atomic write. Pre-
+        // Thread-I this directory was created as a side-effect of
+        // Lint.SingleFile.Materializer.materialize running first; the
+        // refactored dispatch resolves the parent chain BEFORE
+        // handing off to Manifest.Executable.dispatch, so the helper
+        // is now self-sufficient.
+        let parentDirectory: File.Path = consumerPackageRoot / ".swift-lint"
+        do throws(File.System.Create.Directory.Error) {
+            try File.Directory(parentDirectory).create.recursive()
+        } catch {
+            throw .materializationFailed(reason: "create directory \(parentDirectory.string): \(error)")
+        }
+        let filePath: File.Path = parentDirectory / "parent-manifest.json"
         do throws(File.System.Write.Atomic.Error) {
             try File(filePath).write.atomic(jsonString)
         } catch {

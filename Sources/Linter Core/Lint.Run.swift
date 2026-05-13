@@ -190,8 +190,8 @@ extension Lint.Run {
     /// itself is the file. Otherwise the resolver joins via
     /// ``File/Path/appending(_:)`` — separator semantics and
     /// component validation come from the typed primitive (see
-    /// `Lint.SingleFile.Materializer.resolve(_:relativeTo:)` at
-    /// `swift-linter@fe2c18e` for the same pattern).
+    /// ``Manifest/Executable/Materializer/resolve(_:relativeTo:)``
+    /// for the same pattern).
     fileprivate static func parsedSource(
         root: File.Path,
         relativePath: Lint.Source.Path,
