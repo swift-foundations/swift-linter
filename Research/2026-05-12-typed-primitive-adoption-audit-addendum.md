@@ -49,26 +49,52 @@ retyped here." The finding is settled in code; the remaining
 
 ### F-A2.10 — `Lint.Dependency.package(path:…)` factory arguments
 
-**Disposition**: Acceptable
+**Disposition**: Acceptable → **Superseded by Thread G** (2026-05-13)
 
-**Rationale**: `Lint.Dependency` (`Lint.Dependency.swift:36–84`) is
-the consumer-facing public API a user writes in their
-`Lint.swift`. The factory shapes — `package(path:products:)`,
-`package(url:from:products:)`, `package(url:_:_:products:)` — mirror
-SwiftPM's own `PackageDescription.Package.Dependency.package(...)`
-API verbatim, and SwiftPM ships those factories with
-`String`-typed arguments. The `path:` and `url:` values are
-code-generation literals: the audit's brief framing ("code-gen
-literal vs path-shaped data") resolves to code-gen — the consumer's
-literal source text is parsed from their `Lint.swift` and re-emitted
-into the generated eval `Package.swift`. Re-typing the public API
-surface above the underlying spec adds friction for consumers
-(they would have to opt out of the `.package(path: "...")` literal
-they already write everywhere) without buying type-safety the
-emit-path can use.
+**Rationale (original Acceptable disposition)**: `Lint.Dependency`
+(`Lint.Dependency.swift:36–84`) is the consumer-facing public API
+a user writes in their `Lint.swift`. The factory shapes —
+`package(path:products:)`, `package(url:from:products:)`,
+`package(url:_:_:products:)` — mirror SwiftPM's own
+`PackageDescription.Package.Dependency.package(...)` API verbatim,
+and SwiftPM ships those factories with `String`-typed arguments.
+The `path:` and `url:` values are code-generation literals: the
+audit's brief framing ("code-gen literal vs path-shaped data")
+resolves to code-gen — the consumer's literal source text is
+parsed from their `Lint.swift` and re-emitted into the generated
+eval `Package.swift`. Re-typing the public API surface above the
+underlying spec adds friction for consumers (they would have to
+opt out of the `.package(path: "...")` literal they already write
+everywhere) without buying type-safety the emit-path can use.
 
-**Action**: No action — code-gen literal; precedent-bound to
-SwiftPM's API shape.
+**Thread G supersession (2026-05-13)**: the Acceptable disposition
+held only as long as the SLI conformance gap held. With Phase G.0
+adding `ExpressibleByStringLiteral` conformances on
+`Version.Semantic`, `Version.Tools`, `URI` (via
+`URI Standard Library Integration`), and confirming `File.Path` +
+`Product.Name` already carry their SLI shapes, the consumer-side
+friction the original rationale weighed against disappears.
+Consumers continue to write
+`.package(path: "../foo", from: "1.0.0", products: ["Bar"])` —
+the SLI layer reads each literal as the typed primitive at compile
+time. Phase G.1 promoted the public DSL to typed primitives:
+
+```swift
+public enum Kind: Swift.Sendable {
+    case path(File.Path)
+    case url(URI, from: Version.Semantic)
+    case urlRange(URI, Version.Range<Version.Semantic>)
+}
+```
+
+The `urlRange` factory collapses the two prior positional version
+literals into one `Swift.Range<Version.Semantic>` operand —
+consumers write `"602.0.0"..<"603.0.0"` and the typed range
+flows through. The Extractor was updated in lockstep to recognise
+the `..<` range expression in consumer `Lint.swift` files.
+
+**Action**: F-A2.10 closed at Thread G commit `89c3a1a`
+(typed-primitive adoption + Extractor cascade `4115414`).
 
 ### F-A2.11 — `Lint.SingleFile.PackageDependency.name`
 

@@ -300,8 +300,8 @@ audit recommends *raising* the typing question at the L1
 ### Out-of-immediate-scope but worth tracking
 
 - F-A4.2 (`Lint.Visibility.ordinal: Swift.Int`) — typify after the use-survey confirms `<` is the only consumer.
-- F-A3.3 (glob-pattern lists) — wait for a typed `Glob.Pattern` primitive before adopting; no benefit from `Tagged<Glob, String>` alone.
-- F-A3.4 / F-A3.5 (SwiftPM product-name `[String]`) — wait for a typed SwiftPM identifier surface; the linter shouldn't fork one.
+- F-A3.3 (glob-pattern lists) — wait for a typed `Glob.Pattern` primitive before adopting; no benefit from `Tagged<Glob, String>` alone. **Resolved**: `Glob.Pattern` SLI added at `swift-glob-primitives/Sources/Glob Primitives Standard Library Integration` (audit-remediation Phase 1+2 follow-up); `Lint.Configuration.Rules.excluded: [Glob.Pattern]` adopted.
+- F-A3.4 / F-A3.5 (SwiftPM product-name `[String]`) — wait for a typed SwiftPM identifier surface; the linter shouldn't fork one. **Resolved at Thread G** (2026-05-13): `swift-package-primitives` landed at Thread E Row 23 with `Product.Name = Tagged<Product, Swift.String>` + `Package.Name = Tagged<Package, Swift.String>`. Thread G.1 adopted `Product.Name` on `Lint.Dependency.products` and `Lint.SingleFile.PackageDependency.products`; SwiftPM-identifier shape is now typed end-to-end at the public DSL.
 - The cross-package note on `File.Path.Temporary.deterministic` (raw concat in the typed primitive's own body) — flag to the principal as a precondition for the test-fixture conversion track.
 
 ---
