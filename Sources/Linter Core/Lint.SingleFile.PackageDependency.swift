@@ -9,43 +9,20 @@
 //
 // ===----------------------------------------------------------------------===//
 
-public import Package_Primitives
+public import Manifest_Executable
 
 extension Lint.SingleFile {
     /// A SwiftPM package dependency parsed from a consumer's
     /// `Lint.swift` `dependencies:` argument.
     ///
-    /// Carries one logical `.package(...)` clause and the list of
-    /// products required from that package. The materializer renders
-    /// one `.package(...)` line per unique entry plus one
-    /// `.product(name:package:)` line per product on the eval
-    /// target's `dependencies` list.
-    ///
-    /// This type is internal to the single-file dispatch path —
-    /// callers express dependencies via the consumer-facing
-    /// ``Lint/Dependency`` value type in the `Linter` product. The
-    /// extractor in ``Lint/SingleFile/Extractor`` produces this
-    /// resolved form from the consumer's parsed Swift literal.
-    public struct PackageDependency: Swift.Sendable, Swift.Hashable {
-        public enum Source: Swift.Sendable, Swift.Hashable {
-            case path(Swift.String)
-            case urlFrom(url: Swift.String, from: Swift.String)
-            case urlRange(url: Swift.String, lower: Swift.String, upper: Swift.String)
-        }
-
-        /// The package source: filesystem path or git URL with version constraint.
-        public let source: Source
-
-        /// Typed SwiftPM package name (derived from path/URL basename).
-        public let name: Package.Name
-
-        /// Typed products to depend on from this package.
-        public let products: [Product.Name]
-
-        public init(source: Source, name: Package.Name, products: [Product.Name]) {
-            self.source = source
-            self.name = name
-            self.products = products
-        }
-    }
+    /// Thread I collapses this name to a typealias for
+    /// ``Manifest/Executable/PackageDependency``. The underlying type
+    /// lives in `swift-manifests`'s `Manifest Executable` module so it
+    /// is shared across single-file consumer-manifest tools (this
+    /// linter; future formatter, doc generator, etc.). The Lint-
+    /// specific Extractor in ``Lint/SingleFile/Extractor`` continues
+    /// to produce values of this type from the consumer's parsed
+    /// Swift literal; the materialize-and-spawn pipeline consumes
+    /// them via ``Manifest/Executable/dispatch(configuration:)``.
+    public typealias PackageDependency = Manifest.Executable.PackageDependency
 }

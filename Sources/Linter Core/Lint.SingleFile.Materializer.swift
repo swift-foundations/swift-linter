@@ -11,6 +11,7 @@
 
 internal import Environment
 public import File_System
+public import Manifest_Executable
 internal import Version_Primitives
 internal import Version_Primitives_Standard_Library_Integration
 
@@ -141,9 +142,9 @@ extension Lint.SingleFile.Materializer {
             case .path(let path):
                 let resolvedPath: Swift.String = try Self.resolve(path, relativeTo: evalRelativeToConsumer)
                 lines.append("        .package(path: \"\(resolvedPath)\"),")
-            case .urlFrom(let url, let from):
+            case .urlFrom(url: let url, from: let from):
                 lines.append("        .package(url: \"\(url)\", from: \"\(from)\"),")
-            case .urlRange(let url, let lower, let upper):
+            case .urlRange(url: let url, lower: let lower, upper: let upper):
                 lines.append("        .package(url: \"\(url)\", \"\(lower)\"..<\"\(upper)\"),")
             }
         }

@@ -95,6 +95,7 @@ let package = Package(
                 .product(name: "Package Primitives", package: "swift-package-primitives"),
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "File System", package: "swift-file-system"),
+                .product(name: "Manifest Executable", package: "swift-manifests"),
                 .product(name: "Manifest Loader", package: "swift-manifests"),
                 .product(name: "Manifest Resolver", package: "swift-manifests"),
                 .product(name: "Parser Literal Primitives", package: "swift-parser-primitives"),

@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 public import File_System
+public import Manifest_Executable
 internal import Package_Primitives
 internal import SwiftParser
 internal import SwiftSyntax
