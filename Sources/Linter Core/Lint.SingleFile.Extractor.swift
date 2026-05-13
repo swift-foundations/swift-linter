@@ -47,7 +47,7 @@ extension Lint.SingleFile.Extractor {
     /// end-to-end; AST-extracted string literals (which genuinely
     /// originate as `Swift.String` from SwiftSyntax) remain
     /// `Swift.String` and are not retyped here.
-    public static func extractDependencies(
+    public static func dependencies(
         from source: Swift.String,
         sourcePath: File.Path,
         consumerPackageRoot: File.Path

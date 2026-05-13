@@ -66,7 +66,7 @@ extension Lint.SingleFile {
     /// Matched case-sensitively in the file's first leading-trivia
     /// block. Files without this header are NOT treated as Shape-γ —
     /// callers fall through to the next detection path.
-    public static let toolsVersionMagicComment: Swift.String = "swift-linter-tools-version:"
+    public static let header: Swift.String = "swift-linter-tools-version:"
 
     /// Canonicalize a CLI-supplied consumer-root path to its absolute
     /// form. When the path is `"."` or empty (the canonical
@@ -140,12 +140,12 @@ extension Lint.SingleFile {
     }
 
     /// Scan the leading 30 lines of `source` for the
-    /// ``toolsVersionMagicComment`` substring.
+    /// ``header`` substring.
     @inlinable
     internal static func hasMagicComment(in source: Swift.String) -> Swift.Bool {
         var lineCount = 0
         for line in source.split(separator: "\n", maxSplits: 30, omittingEmptySubsequences: false) {
-            if line.contains(Self.toolsVersionMagicComment) {
+            if line.contains(Self.header) {
                 return true
             }
             lineCount += 1
@@ -213,7 +213,7 @@ extension Lint.SingleFile {
         guard Self.hasMagicComment(in: source) else {
             throw .missingToolsVersion(path: consumerLintSwiftPath)
         }
-        let dependencies: [Lint.SingleFile.PackageDependency] = try Lint.SingleFile.Extractor.extractDependencies(
+        let dependencies: [Lint.SingleFile.PackageDependency] = try Lint.SingleFile.Extractor.dependencies(
             from: source,
             sourcePath: consumerLintSwiftPath,
             consumerPackageRoot: consumerPackageRoot
@@ -391,8 +391,8 @@ extension Lint.SingleFile {
     /// they fall through to consumer-only configuration (no parent
     /// inheritance). The coordinator side surfaces parent-chain
     /// failures explicitly via the dispatch result.
-    public static func parentConfiguration(
-        registry: [Lint.Rule.ID: Lint.Rule]
+    public static func configuration(
+        parentOf registry: [Lint.Rule.ID: Lint.Rule]
     ) -> Lint.Configuration? {
         // F-A2.9 (env-boundary) — `SWIFT_LINTER_PARENT_MANIFEST` is a
         // raw bare string; convert to `File.Path` at the boundary.
