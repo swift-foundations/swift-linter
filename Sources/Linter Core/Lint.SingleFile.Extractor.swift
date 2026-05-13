@@ -10,8 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 public import File_System
-public import Manifest_Executable
-internal import Package_Primitives
+public import Package_Primitives
 internal import SwiftParser
 internal import SwiftSyntax
 
@@ -53,7 +52,7 @@ extension Lint.SingleFile.Extractor {
         from source: Swift.String,
         sourcePath: File.Path,
         consumerPackageRoot: File.Path
-    ) throws(Lint.SingleFile.Error) -> [Manifest.Executable.PackageDependency] {
+    ) throws(Lint.SingleFile.Error) -> [Package.Dependency] {
         let sourceFile: SourceFileSyntax = Parser.parse(source: source)
         guard let runCall: FunctionCallExprSyntax = findRunCall(in: sourceFile) else {
             throw .dependenciesNotFound(
@@ -75,7 +74,7 @@ extension Lint.SingleFile.Extractor {
                 description: "Lint.run(...) `dependencies:` argument is not a literal array; got `\(dependenciesArg.expression.description)`"
             )
         }
-        var deps: [Manifest.Executable.PackageDependency] = []
+        var deps: [Package.Dependency] = []
         for element in arrayExpr.elements {
             guard let call: FunctionCallExprSyntax = element.expression.as(FunctionCallExprSyntax.self) else {
                 throw .malformedPackageCall(
@@ -83,7 +82,7 @@ extension Lint.SingleFile.Extractor {
                     description: "dependencies[] element is not a function call: `\(element.expression.description)`"
                 )
             }
-            let dep: Manifest.Executable.PackageDependency = try parsePackageCall(
+            let dep: Package.Dependency = try parsePackageCall(
                 call,
                 sourcePath: sourcePath,
                 consumerPackageRoot: consumerPackageRoot
@@ -132,7 +131,7 @@ extension Lint.SingleFile.Extractor {
         _ call: FunctionCallExprSyntax,
         sourcePath: File.Path,
         consumerPackageRoot: File.Path
-    ) throws(Lint.SingleFile.Error) -> Manifest.Executable.PackageDependency {
+    ) throws(Lint.SingleFile.Error) -> Package.Dependency {
         guard let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self),
               member.declName.baseName.text == "package"
         else {
@@ -192,7 +191,7 @@ extension Lint.SingleFile.Extractor {
             )
         }
 
-        let source: Manifest.Executable.PackageDependency.Source
+        let source: Package.Dependency.Source
         let derivedName: Swift.String
         if let path: Swift.String = pathArg {
             source = .path(path)
@@ -217,7 +216,7 @@ extension Lint.SingleFile.Extractor {
         }
 
         let products: [Product.Name] = productsRaw.map { Product.Name($0) }
-        return Manifest.Executable.PackageDependency(
+        return Package.Dependency(
             source: source,
             name: Package.Name(derivedName),
             products: products

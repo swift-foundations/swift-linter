@@ -16,6 +16,7 @@ internal import Manifest_Executable
 internal import Manifest_Loader
 internal import Manifest_Primitives
 internal import Manifest_Resolver
+internal import Package_Primitives
 internal import Version_Primitives
 
 /// Detection + dispatch for the unified single-file consumer manifest
@@ -242,7 +243,7 @@ extension Lint.SingleFile {
         }
 
         // 3. Extract `Lint.run(dependencies:)` clauses.
-        let extractedDependencies: [Manifest.Executable.PackageDependency] = try Lint.SingleFile.Extractor.dependencies(
+        let extractedDependencies: [Package.Dependency] = try Lint.SingleFile.Extractor.dependencies(
             from: source,
             sourcePath: consumerLintSwiftPath,
             consumerPackageRoot: consumerPackageRoot
@@ -270,12 +271,12 @@ extension Lint.SingleFile {
         }
 
         // 6. Prepend the engine dep to the consumer's extracted deps.
-        let linterDependency = Manifest.Executable.PackageDependency(
+        let linterDependency = Package.Dependency(
             source: .path(linterPath),
             name: "swift-linter",
             products: ["Linter"]
         )
-        let dependencies: [Manifest.Executable.PackageDependency] = [linterDependency] + extractedDependencies
+        let dependencies: [Package.Dependency] = [linterDependency] + extractedDependencies
 
         // 7. Build environment (parent-chain env var when present).
         let environment: [Swift.String: Swift.String]?
