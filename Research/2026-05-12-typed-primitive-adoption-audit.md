@@ -297,6 +297,26 @@ accessor is `var line: Int { Int(position.line.underlying) }`). This
 audit recommends *raising* the typing question at the L1
 `swift-source-primitives` layer rather than papering over at L3.
 
+**RESOLVED at Thread H.4** (2026-05-13,
+`swift-source-primitives@02da622` + cascade across swift-linter +
+swift-parsers): L1 contingency lifted. `Source.Location.line` now
+returns `Text.Line.Number` directly (was `Int`); a new typed-line
+init overload allows propagation without an `Int` round-trip. The six
+sites in `Lint.Suppression.swift` were ALREADY using
+`Text.Line.Number` for the `Entry.line` field — the audit's mapping
+predated a prior typed-primitive refactor that landed the typed
+storage without resolving the upstream accessor. The H.4 cascade
+confirms the storage was typed; only the upstream accessor was the
+boundary.
+
+**Cascade note**: the consumer-side `Int(.underlying)` boundary
+conversions in `swift-parsers/Parsers.Diagnostic.swift` (3 formatter
+functions) and `swift-linter/Lint.Source.Parsed+Visibility.swift` /
+`Lint.Reporter.SARIF.swift` are pragmatic landings — the principled
+typed-arithmetic improvement (Text.Line.Number conforming to
+Carrier.`Protocol`) is queued as a separate dispatch per
+`HANDOFF-thread-h-followup-typed-arithmetic.md`.
+
 ### Out-of-immediate-scope but worth tracking
 
 - F-A4.2 (`Lint.Visibility.ordinal: Swift.Int`) — typify after the use-survey confirms `<` is the only consumer.
