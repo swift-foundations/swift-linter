@@ -11,6 +11,7 @@
 
 public import File_System
 public import JSON
+public import Linter_Primitives
 
 /// A serializable snapshot of a per-package linter configuration.
 ///
@@ -23,20 +24,19 @@ public import JSON
 ///
 /// ## Phase 2 v2 scope
 ///
-/// - ``enabledRuleIDs`` — typed `Lint.Rule.ID` (Tagged<Lint.Rule,
-///   Swift.String>) of rules to activate at this manifest's layer.
+/// - ``rules`` Property.View — leaves ``Rules/enabled`` /
+///   ``Rules/disabled`` surface the typed `Lint.Rule.ID` sets of
+///   rules to activate / deactivate at this manifest's layer.
 ///   Mixing rule IDs with file IDs, config keys, or other String
 ///   identifiers is rejected at the type system, not at runtime.
 ///   Construction at consumer call sites uses the
 ///   `ExpressibleByStringLiteral` conformance shipped by
 ///   `swift-tagged-primitives`'s standard-library-integration:
 ///   `let id: Lint.Rule.ID = "unchecked_call_site"`.
-/// - ``disabledRuleIDs`` — typed `Lint.Rule.ID`s to deactivate at
-///   this layer. Layered with parent inheritance: a child manifest's
-///   `disabledRuleIDs` overrides a parent's `enabledRuleIDs` for the
-///   same ID via the Configuration layer's per-TYPE override
-///   semantics.
-/// - ``excludedPaths`` — package-specific path-prefix exclusions
+///   Layered with parent inheritance: a child manifest's
+///   ``Rules/disabled`` overrides a parent's ``Rules/enabled`` for the
+///   same ID via the Configuration layer's per-TYPE override semantics.
+/// - ``excluded`` — package-specific path-prefix exclusions
 ///   (the linter's source walker already excludes `.build/` etc.;
 ///   this list adds extras). Stored as `[File.Path]` from
 ///   `swift-file-system` — `Paths.Path` is Copyable + Sendable +
@@ -46,15 +46,13 @@ public import JSON
 ///
 /// ## JSON wire format
 ///
-/// Despite the typed Swift API surface, the JSON wire format
-/// remains rule-IDs as bare strings — the serializer unwraps each
-/// `Lint.Rule.ID` to its raw `String` and the deserializer wraps
-/// each raw `String` back into a `Lint.Rule.ID`. Path values are
-/// serialized via `path.description` (CustomStringConvertible) and
-/// re-validated on deserialization via `try File.Path(string)`;
-/// invalid path strings surface as `JSON.Error.typeMismatch`. A
-/// v2 consumer's Lint.swift authored against the typed surface
-/// produces wire-compatible output.
+/// The JSON wire format is flat (`enabled`, `disabled`, `excluded`
+/// keys at the document root) — rule-IDs as bare strings, path values
+/// via `path.description`. The serializer unwraps each
+/// `Lint.Rule.ID` to its raw `String`; the deserializer wraps each
+/// raw `String` back into a `Lint.Rule.ID`. Invalid path strings
+/// surface as `JSON.Error.typeMismatch`. A v2 consumer's Lint.swift
+/// authored against the typed surface produces wire-compatible output.
 ///
 /// Tagged-generic `JSON.Serializable` conformance is NOT introduced
 /// here. The natural home (swift-linter-primitives at L1) cannot
@@ -65,24 +63,50 @@ public import JSON
 ///
 /// Severity overrides and user-authored custom rules are deferred
 /// to v3. Parent-manifest inheritance lands in v2 alongside
-/// `disabledRuleIDs`; the driver in
+/// rule disables; the driver in
 /// ``Lint/Driver/configuration(at:manifestOverride:onMissingLinterPath:)``
 /// walks the parent chain and folds each manifest into a layered
 /// ``Lint/Configuration`` with `inheriting:` parent.
 extension Lint {
     public struct Manifest: Sendable, Hashable {
-        public let enabledRuleIDs: [Lint.Rule.ID]
-        public let disabledRuleIDs: [Lint.Rule.ID]
-        public let excludedPaths: [File.Path]
+        /// Rule-related leaves (``Rules/enabled`` / ``Rules/disabled``)
+        /// surfaced via the institute's larger.smaller Property.View
+        /// shape. Reads as `manifest.rules.enabled` /
+        /// `manifest.rules.disabled` mirroring
+        /// ``Lint/Configuration/Rules``.
+        public let rules: Rules
+
+        /// Package-specific path-prefix exclusions.
+        public let excluded: [File.Path]
 
         public init(
-            enabledRuleIDs: [Lint.Rule.ID],
-            disabledRuleIDs: [Lint.Rule.ID] = [],
-            excludedPaths: [File.Path] = []
+            enabled: Set<Lint.Rule.ID> = [],
+            disabled: Set<Lint.Rule.ID> = [],
+            excluded: [File.Path] = []
         ) {
-            self.enabledRuleIDs = enabledRuleIDs
-            self.disabledRuleIDs = disabledRuleIDs
-            self.excludedPaths = excludedPaths
+            self.rules = Rules(enabled: enabled, disabled: disabled)
+            self.excluded = excluded
+        }
+    }
+}
+
+extension Lint.Manifest {
+    /// Property.View on ``Lint/Manifest`` for rule-related leaves.
+    public struct Rules: Sendable, Hashable {
+        /// Rule IDs to activate at this manifest's layer.
+        public let enabled: Set<Lint.Rule.ID>
+
+        /// Rule IDs to deactivate at this manifest's layer. Layered
+        /// with parent inheritance per the Configuration's
+        /// ``Lint/Configuration/Rules/effective`` override semantics.
+        public let disabled: Set<Lint.Rule.ID>
+
+        public init(
+            enabled: Set<Lint.Rule.ID> = [],
+            disabled: Set<Lint.Rule.ID> = []
+        ) {
+            self.enabled = enabled
+            self.disabled = disabled
         }
     }
 }
@@ -92,29 +116,25 @@ extension Lint {
 extension Lint.Manifest: JSON.Serializable {
     public static func serialize(_ value: Self) -> JSON {
         [
-            "enabledRuleIDs": .array(value.enabledRuleIDs.map { .string($0.underlying) }),
-            "disabledRuleIDs": .array(value.disabledRuleIDs.map { .string($0.underlying) }),
-            "excludedPaths": .array(value.excludedPaths.map { .string($0.description) })
+            "enabled": .array(value.rules.enabled.map { .string($0.underlying) }),
+            "disabled": .array(value.rules.disabled.map { .string($0.underlying) }),
+            "excluded": .array(value.excluded.map { .string($0.description) })
         ]
     }
 
     public static func deserialize(_ json: JSON) throws(JSON.Error) -> Self {
         // F-A3.1 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
-        // `[Lint.Rule.ID]` locals replace the prior `[Swift.String]
-        // enabledRaw / disabledRaw` bindings. Wire format remains
-        // bare strings on the JSON side per Manifest.swift's
-        // documented "JSON wire format" section; the typed lift
-        // happens immediately at the deserialization boundary so
-        // every downstream reference operates on `Lint.Rule.ID`.
-        // The `_Raw` suffix on the prior bindings advertised raw-
-        // string semantics that this pass closes; a Tagged-generic
-        // `JSON.Serializable` conformance would centralize the
-        // lift but lives at the wrong layer for now (L1 primitives
-        // package cannot depend on L3 JSON).
-        let enabledRuleIDs: [Lint.Rule.ID] = try [Swift.String](json: json["enabledRuleIDs"]).map { Lint.Rule.ID($0) }
-        let disabledRuleIDs: [Lint.Rule.ID] = try [Swift.String](json: json["disabledRuleIDs"]).map { Lint.Rule.ID($0) }
-        let excludedRaw = try [Swift.String](json: json["excludedPaths"])
-        let excludedPaths: [File.Path] = try excludedRaw.map { (string: Swift.String) throws(JSON.Error) -> File.Path in
+        // typed `Set<Lint.Rule.ID>` locals replace the prior
+        // `[Swift.String] enabledRaw / disabledRaw` bindings. Wire
+        // format remains bare strings on the JSON side; the typed lift
+        // happens immediately at the deserialization boundary so every
+        // downstream reference operates on the Set surface.
+        let enabledIDs: [Lint.Rule.ID] = try [Swift.String](json: json["enabled"]).map { Lint.Rule.ID($0) }
+        let disabledIDs: [Lint.Rule.ID] = try [Swift.String](json: json["disabled"]).map { Lint.Rule.ID($0) }
+        let enabled = Set(enabledIDs)
+        let disabled = Set(disabledIDs)
+        let excludedRaw = try [Swift.String](json: json["excluded"])
+        let excluded: [File.Path] = try excludedRaw.map { (string: Swift.String) throws(JSON.Error) -> File.Path in
             do throws(Paths.Path.Error) {
                 return try File.Path(string)
             } catch {
@@ -125,9 +145,9 @@ extension Lint.Manifest: JSON.Serializable {
             }
         }
         return Self(
-            enabledRuleIDs: enabledRuleIDs,
-            disabledRuleIDs: disabledRuleIDs,
-            excludedPaths: excludedPaths
+            enabled: enabled,
+            disabled: disabled,
+            excluded: excluded
         )
     }
 }

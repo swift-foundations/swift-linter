@@ -42,16 +42,16 @@ extension Lint.Configuration {
         inheriting parent: Lint.Configuration? = nil
     ) -> Lint.Configuration {
         var entries: [Lint.Rule.Configuration] = []
-        for id in manifest.enabledRuleIDs {
+        for id in manifest.rules.enabled {
             if let rule: Lint.Rule = registry[id] {
                 entries.append(Lint.Rule.Configuration.enable(rule))
             }
         }
-        let exclusions: [Lint.Filter.Prefix] = manifest.excludedPaths.map(Lint.Filter.Prefix.init)
+        let exclusions: [Lint.Filter.Prefix] = manifest.excluded.map(Lint.Filter.Prefix.init)
         return Lint.Configuration(
             inheriting: parent,
             excluded: exclusions,
-            disabled: Set(manifest.disabledRuleIDs)
+            disabled: manifest.rules.disabled
         ) {
             entries
         }

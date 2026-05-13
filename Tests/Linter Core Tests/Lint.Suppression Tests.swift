@@ -291,8 +291,7 @@ extension Lint.Suppression.Test.EngineIntegration {
         // produces a Configuration whose rules.disabled carries the
         // same IDs.
         let manifest = Lint.Manifest(
-            enabledRuleIDs: [],
-            disabledRuleIDs: ["suppression fixture"]
+            disabled: ["suppression fixture"]
         )
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         #expect(configuration.rules.disabled.contains("suppression fixture"))

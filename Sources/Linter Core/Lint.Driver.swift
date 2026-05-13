@@ -294,8 +294,8 @@ extension Lint.Driver {
     ) -> Lint.Configuration {
         Lint.Configuration(
             inheriting: parent,
-            excluded: manifest.excludedPaths.map(Lint.Filter.Prefix.init),
-            disabled: Set(manifest.disabledRuleIDs)
+            excluded: manifest.excluded.map(Lint.Filter.Prefix.init),
+            disabled: manifest.rules.disabled
         ) { }
     }
 

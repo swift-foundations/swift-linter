@@ -42,7 +42,7 @@ extension Lint.Driver {
 extension Lint.Driver.Test.ConfigurationFromManifest {
     @Test
     func `Empty manifest with nil parent produces empty effective rules`() {
-        let manifest = Lint.Manifest(enabledRuleIDs: [])
+        let manifest = Lint.Manifest()
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         #expect(configuration.rules.effective.entries.isEmpty)
     }
@@ -52,7 +52,7 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
         // Post-decouple: the engine doesn't know about rule types, so
         // even a fully-populated enabledRuleIDs list yields no effective
         // rules at this layer.
-        let manifest = Lint.Manifest(enabledRuleIDs: ["unchecked_call_site"])
+        let manifest = Lint.Manifest(enabled: ["unchecked_call_site"])
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         #expect(configuration.rules.effective.entries.isEmpty)
     }
@@ -62,8 +62,7 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
         // Symmetric to above: disable lists are also engine-inert
         // post-decouple — the engine has nothing to disable.
         let manifest = Lint.Manifest(
-            enabledRuleIDs: [],
-            disabledRuleIDs: ["unchecked_call_site"]
+            disabled: ["unchecked_call_site"]
         )
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         #expect(configuration.rules.effective.entries.isEmpty)
@@ -76,12 +75,12 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
         // rules post-decouple, the effective set is empty, but the
         // inheritance link is intact (verified by Configuration-layer
         // tests).
-        let parentManifest = Lint.Manifest(enabledRuleIDs: ["unchecked_call_site"])
+        let parentManifest = Lint.Manifest(enabled: ["unchecked_call_site"])
         let parentConfiguration = Lint.Driver.configuration(
             from: parentManifest,
             parent: nil
         )
-        let childManifest = Lint.Manifest(enabledRuleIDs: [])
+        let childManifest = Lint.Manifest()
         let childConfiguration = Lint.Driver.configuration(
             from: childManifest,
             parent: parentConfiguration
@@ -92,8 +91,7 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
     @Test
     func `Excluded paths are carried through to Configuration`() throws(Paths.Path.Error) {
         let manifest = Lint.Manifest(
-            enabledRuleIDs: [],
-            excludedPaths: [
+            excluded: [
                 try File.Path("Tests/Fixtures"),
                 try File.Path(".build"),
             ]
@@ -108,7 +106,7 @@ extension Lint.Driver.Test.ConfigurationFromManifest {
         // anything in `Lint.Rule.builtIn`. Post-decouple: ALL IDs are
         // ignored at this layer (the array is gone). This test
         // continues to assert the silent-ignore semantic.
-        let manifest = Lint.Manifest(enabledRuleIDs: ["nonexistent_rule"])
+        let manifest = Lint.Manifest(enabled: ["nonexistent_rule"])
         let configuration = Lint.Driver.configuration(from: manifest, parent: nil)
         #expect(configuration.rules.effective.entries.isEmpty)
     }

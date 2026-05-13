@@ -356,18 +356,18 @@ extension Lint.SingleFile {
     /// ``Lint/Configuration/Rules/effective`` handles dedup and
     /// override semantics (later wins per rule ID).
     internal static func foldParents(_ chain: [Lint.Manifest]) -> Lint.Manifest {
-        var enabled: [Lint.Rule.ID] = []
-        var disabled: [Lint.Rule.ID] = []
+        var enabled: Set<Lint.Rule.ID> = []
+        var disabled: Set<Lint.Rule.ID> = []
         var excluded: [File.Path] = []
         for parent in chain {
-            enabled.append(contentsOf: parent.enabledRuleIDs)
-            disabled.append(contentsOf: parent.disabledRuleIDs)
-            excluded.append(contentsOf: parent.excludedPaths)
+            enabled.formUnion(parent.rules.enabled)
+            disabled.formUnion(parent.rules.disabled)
+            excluded.append(contentsOf: parent.excluded)
         }
         return Lint.Manifest(
-            enabledRuleIDs: enabled,
-            disabledRuleIDs: disabled,
-            excludedPaths: excluded
+            enabled: enabled,
+            disabled: disabled,
+            excluded: excluded
         )
     }
 
