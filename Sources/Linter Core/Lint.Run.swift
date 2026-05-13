@@ -139,7 +139,7 @@ extension Lint.Run {
         var findings: [Lint.Finding] = []
         var suppressed: [Lint.Finding] = []
         for root in paths {
-            let sourcePaths = Lint.Source.Walker.swiftSourcePaths(under: root)
+            let sourcePaths = Lint.Source.Walker.paths(under: root)
             for sourcePath in sourcePaths {
                 let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager)
                 let suppression = Lint.Suppression.scan(
@@ -163,7 +163,7 @@ extension Lint.Run {
                             record: record,
                             visibility: visibility
                         )
-                        if suppression.suppresses(line: record.location.line, ruleID: ruleID) {
+                        if suppression.suppresses(line: record.location.position.line, rule: ruleID) {
                             suppressed.append(finding)
                             continue
                         }

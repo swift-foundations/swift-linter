@@ -29,7 +29,7 @@ extension Lint.Source.Walker {
     /// Patterns matched against entries in the search root.
     ///
     /// Include: every Swift file at any depth.
-    public static let includePatterns: [Glob.Pattern] = [
+    public static let included: [Glob.Pattern] = [
         "**/*.swift",
     ]
 
@@ -37,7 +37,7 @@ extension Lint.Source.Walker {
     ///
     /// Trailing `/**` matches every entry beneath the named directory at
     /// any depth.
-    public static let excludePatterns: [Glob.Pattern] = [
+    public static let excluded: [Glob.Pattern] = [
         "**/.build/**",
         "**/.swiftpm/**",
         "**/.benchmarks/**",
@@ -60,7 +60,7 @@ extension Lint.Source.Walker {
     /// degenerate case: the walker emits a single empty-string
     /// ``Lint/Source/Path`` and ``Lint/Run/parsedSource(root:relativePath:manager:)``
     /// resolves I/O via `root` directly.
-    public static func swiftSourcePaths(under root: File.Path) -> [Lint.Source.Path] {
+    public static func paths(under root: File.Path) -> [Lint.Source.Path] {
         // F-A1.2 (audit `2026-05-12-typed-primitive-adoption-audit.md`):
         // single-file degenerate case keyed on the path's extension —
         // ask the typed primitive, not the raw description.
@@ -72,8 +72,8 @@ extension Lint.Source.Walker {
         let files: [File]
         do throws(Glob.Error) {
             files = try directory.glob.files(
-                include: includePatterns,
-                excluding: excludePatterns
+                include: included,
+                excluding: excluded
             )
         } catch {
             return []

@@ -65,7 +65,7 @@ extension Lint.Suppression.Test.Scanner {
         #expect(map.entries.count == 1)
         let entry = map.entries.first
         #expect(entry?.line == 2)
-        #expect(entry?.ruleID.underlying == "some rule")
+        #expect(entry?.rule.underlying == "some rule")
     }
 
     @Test
@@ -94,7 +94,7 @@ extension Lint.Suppression.Test.Scanner {
         let map = Self.scanSource(source)
         #expect(map.entries.count == 1)
         #expect(map.entries.first?.line == 1)
-        #expect(map.entries.first?.ruleID.underlying == "some rule")
+        #expect(map.entries.first?.rule.underlying == "some rule")
     }
 
     @Test
@@ -121,18 +121,18 @@ extension Lint.Suppression.Test.Scanner {
         let map = Self.scanSource(source)
         #expect(map.entries.count == 2)
         // First entry on line 2 (rule one); second entry on line 4 (rule two).
-        #expect(map.entries.contains { $0.line == 2 && $0.ruleID.underlying == "rule one" })
-        #expect(map.entries.contains { $0.line == 4 && $0.ruleID.underlying == "rule two" })
+        #expect(map.entries.contains { $0.line == 2 && $0.rule.underlying == "rule one" })
+        #expect(map.entries.contains { $0.line == 4 && $0.rule.underlying == "rule two" })
     }
 
     @Test
     func `suppresses returns true only for matching line and rule ID`() {
         let map = Lint.Suppression(entries: [
-            Lint.Suppression.Entry(line: 5, ruleID: "rule one", reason: nil),
+            Lint.Suppression.Entry(line: 5, rule: "rule one", reason: nil),
         ])
-        #expect(map.suppresses(line: 5, ruleID: "rule one"))
-        #expect(!map.suppresses(line: 5, ruleID: "rule two"))
-        #expect(!map.suppresses(line: 6, ruleID: "rule one"))
+        #expect(map.suppresses(line: 5, rule: "rule one"))
+        #expect(!map.suppresses(line: 5, rule: "rule two"))
+        #expect(!map.suppresses(line: 6, rule: "rule one"))
     }
 }
 

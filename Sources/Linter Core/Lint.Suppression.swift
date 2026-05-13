@@ -57,12 +57,12 @@ extension Lint.Suppression {
     /// `swift-linter:disable:next` or `swift-linter:disable:line`
     /// directive.
     public struct Entry: Sendable, Equatable {
-        /// The 1-based source line whose findings for ``ruleID`` are
+        /// The 1-based source line whose findings for ``rule`` are
         /// suppressed.
-        public let line: Swift.Int
+        public let line: Text.Line.Number
 
         /// The rule ID whose findings on ``line`` are suppressed.
-        public let ruleID: Lint.Rule.ID
+        public let rule: Lint.Rule.ID
 
         /// Optional REASON prose harvested from a `// REASON: ...`
         /// continuation. Recorded for observability but not consulted
@@ -72,32 +72,32 @@ extension Lint.Suppression {
 
         @inlinable
         public init(
-            line: Swift.Int,
-            ruleID: Lint.Rule.ID,
+            line: Text.Line.Number,
+            rule: Lint.Rule.ID,
             reason: Swift.String? = nil
         ) {
             self.line = line
-            self.ruleID = ruleID
+            self.rule = rule
             self.reason = reason
         }
     }
 }
 
 extension Lint.Suppression {
-    /// Returns whether `(line, ruleID)` is suppressed by this map.
+    /// Returns whether `(line, rule)` is suppressed by this map.
     @inlinable
-    public func suppresses(line: Swift.Int, ruleID: Lint.Rule.ID) -> Swift.Bool {
-        for entry in entries where entry.line == line && entry.ruleID == ruleID {
+    public func suppresses(line: Text.Line.Number, rule: Lint.Rule.ID) -> Swift.Bool {
+        for entry in entries where entry.line == line && entry.rule == rule {
             return true
         }
         return false
     }
 
-    /// Returns the entries matching `(line, ruleID)` — for observability
+    /// Returns the entries matching `(line, rule)` — for observability
     /// (e.g., logging which suppressions actually elided a finding).
     @inlinable
-    public func entriesSuppressing(line: Swift.Int, ruleID: Lint.Rule.ID) -> [Entry] {
-        entries.filter { $0.line == line && $0.ruleID == ruleID }
+    public func entries(suppressing line: Text.Line.Number, rule: Lint.Rule.ID) -> [Entry] {
+        entries.filter { $0.line == line && $0.rule == rule }
     }
 }
 
@@ -200,8 +200,8 @@ extension Lint.Suppression {
                 )
                 if let suppressedLine {
                     entries.append(Lint.Suppression.Entry(
-                        line: suppressedLine,
-                        ruleID: ruleID,
+                        line: Text.Line.Number(UInt(suppressedLine)),
+                        rule: ruleID,
                         reason: nil
                     ))
                     pendingReasonIndex = entries.count - 1
@@ -214,8 +214,8 @@ extension Lint.Suppression {
                 // `:line` targets the line carrying the directive
                 // itself — typically as a trailing comment.
                 entries.append(Lint.Suppression.Entry(
-                    line: directiveLine,
-                    ruleID: ruleID,
+                    line: Text.Line.Number(UInt(directiveLine)),
+                    rule: ruleID,
                     reason: nil
                 ))
                 pendingReasonIndex = entries.count - 1
@@ -235,7 +235,7 @@ extension Lint.Suppression {
                 }
                 entries[pending] = Lint.Suppression.Entry(
                     line: entries[pending].line,
-                    ruleID: entries[pending].ruleID,
+                    rule: entries[pending].rule,
                     reason: combined
                 )
             } else {
