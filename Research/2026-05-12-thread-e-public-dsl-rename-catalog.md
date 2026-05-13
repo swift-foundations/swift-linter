@@ -800,14 +800,65 @@ Workspace-wide grep per [HANDOFF-050] required.
 
 ---
 
-## Awaiting principal disposition
+## Principal dispositions (2026-05-13)
 
-Phase 3 (execute signed-off renames) and Phase 4 (verification +
-closure) do NOT begin until the principal dispositions each row
-above. Per HANDOFF:
+Each row dispositioned. The larger.smaller naming principle applies
+throughout: nested accessors read as namespace→specific
+(`config.rules.disabled`), not English (`config.effective.rules`).
 
-> Phase 2 HALT: subordinate commits the catalog draft (no code edits
-> yet), pushes to origin/main, and HALTS for principal sign-off.
+### Scope answers
 
-Catalog file: this document.
-Catalog commit: pending principal review.
+| Question | Answer |
+|----------|--------|
+| 33 internal swift-linter compound-identifier findings | RENAME (not visibility-shift) — proper renames per institute conventions. Folded into Phase 3 as a separate sub-thread. |
+| Row 25 `Lint.Rule.Bundle.brandOwner` | REFACTOR. The typed `Lint.Brand` infrastructure was rejected per `numerics-rule-recognizer-2026-05-12.md`; the bundle's "brand" vocabulary is the remaining vestige. Replace with general exclusion mechanism `Lint.Rule.Bundle.primitives.excluding(rules:)`. Cascade to 3 consumer Lint.swift files (swift-ordinal-primitives, swift-affine-primitives, swift-cardinal-primitives). |
+| Row 24 `Lint.SingleFile` | DEFER. Target shape `Lint.File.Single` (note the swap from `Lint.Single.File`); likely belongs in `swift-foundations/swift-manifests` (already exists with Manifest.Loader / Manifest.Resolver targets), coordinated with `swift-manifest-primitives` (L1). Dedicated thread. |
+
+### Per-row dispositions
+
+| Row | Final shape | Notes |
+|----:|-------------|-------|
+| 1   | `Lint.Configuration.rules.disabled: Set<Lint.Rule.ID>` | Property.View `rules` namespace; `disabled` set-typed. |
+| 2   | `Lint.Configuration.rules.effective` (computed sub-view) | Returns a resolved `Rules` view. |
+| 3   | `Lint.Configuration.rules.effective.disabled: Set<Lint.Rule.ID>` | Nested sub-accessor; resolved walking parent chain. |
+| 4   | `Lint.Rule.with(default: Diagnostic.Severity) -> Lint.Rule` | Single-form labeled method. |
+| 5   | `Lint.Rule.pinned(to: Diagnostic.Severity) -> Lint.Rule` | Single-form labeled method. |
+| 6   | `Lint.Rule.severity.default: Diagnostic.Severity` | Property.View `severity` accessor. |
+| 7   | `Lint.Driver.dispatch.nested(...)` returning Optional | `ifPresent` collapses into Optional shape. |
+| 8   | `Lint.Driver.manifest.path(at:)` | `manifest` namespace. |
+| 9   | `Lint.Driver.configuration(at:)` | Single-form labeled method. |
+| 10  | `Lint.Manifest.Configuration.rules.enabled: Set<Lint.Rule.ID>` | `rules` namespace (paired with 11). |
+| 11  | `Lint.Manifest.Configuration.rules.disabled: Set<Lint.Rule.ID>` | Sibling of 10. |
+| 12  | `Lint.Manifest.Configuration.excluded: [File.Path]` | Top-level (no Glob promotion — semantic verified as exact paths via `try File.Path(string)` in JSON deserialization). |
+| 13  | `Lint.Run.run(capturing: .suppressed)` | Enum `CaptureMode { .suppressed, .findings, .all }`. |
+| 14  | `Lint.SingleFile.Extractor.dependencies(from:)` | Drop "extract" prefix. |
+| 15  | `Lint.SingleFile.header: Swift.String` | Single-word leaf. |
+| 16  | `Lint.SingleFile.configuration(parentOf:)` | Single-form labeled method. |
+| 17  | `Lint.Source.Walker.included: [Glob.Pattern]` | Single-word leaf. |
+| 18  | `Lint.Source.Walker.excluded: [Glob.Pattern]` | Sibling of 17. |
+| 19  | `Lint.Source.Walker.paths(under:)` | Drop "swiftSource" prefix. |
+| 20  | `Lint.Suppression.Entry.rule: Lint.Rule.ID` | Drop "ID" suffix. |
+| 21  | `Lint.Suppression.entries(suppressing line: Text.Line.Number, rule: Lint.Rule.ID)` | Adopt `Text.Line.Number` typed primitive (from `swift-source-primitives`). |
+| 22  | `Lint.Run.Policy` (type rename) | Drop "Exit"; single-word `Policy` under `Lint.Run`. |
+| 23  | `Lint.SingleFile.PackageDependency.{name: Package.Name, products: [Product.Name]}` | Adopt typed identifiers from `swift-package-primitives`. Future: consider moving type to `Package.Dependency` upstream. |
+| 24  | DEFER (separate thread) | `Lint.File.Single` target, delegate to swift-manifests. |
+| 25  | REFACTOR (not rename) | `Lint.Rule.Bundle.primitives.excluding(rules:)` replaces brandOwner; cascade to 3 consumer packages. |
+
+### Phase 3 execution order
+
+1. **swift-linter-primitives** — rows 1, 2, 3, 4, 5, 6. Land first; downstream consumers depend on the new names.
+2. **swift-linter cascade for rows 1-6** — consumer migrations on `Lint.Configuration` / `Lint.Rule` references.
+3. **swift-linter public DSL** — rows 7-23 (excluding 24).
+4. **swift-linter internal sweep** — 33 internal compound-identifier findings, proper rename (scope #1 answer).
+5. **Row 25 refactor** — brandOwner → primitives.excluding(rules:); cascade to ordinal/affine/cardinal Lint.swift.
+6. **Phase 4 verification** — workspace-wide grep (per [HANDOFF-040] literal + generic-instantiated forms); ecosystem build gate.
+
+### Discovered ecosystem primitives that informed Shape B rows
+
+| Package | Types adopted | Affected rows |
+|---------|---------------|---------------|
+| `swift-package-primitives` | `Package.Name`, `Product.Name` (and `Target.Name`, future `Package.Dependency`) | 14, 23 |
+| `swift-version-primitives` | `Version.Semantic` + parser | 15 (peripheral — header marker stays String; future tools-version parsing path) |
+| `swift-source-primitives` (already `@_exported` from `swift-linter-primitives`) | `Text.Line.Number` (via `Source.Location.position.line`) | 21 |
+
+Phase 3 begins.
