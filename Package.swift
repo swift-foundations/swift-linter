@@ -100,6 +100,7 @@ let package = Package(
                 .product(name: "Manifest Loader", package: "swift-manifests"),
                 .product(name: "Manifest Resolver", package: "swift-manifests"),
                 .product(name: "Parser Literal Primitives", package: "swift-parser-primitives"),
+                .product(name: "Parser Primitives Core", package: "swift-parser-primitives"),
                 .product(name: "Process", package: "swift-process"),
                 .product(name: "SPM Standard", package: "swift-spm-standard"),
                 .product(name: "URI Standard", package: "swift-uri-standard"),
