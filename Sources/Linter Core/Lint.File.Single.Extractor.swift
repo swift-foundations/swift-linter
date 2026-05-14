@@ -217,11 +217,7 @@ extension Lint.File.Single.Extractor {
                     sourcePath: sourcePath,
                     role: "range upper bound"
                 )
-                let range = Version.Range<Version.Semantic>(
-                    lowerBound: .inclusive(lower),
-                    upperBound: .exclusive(upper)
-                )
-                source = .url(url, .range(range))
+                source = .url(url, .range(Version.Range(lower..<upper)))
             } else {
                 throw .malformedPackageCall(
                     path: sourcePath,
