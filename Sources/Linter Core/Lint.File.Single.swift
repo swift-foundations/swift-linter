@@ -272,8 +272,16 @@ extension Lint.File.Single {
         }
 
         // 6. Prepend the engine dep to the consumer's extracted deps.
+        let linterPathTyped: Paths.Path
+        do throws(Paths.Path.Error) {
+            linterPathTyped = try Paths.Path(linterPath)
+        } catch {
+            throw .materializationFailed(
+                reason: "SWIFT_LINTER_PATH `\(linterPath)` is not a valid path: \(error)"
+            )
+        }
         let linterDependency = Package.Dependency(
-            source: .path(linterPath),
+            source: .path(linterPathTyped),
             name: "swift-linter",
             products: ["Linter"]
         )

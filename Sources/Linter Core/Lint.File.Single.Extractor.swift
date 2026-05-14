@@ -195,10 +195,28 @@ extension Lint.File.Single.Extractor {
 
         let source: Package.Dependency.Source
         let derivedName: Swift.String
-        if let path: Swift.String = pathArg {
+        if let pathString: Swift.String = pathArg {
+            let path: Paths.Path
+            do throws(Paths.Path.Error) {
+                path = try Paths.Path(pathString)
+            } catch {
+                throw .malformedPackageCall(
+                    path: sourcePath,
+                    description: "`.package(path:...)` carries an invalid path `\(pathString)`: \(error)"
+                )
+            }
             source = .path(path)
-            derivedName = Self.name(at: path, consumerPackageRoot: consumerPackageRoot)
-        } else if let url: Swift.String = urlArg {
+            derivedName = Self.name(at: pathString, consumerPackageRoot: consumerPackageRoot)
+        } else if let urlString: Swift.String = urlArg {
+            let url: URI
+            do throws(URIError) {
+                url = try URI(urlString)
+            } catch {
+                throw .malformedPackageCall(
+                    path: sourcePath,
+                    description: "`.package(url:...)` carries an invalid URI `\(urlString)`: \(error)"
+                )
+            }
             if let from: Swift.String = fromArg {
                 let version: Version.Semantic = try Self.parseSemantic(
                     from,
@@ -224,7 +242,7 @@ extension Lint.File.Single.Extractor {
                     description: "`.package(url:...)` requires either `from:` or two positional version-range arguments; got `\(call.description)`"
                 )
             }
-            derivedName = Self.name(at: url)
+            derivedName = Self.name(at: urlString)
         } else {
             throw .malformedPackageCall(
                 path: sourcePath,

@@ -11,6 +11,7 @@
 
 internal import File_System
 public import Linter_Primitives
+public import SPM_Standard
 internal import Standard_Library_Extensions
 internal import Terminal_Primitives
 
@@ -54,15 +55,20 @@ internal import Terminal_Primitives
 /// import Linter_Primitives_Rules
 ///
 /// Lint.run(dependencies: [
-///     .package(path: "../../swift-primitives-linter-rules",
-///              products: ["Linter Primitives Rules"]),
+///     Package.Dependency(
+///         source: .path("../../swift-primitives-linter-rules"),
+///         name: "swift-primitives-linter-rules",
+///         products: ["Linter Primitives Rules"]
+///     ),
 /// ]) {
 ///     Lint.Rule.Bundle.primitives
 /// }
 /// ```
 ///
-/// The `dependencies:` argument is consumed syntactically by
-/// swift-linter at phase 1 (AST extraction) to generate the eval
+/// The `dependencies:` argument carries typed `Package.Dependency`
+/// values (the L2 SwiftPM-flavored dependency abstraction from
+/// swift-spm-standard). swift-linter consumes the array
+/// syntactically at phase 1 (AST extraction) to generate the eval
 /// project's `Package.swift`; at phase 2 (compile + run) the array
 /// is unused. The trailing closure is a `@Lint.Configuration.Builder`
 /// over `Lint.Rule.Configuration` entries (`.enable(_:)`,
@@ -111,8 +117,15 @@ extension Lint {
     /// resolved by SwiftPM and the rule-pack products are accessible
     /// via the `import` statements at the top of the consumer's
     /// `Lint.swift`.
+    ///
+    /// Carries `Package.Dependency` from swift-spm-standard directly
+    /// — the previous `Lint.Dependency` wrapper was retired with the
+    /// v0.4 typed-Source-variants change in swift-spm-standard, which
+    /// promoted `.path(String)` / `.url(String, ...)` to
+    /// `.path(Paths.Path)` / `.url(URI, ...)`. The wrapper carried no
+    /// further value once L2 was typed.
     public static func run(
-        dependencies: [Lint.Dependency],
+        dependencies: [Package.Dependency],
         @Array<Lint.Rule.Configuration>.Builder rules: () -> [Lint.Rule.Configuration]
     ) {
         _ = dependencies

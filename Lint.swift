@@ -20,8 +20,9 @@ import Linter
 import Linter_Institute_Rules
 
 Lint.run(dependencies: [
-    .package(
-        path: "../swift-institute-linter-rules",
+    Package.Dependency(
+        source: .path("../swift-institute-linter-rules"),
+        name: "swift-institute-linter-rules",
         products: ["Linter Institute Rules"]
     ),
 ]) {
