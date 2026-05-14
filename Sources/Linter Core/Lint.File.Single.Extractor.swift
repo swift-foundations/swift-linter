@@ -384,7 +384,7 @@ extension Lint.File.Single.Extractor {
     /// Parse a bare-string AST-extracted version literal into a
     /// typed ``Version/Semantic``.
     ///
-    /// Delegates to `Version.Semantic(parsing:)` — the institute
+    /// Delegates to `Version.Semantic(_:)` — the institute
     /// "throwing init indicates parsing" convention — which composes
     /// `swift-parser-primitives` internally and asserts the full
     /// string is consumed (non-ASCII detection + trailing-bytes
