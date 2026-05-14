@@ -205,7 +205,7 @@ extension Lint.File.Single.Extractor {
                     sourcePath: sourcePath,
                     role: "from"
                 )
-                source = .url(url, .from(version))
+                source = .url(url, from: version)
             } else if rangeBounds.count == 2 {
                 let lower: Version.Semantic = try Self.parseSemantic(
                     rangeBounds[0],
@@ -217,7 +217,7 @@ extension Lint.File.Single.Extractor {
                     sourcePath: sourcePath,
                     role: "range upper bound"
                 )
-                source = .url(url, .range(Version.Range(lower..<upper)))
+                source = .url(url, lower..<upper)
             } else {
                 throw .malformedPackageCall(
                     path: sourcePath,
