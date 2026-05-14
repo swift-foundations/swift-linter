@@ -11,7 +11,6 @@
 
 public import File_System
 public import Package_Primitives
-internal import Parser_Primitives_Core
 public import SPM_Standard
 internal import SwiftParser
 internal import SwiftSyntax
@@ -383,45 +382,32 @@ extension Lint.File.Single.Extractor {
     }
 
     /// Parse a bare-string AST-extracted version literal into a
-    /// typed ``Version/Semantic`` via direct
-    /// `swift-parser-primitives` composition.
+    /// typed ``Version/Semantic``.
     ///
-    /// Constructs a `Parser_Primitives.Parser.Input.Bytes` from the
-    /// literal's UTF-8 view, runs the canonical
-    /// `Version.Semantic.Parser` (which conforms to
-    /// `Parser_Primitives.Parser.\`Protocol\``), and asserts the
-    /// parser consumed the entire literal — the trailing-bytes
-    /// check that `Version.Semantic(parsing:)` performs as its
-    /// String-adapter post-condition.
+    /// Delegates to `Version.Semantic(parsing:)` — the institute
+    /// "throwing init indicates parsing" convention — which composes
+    /// `swift-parser-primitives` internally and asserts the full
+    /// string is consumed (non-ASCII detection + trailing-bytes
+    /// check baked into the String adapter). Wraps the typed
+    /// `Version.Semantic.Error` in a `malformedPackageCall` so the
+    /// consumer sees a Lint-domain error with the parse-failure
+    /// detail in `description`.
     ///
-    /// Parse failures and trailing-bytes failures both surface as
-    /// `Lint.File.Single.Error.malformedPackageCall` with the
-    /// parse-context detail in `description`. `role` names the
-    /// source position ("from", "range lower bound", "range upper
-    /// bound") in the diagnostic.
+    /// `role` names the source position ("from", "range lower
+    /// bound", "range upper bound") in the diagnostic.
     fileprivate static func parseSemantic(
         _ literal: Swift.String,
         sourcePath: File.Path,
         role: Swift.String
     ) throws(Lint.File.Single.Error) -> Version.Semantic {
-        var input = Parser_Primitives_Core.Parser.Input.Bytes(utf8: literal)
-        let version: Version.Semantic
         do throws(Version.Semantic.Error) {
-            version = try Version.Semantic.Parser().parse(&input)
+            return try Version.Semantic(literal)
         } catch {
             throw .malformedPackageCall(
                 path: sourcePath,
                 description: "`.package(url:..., \(role) \"\(literal)\")` is not valid SemVer 2.0.0: \(error)"
             )
         }
-        guard input.isEmpty else {
-            let trailing: Swift.String = Swift.String(decoding: input, as: Swift.UTF8.self)
-            throw .malformedPackageCall(
-                path: sourcePath,
-                description: "`.package(url:..., \(role) \"\(literal)\")` has trailing bytes `\(trailing)` after the SemVer 2.0.0 version core"
-            )
-        }
-        return version
     }
 
 }
