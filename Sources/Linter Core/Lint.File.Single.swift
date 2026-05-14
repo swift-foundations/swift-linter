@@ -17,6 +17,7 @@ internal import Manifest_Loader
 internal import Manifest_Primitives
 internal import Manifest_Resolver
 internal import Package_Primitives
+internal import SPM_Standard
 internal import Version_Primitives
 
 /// Detection + dispatch for the unified single-file consumer manifest

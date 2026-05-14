@@ -11,8 +11,10 @@
 
 public import File_System
 public import Package_Primitives
+public import SPM_Standard
 internal import SwiftParser
 internal import SwiftSyntax
+public import Version_Primitives
 
 extension Lint.File.Single {
     /// Syntactic extraction of `.package(...)` dependency declarations
@@ -198,9 +200,28 @@ extension Lint.File.Single.Extractor {
             derivedName = Self.name(at: path, consumerPackageRoot: consumerPackageRoot)
         } else if let url: Swift.String = urlArg {
             if let from: Swift.String = fromArg {
-                source = .urlFrom(url: url, from: from)
+                let version: Version.Semantic = try Self.parseSemantic(
+                    from,
+                    sourcePath: sourcePath,
+                    role: "from"
+                )
+                source = .url(url, .from(version))
             } else if rangeBounds.count == 2 {
-                source = .urlRange(url: url, lower: rangeBounds[0], upper: rangeBounds[1])
+                let lower: Version.Semantic = try Self.parseSemantic(
+                    rangeBounds[0],
+                    sourcePath: sourcePath,
+                    role: "range lower bound"
+                )
+                let upper: Version.Semantic = try Self.parseSemantic(
+                    rangeBounds[1],
+                    sourcePath: sourcePath,
+                    role: "range upper bound"
+                )
+                let range = Version.Range<Version.Semantic>(
+                    lowerBound: .inclusive(lower),
+                    upperBound: .exclusive(upper)
+                )
+                source = .url(url, .range(range))
             } else {
                 throw .malformedPackageCall(
                     path: sourcePath,
@@ -362,6 +383,29 @@ extension Lint.File.Single.Extractor {
             return Swift.String(trimmed[trimmed.index(after: lastSlash)...])
         }
         return trimmed
+    }
+
+    /// Parse a bare-string AST-extracted version literal into a
+    /// typed ``Version/Semantic``. Wraps the `Version.Semantic.Error`
+    /// from the parser in a `malformedPackageCall` so the consumer
+    /// sees a Lint-domain error with the parse-failure detail in
+    /// `description`.
+    ///
+    /// `role` names the source position ("from", "range lower bound",
+    /// "range upper bound") in the surfaced diagnostic.
+    fileprivate static func parseSemantic(
+        _ literal: Swift.String,
+        sourcePath: File.Path,
+        role: Swift.String
+    ) throws(Lint.File.Single.Error) -> Version.Semantic {
+        do throws(Version.Semantic.Error) {
+            return try Version.Semantic(parsing: literal)
+        } catch {
+            throw .malformedPackageCall(
+                path: sourcePath,
+                description: "`.package(url:..., \(role) \"\(literal)\")` is not valid SemVer 2.0.0: \(error)"
+            )
+        }
     }
 
 }
