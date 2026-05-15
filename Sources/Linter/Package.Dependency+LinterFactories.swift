@@ -14,6 +14,18 @@ public import SPM_Standard
 public import URI_Standard
 public import URI_Standard_Library_Integration
 
+// Re-export the `Version.Semantic: ExpressibleByStringLiteral` conformance to
+// the consumer's `Lint.swift` scope. Under SE-0444 `MemberImportVisibility`,
+// the eval-project target sees only the members of modules it imports
+// directly OR `@_exported` from those imports. Plain `public import` of
+// `SPM_Standard` (above) does NOT propagate member visibility for SPM_Standard's
+// `@_exported` chain; the OLD `Lint.Dependency.swift` carried the SLI
+// re-exports directly via `@_exported`, so the deletion in commit 2fb5c42
+// silently took the conformance off the eval-project's member-lookup table.
+// The carrier-canary surfaced this as `init(stringLiteral:)` unavailable on
+// the `"602.0.0"..<"603.0.0"` operands required by `package(url:_:products:)`.
+@_exported public import Version_Primitives_Standard_Library_Integration
+
 // Linter-convention static factories on `Package.Dependency` that mirror
 // SwiftPM's `PackageDescription.Package.Dependency.package(...)` call-site
 // shape. These exist solely to give consumer `Lint.swift` files a PackageDescription-
@@ -67,10 +79,14 @@ extension Package.Dependency {
     // MARK: - URL form (positional range requirement)
 
     /// `.package(url:_:products:)` factory — git-URL dependency with a
-    /// half-open version range. The middle argument lifts to
-    /// `Package.Requirement.range(...)` via the module-scope `..<`
-    /// overload at swift-spm-standard's
-    /// `Package.Requirement+Factory.swift`.
+    /// half-open version range. The middle argument is a
+    /// `Swift.Range<Version.Semantic>`, matching the OLD
+    /// `Lint.Dependency.package(url:_:products:)` interface exactly
+    /// so consumer call sites of the form
+    /// `"602.0.0"..<"603.0.0"` resolve via the stdlib `..<` operator
+    /// (Bound=Version.Semantic via SLI) rather than relying on the
+    /// SPM_Standard module-scope `..<` overload to be in operator-
+    /// lookup scope under MemberImportVisibility.
     ///
     /// The `name:` is derived from the URL's last path segment, with
     /// any trailing `.git` suffix stripped (e.g.,
@@ -80,13 +96,14 @@ extension Package.Dependency {
     @inlinable
     public static func package(
         url: Swift.String,
-        _ requirement: Package.Requirement,
+        _ range: Swift.Range<Version.Semantic>,
         products: [Product.Name]
     ) -> Package.Dependency {
         var name: Swift.String = url.split(separator: "/").last.map(Swift.String.init) ?? url
         if name.hasSuffix(".git") {
             name.removeLast(4)
         }
+        let requirement: Package.Requirement = .range(Version.Range(range))
         return Package.Dependency(
             source: .url(URI(stringLiteral: url), requirement),
             name: Package.Name(_unchecked: name),
