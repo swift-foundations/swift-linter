@@ -55,9 +55,8 @@ internal import Terminal_Primitives
 /// import Linter_Primitives_Rules
 ///
 /// Lint.run(dependencies: [
-///     Package.Dependency(
-///         source: .path("../../swift-primitives-linter-rules"),
-///         name: "swift-primitives-linter-rules",
+///     .package(
+///         path: "../swift-primitives-linter-rules",
 ///         products: ["Linter Primitives Rules"]
 ///     ),
 /// ]) {
@@ -67,11 +66,16 @@ internal import Terminal_Primitives
 ///
 /// The `dependencies:` argument carries typed `Package.Dependency`
 /// values (the L2 SwiftPM-flavored dependency abstraction from
-/// swift-spm-standard). swift-linter consumes the array
-/// syntactically at phase 1 (AST extraction) to generate the eval
-/// project's `Package.swift`; at phase 2 (compile + run) the array
-/// is unused. The trailing closure is a `@Lint.Configuration.Builder`
-/// over `Lint.Rule.Configuration` entries (`.enable(_:)`,
+/// swift-spm-standard). The `.package(path:products:)` /
+/// `.package(url:_:products:)` / `.package(url:from:products:)`
+/// shorthand factories at
+/// ``Package/Dependency/package(path:products:)`` mirror SwiftPM's
+/// `PackageDescription.Package.Dependency.package(...)` call-site
+/// shape — that's the syntactic form swift-linter's phase 1 AST
+/// extractor recognizes when generating the eval project's
+/// `Package.swift`. At phase 2 (compile + run) the array is unused.
+/// The trailing closure is a `@Lint.Configuration.Builder` over
+/// `Lint.Rule.Configuration` entries (`.enable(_:)`,
 /// `.disable(_:)`, `.override(_:severity:)`) and bundle expansions
 /// (`Lint.Rule.Bundle.primitives`).
 extension Lint {
