@@ -18,7 +18,9 @@ extension Lint.Source.Walker {
     @Suite
     struct Test {
         @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
         @Suite struct Integration {}
+        @Suite struct Performance {}
     }
 }
 
