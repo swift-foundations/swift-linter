@@ -56,6 +56,14 @@ extension Lint.Source.Walker {
     /// shape (e.g., `"Sources/A/x.swift"` matches prefix `"Sources/A"`
     /// without absolute-path concatenation at call sites).
     ///
+    /// A nested `Package.swift` signals an independent SwiftPM package
+    /// — its sources are owned by that package, not by the outer
+    /// consumer. The walker treats each nested manifest's parent
+    /// directory as the root of a subtree to skip; the nested package
+    /// is its own linter consumer and gets invoked independently on
+    /// its own root when desired. The consumer's own root Package.swift
+    /// (parent equal to `root`) is preserved.
+    ///
     /// Single-file root (`root.description.hasSuffix(".swift")`) is the
     /// degenerate case: the walker emits a single empty-string
     /// ``Lint/Source/Path`` and ``Lint/Run/parsedSource(root:relativePath:manager:)``
@@ -79,6 +87,20 @@ extension Lint.Source.Walker {
             return []
         }
 
+        // Discover nested Package.swift manifests. Glob's `**/*.swift`
+        // include pattern picks them up alongside ordinary source files;
+        // each manifest with a parent distinct from `root` marks an
+        // independent package whose subtree must not be linted as part
+        // of the outer consumer.
+        var nestedPackageRoots: [File.Path] = []
+        for file in files {
+            guard file.path.components.last?.string == "Package.swift",
+                  let parent = file.path.parent,
+                  parent != root
+            else { continue }
+            nestedPackageRoots.append(parent)
+        }
+
         // F-A1.1: prior shape manually normalized a trailing slash on
         // `rootString` and used `hasPrefix` + `dropFirst(count)` to
         // derive the relative remainder. `Paths.Path.relative(to:)`
@@ -87,6 +109,9 @@ extension Lint.Source.Walker {
         var results: [Lint.Source.Path] = []
         results.reserveCapacity(files.count)
         for file in files {
+            if nestedPackageRoots.contains(where: { file.path.hasPrefix($0) }) {
+                continue
+            }
             guard let relative = file.path.relative(to: root) else {
                 continue
             }
