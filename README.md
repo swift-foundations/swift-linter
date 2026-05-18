@@ -66,28 +66,107 @@ ownership-discipline checks, spec-mirror conformances.
 
 ## Two consumer shapes
 
-`swift-linter` detects two configurations at the consumer's package root.
-**For 0.1.0, only the nested-package shape is active**:
+`swift-linter` detects two configuration shapes at the consumer's
+package root. **Most consumers should adopt `Lint.swift`**; `Lint/` is
+the advanced shape, reserved for cases the single-file shape cannot
+express.
 
-1. **`Lint/` nested SwiftPM package** (the active 0.1.0 path) — a
-   SwiftPM package directory alongside `Package.swift` that imports
-   rule packages and instantiates a `Lint.Configuration` using a
-   result-builder DSL. Supports arbitrary rule packs (third-party or
-   in-house) and custom rules with their own dependencies.
+1. **`Lint.swift` single file** (recommended for most consumers) — a
+   single Swift file at the package root declaring tools-version,
+   rule-pack dependencies, and the active rule set via
+   `Lint.run(dependencies:) { ... }`. Covers the common case of
+   activating an institute-published bundle
+   (`Lint.Rule.Bundle.universal` / `.institute` / `.primitives`),
+   optionally narrowed via `.excluding(rules:)` for brand-owner
+   subtractions. No nested SwiftPM resolution; one file, one parse.
 
-2. **Single-file `Lint.swift`** — placeholder shape; activates zero
-   rules in 0.1.0. The single-file path is wired end-to-end (manifest
-   parsing, parent-chain resolution, configuration inheritance), but
-   it has no canonical default rule pack to inherit from yet — that
-   ships in a follow-up cycle. **Consumers who need rules to fire
-   today MUST adopt the `Lint/` nested-package shape.**
+2. **`Lint/` nested SwiftPM package** (advanced) — a
+   `Lint/Package.swift` + `Lint/Sources/Lint/main.swift` pair that
+   imports rule packages and instantiates `Lint.Configuration`
+   directly via the result-builder DSL. Required when the consumer
+   needs in-house custom rules (arbitrary Swift code defining new
+   `Lint.Rule` instances), third-party rule packs not declared in any
+   institute bundle, or per-rule programmatic configuration with
+   constructor calls that take consumer-side domain values.
 
-The `Lint/` shape is the canonical form going forward; the single-file
-`Lint.swift` shape is preserved for consumers who will eventually adopt
-the canonical default rule set without per-package customization, once
-that default ships.
+Both shapes produce the same `Lint.Configuration` at runtime — see
+[*Internal model*](#internal-model).
 
-## Adopting the `Lint/` shape
+## Adopting `Lint.swift` (recommended)
+
+Create a `Lint.swift` file at your package root, alongside `Package.swift`:
+
+```
+your-package/
+├── Package.swift
+├── Lint.swift          ← here
+└── Sources/...
+```
+
+The file declares the tools-version directive, imports the rule pack(s)
+the activated bundle pulls in, and calls `Lint.run(dependencies:) { ... }`
+with the activated bundle in the trailing closure:
+
+```swift
+// swift-linter-tools-version: 0.1
+// (Apache-2.0 license header)
+
+import Linter
+import Linter_Institute_Rules
+
+Lint.run(dependencies: [
+    .package(
+        url: "https://github.com/swift-foundations/swift-institute-linter-rules.git",
+        from: "0.1.0",
+        products: ["Linter Institute Rules"]
+    ),
+]) {
+    Lint.Rule.Bundle.institute
+}
+```
+
+**Tools-version directive** (`// swift-linter-tools-version: 0.1`) MUST
+be the first line — it informs the engine which DSL version the file
+targets, mirroring SwiftPM's `swift-tools-version` discipline.
+
+**Bundle selection**: activate the bundle matching your package's layer
+in the five-layer architecture — `Lint.Rule.Bundle.universal` for
+universal Swift code, `.institute` for L2/L3 standards and foundations,
+`.primitives` for L1 primitives. The bundles compose additively
+(`institute = universal + institute-pack`; `primitives = institute +
+primitives-pack`), so activating a higher-tier bundle transitively
+activates the lower tiers' rules.
+
+**Brand-owner exclusions**: brand-owner packages (those whose primary
+export is a typed primitive whose rules target external consumers'
+access to the brand) narrow the bundle via `.excluding(rules:)`:
+
+```swift
+Lint.Rule.Bundle.primitives.excluding(rules: [
+    Lint.Rule.`raw value access`.id,
+    Lint.Rule.`unchecked call site`.id,
+    // ...
+])
+```
+
+Each rule referenced by `.id` requires its declaring module directly
+imported under Swift 6.3+ `MemberImportVisibility` (SE-0444). Each
+exclusion SHOULD carry an in-file comment naming the brand-boundary
+site that justifies it.
+
+**Invocation**: `swift run swift-linter .` from your package root.
+
+## Adopting `Lint/` (advanced)
+
+Adopt the nested-package shape ONLY when one of these triggers applies:
+
+| Trigger | Why `Lint.swift` cannot express it |
+|---|---|
+| In-house custom rules (Swift code defining new `Lint.Rule` instances) | Custom rules need a SwiftPM compilation unit; a single-file `Lint.swift` parses but does not compile arbitrary rule code |
+| Third-party rule packs not declared in any institute bundle | Activating a non-institute rule pack requires declaring it as a SwiftPM dependency and importing its module — needs `Package.swift` |
+| Per-rule programmatic configuration with constructor calls | The `Lint.Configuration { Lint.Rule.Configuration.enable(...) }` DSL accepts rule constructor calls with consumer-side domain values; the bundle DSL is metatype-driven |
+
+If none of these triggers apply, use `Lint.swift` instead.
 
 Create a `Lint/` directory at your package root with the following layout:
 
@@ -172,23 +251,62 @@ runs `Lint.Run.run(paths:configuration:)` against the consumer's
 source tree.
 
 > **Wire format note**: `Lint.Manifest` exists as a separate type for
-> the cross-process JSON wire format used by the future single-file
+> the cross-process JSON wire format used by the single-file
 > `Lint.swift` subprocess path. Nested-package consumers do not cross
 > a JSON boundary — metatypes flow directly through
 > `Lint.Configuration` — so the consumer surface is the typed
 > result-builder above, not `Lint.Manifest`.
 
+## Internal model
+
+**`Lint/` is the canonical internal implementation; `Lint.swift` is
+built on top of that.** The engine's mental model is the typed
+`Lint.Configuration` produced by a result-builder DSL — exactly what
+`Lint/Sources/Lint/main.swift` constructs explicitly. `Lint.swift` is a
+single-file front-end whose source is parsed by
+`Lint.File.Single.Extractor`, lifted to a `Lint.Configuration` via
+`Lint.Configuration.lift`, and then executed by the same
+`Lint.Run.run(paths:configuration:)` entry the nested-package shape
+calls directly. From the engine's perspective, both shapes converge at
+the same internal type; the consumer's choice is purely ergonomic.
+
+The asymmetry — recommend single-file, canonicalize on nested-package —
+is deliberate:
+
+- The single-file shape minimizes consumer-side setup cost (one file,
+  one parse, no nested SwiftPM resolution) for the common case of
+  activating an institute bundle with optional brand-owner exclusions.
+- The nested-package shape exposes the full power of the typed DSL
+  (custom rule types, third-party rule packs, programmatic per-rule
+  configuration) for cases the single-file cannot express.
+- Internal canonicalization on nested-package keeps the engine's
+  contract single-source-of-truth — every front-end produces the same
+  downstream `Lint.Configuration`. A future declarative-only front-end
+  (e.g., a YAML mode) would ship as a new parser producing the same
+  internal type, not as a parallel execution path.
+
 ## Inheritance via `// parent:` directive
 
-Layer your manifest on top of a canonical configuration hosted at a
-URL. Place the directive in the first 30 lines of `Lint.swift` (or
+Layer your configuration on top of a canonical configuration hosted at
+a URL. Place the directive in the first 30 lines of `Lint.swift` (or
 `Lint/Sources/Lint/main.swift`):
 
 ```swift
+// swift-linter-tools-version: 0.1
 // parent: https://raw.githubusercontent.com/<your-org>/.github/main/Lint.swift
-import Linter
 
-let manifest = Lint.Manifest(enabledRuleIDs: [])  // inherit all from parent
+import Linter
+import Linter_Institute_Rules
+
+Lint.run(dependencies: [
+    .package(
+        url: "https://github.com/swift-foundations/swift-institute-linter-rules.git",
+        from: "0.1.0",
+        products: ["Linter Institute Rules"]
+    ),
+]) {
+    Lint.Rule.Bundle.institute
+}
 ```
 
 Schemes accepted: `http://`, `https://`, `file://`. The driver fetches
