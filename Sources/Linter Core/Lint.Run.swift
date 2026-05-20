@@ -222,10 +222,10 @@ extension Lint.Run {
             absoluteString = filePath.description
         }
         let file = File(filePath)
-        let bytes: [UInt8]
+        let bytes: [Byte]
         do throws(File.System.Read.Full.Error) {
-            bytes = try file.read.full { (span: Span<UInt8>) in
-                var copy: [UInt8] = []
+            bytes = try file.read.full { (span: Span<Byte>) in
+                var copy: [Byte] = []
                 copy.reserveCapacity(span.count)
                 for i in 0..<span.count {
                     copy.append(span[i])

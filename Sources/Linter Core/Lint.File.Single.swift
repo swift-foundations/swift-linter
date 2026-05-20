@@ -184,8 +184,8 @@ extension Lint.File.Single {
     ///
     /// F-A2.3 cascade: typed `File.Path` parameter.
     fileprivate static func readFile(at path: File.Path) throws(File.System.Read.Full.Error) -> Swift.String {
-        let bytes: [UInt8] = try File(path).read.full { (span: Span<UInt8>) -> [UInt8] in
-            var array: [UInt8] = []
+        let bytes: [Byte] = try File(path).read.full { (span: Span<Byte>) -> [Byte] in
+            var array: [Byte] = []
             array.reserveCapacity(span.count)
             for i in 0..<span.count {
                 array.append(span[i])
