@@ -48,3 +48,70 @@ Branch 1 (batch-fix). These are real true-positive witnesses from the W2 cascade
 ## Outcome record
 
 `swift-institute/Audits/PROMOTE-API-BYTE-003-2026-05-19.md`.
+
+---
+
+## Amendment 2026-05-20 — Arc G Phase 7 coverage extension
+
+Arc G's swift-primitives byte-lint validation surfaced a **coverage
+observation** (class-c structural reveal): the rule's
+`extensionConformsToSerializableLike` checked the inheritance clause
+only — fired on the conformer-extension shape
+`extension Foo: Binary.Serializable { ... }`, but NOT on the
+**default-impl-extension shape** `extension Binary.Serializable { ... }`
+(extended type IS the protocol; no inheritance clause).
+
+The skill's `[API-BYTE-003]` Statement (*"witness implementations MUST
+use Buffer.Element == Byte"*) covers both shapes by semantic intent —
+default impls ARE witness implementations for any conformer without an
+override. Statement scope > implementation scope.
+
+### Coverage extension landed
+
+Source: `swift-foundations/swift-institute-linter-rules/Sources/Institute Linter Rule Byte/Lint.Rule.Byte.BinarySerializableUInt8Witness.swift`
+
+The gate now accepts EITHER path:
+
+1. **Path 1 (existing)** — conformer-extension shape: inheritance
+   clause names `Binary.Serializable` / `Binary.Parseable`.
+2. **Path 2 (new)** — default-impl-extension shape: extended type IS
+   `Binary.Serializable` / `Binary.Parseable` (covers both bare
+   `extension Binary.Serializable { ... }` AND conditional
+   `extension Binary.Serializable where Self: ... { ... }` shapes).
+
+The per-function `@_disfavoredOverload` exemption applies unchanged
+across both paths.
+
+### Re-validation
+
+Re-run of the Arc G test-target harness
+(`Tests/Institute Linter Rule Byte Tests/Lint.Rule.Byte.ArcG.Validation.swift`)
+across all 150 public swift-primitives packages after the extension:
+
+| Rule | Before extension | After extension |
+|------|-----------------:|----------------:|
+| API-BYTE-003 | 0 | **0** |
+
+Per-site breakdown for the 4 known default-impl-extension sites in
+swift-binary-primitives:
+
+| Site | Where-clause | `@_disfavoredOverload`? | Disposition |
+|---|---|---|---|
+| `Binary.Serializable.swift` (primary) | `Byte` | n/a | not flagged — Byte-typed |
+| `Binary.Parseable+FixedWidthIntegerRaw.swift` (primary) | `Byte` | n/a | not flagged — Byte-typed |
+| `Binary.Serializable+UInt8.swift` (SLI) | `UInt8` | yes | not flagged — exempt |
+| `Binary.Parseable+UInt8.swift` (SLI) | `UInt8` | yes | not flagged — exempt |
+
+Extension is **future-prevention**: 0 current FNs, 0 new firings; the
+gate now catches future `extension Binary.Serializable { ... where
+Buffer.Element == UInt8 ... }` placements that lack `@_disfavoredOverload`.
+
+### Test-suite delta
+
+Per-rule sub-suite "binary serializable uint8 witness Tests" extended:
+2 → 5 Unit cases (added: bare default-impl on Binary.Serializable,
+bare default-impl on Binary.Parseable, conditional default-impl
+`where Self: RawRepresentable`). 3 → 6 Edge Case cases (added:
+default-impl Byte-typed Binary.Serializable, default-impl
+`@_disfavoredOverload` UInt8 Binary.Serializable, default-impl
+Byte-typed Binary.Parseable). 13 tests total, all pass.
