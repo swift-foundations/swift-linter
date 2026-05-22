@@ -126,7 +126,7 @@ extension Lint {
                 } catch {
                     do throws(ISO_9945.Kernel.IO.Write.Error) {
                         _ = try Terminal.Stream.stderr.write(
-                            "[swift-linter] error: single-file dispatch failed: \(error)\n".utf8
+                            "[swift-linter] error: single-file dispatch failed: \(error)\n".utf8.lazy.map(Byte.init)
                         )
                     } catch {
                         // Best-effort stderr write; broken pipe is acceptable.
@@ -157,7 +157,7 @@ extension Lint {
                 onDispatchError: { description in
                     do throws(ISO_9945.Kernel.IO.Write.Error) {
                         _ = try Terminal.Stream.stderr.write(
-                            "[swift-linter] error: nested-package dispatch failed: \(description)\n".utf8
+                            "[swift-linter] error: nested-package dispatch failed: \(description)\n".utf8.lazy.map(Byte.init)
                         )
                     } catch {
                         // Best-effort stderr write; broken pipe is acceptable.
@@ -206,7 +206,7 @@ extension Lint {
                 onMissingLinterPath: {
                     do throws(ISO_9945.Kernel.IO.Write.Error) {
                         _ = try Terminal.Stream.stderr.write(
-                            "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n".utf8
+                            "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n".utf8.lazy.map(Byte.init)
                         )
                     } catch {
                         // Best-effort stderr write; broken pipe is acceptable.

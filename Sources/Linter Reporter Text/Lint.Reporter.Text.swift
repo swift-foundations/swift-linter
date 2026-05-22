@@ -46,7 +46,7 @@ extension Lint.Reporter.Text {
     ) {
         for finding in findings {
             do throws(ISO_9945.Kernel.IO.Write.Error) {
-                _ = try write((line(for: finding) + "\n").utf8)
+                _ = try write((line(for: finding) + "\n").utf8.lazy.map(Byte.init))
             } catch {
                 // Best-effort stdout write; broken pipe is acceptable for
                 // a textual diagnostic emitter (the conventional behavior
