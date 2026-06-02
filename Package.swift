@@ -60,7 +60,7 @@ let package = Package(
                 ),
                 .product(
                     name: "Windows 32 Kernel Terminal",
-                    package: "swift-windows-32",
+                    package: "swift-windows-standard",
                     condition: .when(platforms: [.windows])
                 ),
             ]
@@ -79,7 +79,7 @@ let package = Package(
                 ),
                 .product(
                     name: "Windows 32 Kernel Terminal",
-                    package: "swift-windows-32",
+                    package: "swift-windows-standard",
                     condition: .when(platforms: [.windows])
                 ),
             ]
