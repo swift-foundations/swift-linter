@@ -9,8 +9,8 @@
 //
 // ===----------------------------------------------------------------------===//
 
-public import SwiftSyntax
-public import SwiftParser
+import SwiftSyntax
+import SwiftParser
 public import File_System
 internal import Linter_Primitives
 

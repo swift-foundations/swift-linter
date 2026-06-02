@@ -11,7 +11,7 @@
 
 public import File_System
 public import Glob_Primitives
-public import Glob_Primitives_Standard_Library_Integration
+import Glob_Primitives_Standard_Library_Integration
 public import Linter_Primitives
 
 /// Recursively discovers Swift source files via `swift-file-system`'s
