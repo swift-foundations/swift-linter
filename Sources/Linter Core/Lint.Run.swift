@@ -224,7 +224,7 @@ extension Lint.Run {
         let file = File(filePath)
         let bytes: [Byte]
         do throws(File.System.Read.Full.Error) {
-            bytes = try file.read.full { (span: Span<Byte>) in
+            bytes = try file.read.full { (span: Swift.Span<Byte>) in
                 var copy: [Byte] = []
                 copy.reserveCapacity(span.count)
                 for i in 0..<span.count {

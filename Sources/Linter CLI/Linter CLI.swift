@@ -85,7 +85,7 @@ extension Lint {
                 currentWorkingDirectory: {
                     let result: Swift.String?
                     do throws(ISO_9945.Kernel.Directory.Working.Error) {
-                        result = try Kernel.Directory.Working.withCurrentBytes { (span: Span<UInt8>) -> Swift.String in
+                        result = try Kernel.Directory.Working.withCurrentBytes { (span: Swift.Span<UInt8>) -> Swift.String in
                             var bytes: [UInt8] = []
                             bytes.reserveCapacity(span.count)
                             for i in 0..<span.count {
