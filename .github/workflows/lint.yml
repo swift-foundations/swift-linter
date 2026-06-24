@@ -80,11 +80,13 @@ jobs:
     continue-on-error: ${{ inputs.advisory }}
     permissions:
       contents: read
-      # security-events: write granted only when SARIF upload is requested.
-      # GH code-scanning ingest requires this permission; consumers without
-      # code-scanning enabled would see permission errors on the upload step
-      # if this were always-on. Opt-in via `with: { emit-sarif: true }`.
-      security-events: ${{ inputs.emit-sarif && 'write' || 'read' }}
+      # NOTE: `permissions:` cannot use ${{ }} expressions — the block is parsed
+      # before `inputs` bind (actionlint [permissions]; same class as [CI-103]).
+      # SARIF upload (emit-sarif: true) needs `security-events: write`, which a
+      # consumer whose default GITHUB_TOKEN is read-only cannot grant from a
+      # thin caller anyway ([CI-106] chain → startup_failure). SARIF therefore
+      # needs a dedicated opt-in workflow with its own top-level permissions;
+      # the default text-lint path needs only `contents: read`.
     steps:
       - name: Harden runner (audit-mode egress logging)
         uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
