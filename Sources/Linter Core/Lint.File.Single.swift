@@ -71,6 +71,62 @@ extension Lint.File.Single {
     /// callers fall through to the next detection path.
     public static let header: Swift.String = "swift-linter-tools-version:"
 
+    /// The published engine repository URL the materialized eval project
+    /// references when no local-dev `SWIFT_LINTER_PATH` override is set.
+    ///
+    /// Phase 0 of
+    /// `Research/near-instant-lint-with-external-rule-loading.md`: a
+    /// standalone CLI binary has no engine source tree, so the eval
+    /// `Package.swift` references the engine by URL pin instead of a
+    /// `.path(...)` dependency. `SWIFT_LINTER_PATH`, when set, still wins
+    /// (the local-dev inner loop builds against the engine HEAD).
+    public static let engineDependencyURL: Swift.String =
+        "https://github.com/swift-foundations/swift-linter.git"
+
+    /// The engine release the materialized eval pins to by default, when
+    /// `SWIFT_LINTER_VERSION` is not set.
+    ///
+    /// MUST equal the git tag this source is released under, so the eval
+    /// links the same `Linter` engine the dispatching CLI binary was
+    /// built from. Bumped per swift-linter release.
+    public static let engineDefaultVersion: Swift.String = "0.1.0"
+
+    /// Build the engine dependency the generated eval `Package.swift`
+    /// references when no `SWIFT_LINTER_PATH` override is set: a URL-pinned
+    /// dependency on the published `Linter` library product.
+    ///
+    /// The pinned version is `SWIFT_LINTER_VERSION` when set (CI couples it
+    /// to the installed binary's version) else ``engineDefaultVersion``
+    /// (the compiled-in release). Phase 0 of
+    /// `Research/near-instant-lint-with-external-rule-loading.md`.
+    fileprivate static func publishedEngineDependency()
+        throws(Lint.File.Single.Error) -> Package.Dependency
+    {
+        let versionString: Swift.String =
+            Environment.read("SWIFT_LINTER_VERSION") ?? Self.engineDefaultVersion
+        let url: URI
+        do throws(URIError) {
+            url = try URI(Self.engineDependencyURL)
+        } catch {
+            throw .materializationFailed(
+                reason: "invalid engine dependency URL `\(Self.engineDependencyURL)`: \(error)"
+            )
+        }
+        let version: Version.Semantic
+        do throws(Version.Semantic.Error) {
+            version = try Version.Semantic(versionString)
+        } catch {
+            throw .materializationFailed(
+                reason: "invalid engine version `\(versionString)` (SWIFT_LINTER_VERSION or built-in default): \(error)"
+            )
+        }
+        return Package.Dependency(
+            source: .url(url, exact: version),
+            name: "swift-linter",
+            products: ["Linter"]
+        )
+    }
+
     /// Canonicalize a CLI-supplied consumer-root path to its absolute
     /// form. When the path is `"."` or empty (the canonical
     /// `swift-linter .` invocation), substitutes the current working
@@ -260,31 +316,34 @@ extension Lint.File.Single {
             consumerPackageRoot: consumerPackageRoot
         )
 
-        // 5. Look up SWIFT_LINTER_PATH for the engine dep that the
-        // generated Package.swift must reference.
-        let linterPath: Swift.String
-        if let raw: Swift.String = Environment.read("SWIFT_LINTER_PATH") {
-            linterPath = raw
+        // 5–6. Resolve the engine dependency the generated Package.swift
+        // references, then prepend it to the consumer's extracted deps.
+        // Precedence (Phase 0,
+        // Research/near-instant-lint-with-external-rule-loading.md):
+        //   (a) SWIFT_LINTER_PATH set → local-dev `.path(...)` dependency on
+        //       the engine source tree (HEAD). Preserves the inner-loop
+        //       workflow and lets a source checkout dispatch the eval.
+        //   (b) otherwise → URL-pinned `.url(..., exact:)` dependency on the
+        //       published engine release, so a standalone CLI binary (which
+        //       has no engine source tree) can dispatch the eval.
+        let linterDependency: Package.Dependency
+        if let rawPath: Swift.String = Environment.read("SWIFT_LINTER_PATH") {
+            let linterPathTyped: Paths.Path
+            do throws(Paths.Path.Error) {
+                linterPathTyped = try Paths.Path(rawPath)
+            } catch {
+                throw .materializationFailed(
+                    reason: "SWIFT_LINTER_PATH `\(rawPath)` is not a valid path: \(error)"
+                )
+            }
+            linterDependency = Package.Dependency(
+                source: .path(linterPathTyped),
+                name: "swift-linter",
+                products: ["Linter"]
+            )
         } else {
-            throw .materializationFailed(
-                reason: "SWIFT_LINTER_PATH environment variable not set; cannot resolve swift-linter dependency for the eval project."
-            )
+            linterDependency = try Self.publishedEngineDependency()
         }
-
-        // 6. Prepend the engine dep to the consumer's extracted deps.
-        let linterPathTyped: Paths.Path
-        do throws(Paths.Path.Error) {
-            linterPathTyped = try Paths.Path(linterPath)
-        } catch {
-            throw .materializationFailed(
-                reason: "SWIFT_LINTER_PATH `\(linterPath)` is not a valid path: \(error)"
-            )
-        }
-        let linterDependency = Package.Dependency(
-            source: .path(linterPathTyped),
-            name: "swift-linter",
-            products: ["Linter"]
-        )
         let dependencies: [Package.Dependency] = [linterDependency] + extractedDependencies
 
         // 7. Build environment (parent-chain env var when present).
