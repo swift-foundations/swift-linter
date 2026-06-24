@@ -89,12 +89,12 @@ jobs:
       # the default text-lint path needs only `contents: read`.
     steps:
       - name: Harden runner (audit-mode egress logging)
-        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
       - name: Checkout consumer
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: consumer
 
@@ -104,7 +104,7 @@ jobs:
           enabled: ${{ inputs.enable-private-repos }}
 
       - name: Checkout swift-linter (sibling of consumer)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: swift-foundations/swift-linter
           path: swift-linter
@@ -133,7 +133,7 @@ jobs:
 
       - name: Upload SARIF
         if: ${{ inputs.emit-sarif && always() }}
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ${{ runner.temp }}/swift-linter.sarif
           category: swift-linter
