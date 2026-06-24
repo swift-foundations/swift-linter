@@ -7,6 +7,17 @@
   "scope": "swift-linter (swift-foundations)",
   "documents": [
     {
+      "file": "near-instant-lint-with-external-rule-loading.md",
+      "displayName": "near-instant-lint-with-external-rule-loading",
+      "topic": "Reconciles near-instant warm runs with external/consumer-declared rule loading. Establishes (empirically) that SwiftSyntax-from-source (~155s Linux) is the unavoidable floor, compiled twice per run (engine CLI + eval), and that no supported Linux mechanism ships a non-recompiled Swift engine/SwiftSyntax library (SE-0272/0305/0482; prebuilt swift-syntax auto-disabled for non-macro). Reconciliation principle: separate rule SELECTION (dynamic, in Lint.swift) from rule COMPILATION (lifted out of the per-run hot path). Recommends a phased path: Phase 0 engine-as-URL-dep (unlocks the binary), Phase 1 prebuilt CLI binary (-270s), Phase 2 free local .build warmth + optional --watch, Phase 3 prebuilt rule-pack RUNNER executables → near-instant CI for 77/78 pure-bundle consumers (eval fallback for the 1 inline-rule consumer). Rejects binary rule libraries (no Swift binary lib on Linux), dlopen plugins (same-toolchain @_spi, still compiles), CI eval caching (fights the no-cache decision; gated on version-pinning), and daemon-for-CI (ephemeral). Census: 78 consumers, 77 pure-bundle, 1 inline (carrier).",
+      "date": "2026-06-24",
+      "status": "RECOMMENDATION",
+      "statusDetail": "Phases 0-2 low-risk/unconditional; Phase 3 (prebuilt rule-pack runners) is the structural reconciliation and carries the one design-change decision (variant 3-i combined runner vs 3-ii per-bundle) for principal ratification. Supersedes the eval-cache §4 of REPORT-swift-linter-binary-product-synthesis.md.",
+      "statusRaw": "RECOMMENDATION",
+      "tier": 2,
+      "scope": "cross-package"
+    },
+    {
       "file": "lsp-sourcekit-integration.md",
       "displayName": "lsp-sourcekit-integration",
       "topic": "Surveys 6 integration shapes; RECOMMENDS Shape F (precomputed conformance oracle), DEFERS live LSP/SourceKit. v1.1.0 adds Q6 (design-space exploration), Q7 (domain framing), full cross-ecosystem literature study, long-term framing. v1.2.0 promotes RECOMMENDATION → DECISION after spike: 136 stdlib refinement pairs extracted; rule consumes auto-generated table. v1.3.0 adds Phase 2.5 user-domain scan: 28 institute symbol-graph files yield 2 cross-module pairs (Comparison→Equation, Hash→Equation) with leaf-name collision per `Namespace.\\`Protocol\\`` convention; rule would need path-aware matching to consume. v1.4.0 (2026-05-13) persists post-decision conversation work as durable record: adds Q8 sister-product map (Concept A `swift-institute-lsp` NEW sibling, Concept B `swift-linter analyze` mode EXTEND, Concept C `swift-refactor` LATENT) with bird's-eye stacking diagram and activation triggers; adds Open Follow-ups section enumerating done / deferred / queued / handed-off items with dispositions including the conditional-`~Copyable` rule-design concern.",
