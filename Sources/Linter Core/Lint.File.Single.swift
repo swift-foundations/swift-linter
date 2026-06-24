@@ -83,27 +83,28 @@ extension Lint.File.Single {
     public static let engineDependencyURL: Swift.String =
         "https://github.com/swift-foundations/swift-linter.git"
 
-    /// The engine release the materialized eval pins to by default, when
-    /// `SWIFT_LINTER_VERSION` is not set.
+    /// The git branch the materialized eval tracks for the engine when no
+    /// `SWIFT_LINTER_BRANCH` override is set.
     ///
-    /// MUST equal the git tag this source is released under, so the eval
-    /// links the same `Linter` engine the dispatching CLI binary was
-    /// built from. Bumped per swift-linter release.
-    public static let engineDefaultVersion: Swift.String = "0.1.0"
+    /// `main` matches the ecosystem `branch: "main"` dependency convention
+    /// (active development; no semver/release tags). Tag-free by design — the
+    /// engine is referenced by branch, not by a release tag, so a prebuilt
+    /// CLI dispatches the eval without implying a published release.
+    public static let engineDependencyBranch: Swift.String = "main"
 
     /// Build the engine dependency the generated eval `Package.swift`
-    /// references when no `SWIFT_LINTER_PATH` override is set: a URL-pinned
-    /// dependency on the published `Linter` library product.
+    /// references when no `SWIFT_LINTER_PATH` override is set: a branch-pinned
+    /// URL dependency on the `Linter` library product.
     ///
-    /// The pinned version is `SWIFT_LINTER_VERSION` when set (CI couples it
-    /// to the installed binary's version) else ``engineDefaultVersion``
-    /// (the compiled-in release). Phase 0 of
+    /// Tag-free — tracks ``engineDependencyBranch`` (override via the
+    /// `SWIFT_LINTER_BRANCH` environment variable), matching the ecosystem
+    /// `branch: "main"` convention. Phase 0 of
     /// `Research/near-instant-lint-with-external-rule-loading.md`.
     fileprivate static func publishedEngineDependency()
         throws(Lint.File.Single.Error) -> Package.Dependency
     {
-        let versionString: Swift.String =
-            Environment.read("SWIFT_LINTER_VERSION") ?? Self.engineDefaultVersion
+        let branch: Swift.String =
+            Environment.read("SWIFT_LINTER_BRANCH") ?? Self.engineDependencyBranch
         let url: URI
         do throws(URIError) {
             url = try URI(Self.engineDependencyURL)
@@ -112,16 +113,8 @@ extension Lint.File.Single {
                 reason: "invalid engine dependency URL `\(Self.engineDependencyURL)`: \(error)"
             )
         }
-        let version: Version.Semantic
-        do throws(Version.Semantic.Error) {
-            version = try Version.Semantic(versionString)
-        } catch {
-            throw .materializationFailed(
-                reason: "invalid engine version `\(versionString)` (SWIFT_LINTER_VERSION or built-in default): \(error)"
-            )
-        }
         return Package.Dependency(
-            source: .url(url, exact: version),
+            source: .url(url, branch: branch),
             name: "swift-linter",
             products: ["Linter"]
         )
@@ -323,9 +316,10 @@ extension Lint.File.Single {
         //   (a) SWIFT_LINTER_PATH set → local-dev `.path(...)` dependency on
         //       the engine source tree (HEAD). Preserves the inner-loop
         //       workflow and lets a source checkout dispatch the eval.
-        //   (b) otherwise → URL-pinned `.url(..., exact:)` dependency on the
-        //       published engine release, so a standalone CLI binary (which
-        //       has no engine source tree) can dispatch the eval.
+        //   (b) otherwise → branch-pinned `.url(..., branch:)` dependency on
+        //       the engine `Linter` library (tag-free; tracks `main` per the
+        //       ecosystem convention), so a standalone CLI binary (which has
+        //       no engine source tree) can dispatch the eval.
         let linterDependency: Package.Dependency
         if let rawPath: Swift.String = Environment.read("SWIFT_LINTER_PATH") {
             let linterPathTyped: Paths.Path
