@@ -1,0 +1,91 @@
+# Phase 1 of Research/near-instant-lint-with-external-rule-loading.md.
+#
+# Tag-triggered: builds the Linux amd64 swift-linter CLI as a
+# `--static-swift-stdlib` binary (the Swift runtime is static; glibc +
+# libuuid stay dynamic per [CI-092]) and publishes it as a GitHub Release
+# asset. Consumers install the cached, sha256-pinned binary via the
+# swift-ci.yml `swift-linter` job, removing the ~270s engine source build
+# per consumer CI run. The eval project still references the engine by URL
+# pin (Phase 0) and compiles the consumer's rule packs.
+#
+# FIRST RELEASE NOTE (0.1.0): built locally and uploaded via
+# `gh release create`, because swift-linter's dependency graph is PRIVATE
+# (swift-json / swift-manifests / swift-linter-primitives / rule packs) and
+# this workflow's private-dep secrets may not yet be provisioned in this
+# repo. This workflow is the path for 0.2.0+. Before relying on it, confirm
+# the org/repo secrets PRIVATE_REPO_TOKEN + SWIFT_INSTITUTE_BOT_APP_* are
+# available. The SHA-256 printed in the build log is the value the
+# maintainer pins into swift-ci.yml's SWIFT_LINTER_SHA256 on each version
+# bump, alongside bumping SWIFT_LINTER_VERSION ([CI-082]).
+
+name: Release swift-linter binary
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'   # bare semver, matching the SWIFTLINT_VERSION convention (no leading v)
+
+permissions:
+  contents: read
+
+jobs:
+  linux-amd64:
+    name: Build + publish swift-linter_linux_amd64
+    runs-on: ubuntu-latest
+    container: swift:6.3
+    timeout-minutes: 40
+    permissions:
+      contents: write   # create the release + upload assets
+    steps:
+      - name: Harden runner (audit-mode egress logging)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v6
+
+      # The engine's dependency graph is private; resolve via the shared
+      # institute private-dep action ([CI-030] @main pin for intra-Institute
+      # reusables). Removed once the graph is public or a vendored mirror lands.
+      - name: Configure private-dep access
+        uses: swift-institute/.github/.github/actions/configure-private-repos@main
+        with:
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          app-client-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_CLIENT_ID }}
+          app-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_ID }}
+          app-private-key: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_PRIVATE_KEY }}
+          enabled: true
+
+      # swift-linter's graph pulls swift-linux-standard, whose CLinuxKernelShim
+      # #includes <uuid/uuid.h> — absent from the minimal swift:N image ([CI-092]).
+      #
+      # DEBUG build, deliberately (not `-c release`): `-c release` triggers a
+      # `FunctionSignatureOpts` SIL compiler crash
+      # (Assertion `!type.hasTypeParameter()`, SILArgument.cpp:40) in the
+      # swift-rfc-3986 dependency's generic typed-throws `parse(_:)` — confirmed
+      # on aarch64, unverified on amd64. The swift-linter CLI is a *dispatcher*:
+      # its wall-clock is dominated by the `swift build` it spawns for the
+      # consumer's eval project, so optimizing the dispatcher binary itself buys
+      # nothing and is not worth the compiler-crash risk. `--static-swift-stdlib`
+      # still gives a portable binary (Swift runtime static; glibc+libuuid
+      # dynamic). Revisit `-c release` once the swift-rfc-3986 crash is fixed
+      # upstream (track per issue-investigation).
+      - name: Build static-stdlib binary
+        run: |
+          set -euo pipefail
+          apt-get update -qq && apt-get install -qq -y uuid-dev zip
+          swift build --static-swift-stdlib --product swift-linter
+          strip .build/debug/swift-linter
+          install -m 0755 .build/debug/swift-linter ./swift-linter
+          zip -q swift-linter_linux_amd64.zip swift-linter
+          sha256sum swift-linter_linux_amd64.zip > swift-linter_linux_amd64.zip.sha256
+          echo "Pinned SHA-256 (paste into swift-ci.yml SWIFT_LINTER_SHA256):"
+          cat swift-linter_linux_amd64.zip.sha256
+
+      - name: Publish release + assets
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            swift-linter_linux_amd64.zip
+            swift-linter_linux_amd64.zip.sha256
