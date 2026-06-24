@@ -148,6 +148,7 @@ extension Lint.File.Single.Extractor {
         var fromArg: Swift.String?
         var rangeBounds: [Swift.String] = []
         var productsArg: [Swift.String]?
+        var branchArg: Swift.String?
 
         for arg in call.arguments {
             switch arg.label?.text {
@@ -157,6 +158,8 @@ extension Lint.File.Single.Extractor {
                 urlArg = try Self.extractStringLiteral(arg.expression, sourcePath: sourcePath)
             case "from":
                 fromArg = try Self.extractStringLiteral(arg.expression, sourcePath: sourcePath)
+            case "branch":
+                branchArg = try Self.extractStringLiteral(arg.expression, sourcePath: sourcePath)
             case "products":
                 productsArg = try Self.extractStringArray(arg.expression, sourcePath: sourcePath)
             case nil:
@@ -236,10 +239,12 @@ extension Lint.File.Single.Extractor {
                     role: "range upper bound"
                 )
                 source = .url(url, lower..<upper)
+            } else if let branch: Swift.String = branchArg {
+                source = .url(url, branch: branch)
             } else {
                 throw .malformedPackageCall(
                     path: sourcePath,
-                    description: "`.package(url:...)` requires either `from:` or two positional version-range arguments; got `\(call.description)`"
+                    description: "`.package(url:...)` requires `from:`, `branch:`, or two positional version-range arguments; got `\(call.description)`"
                 )
             }
             derivedName = Self.name(at: urlString)

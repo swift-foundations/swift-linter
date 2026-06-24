@@ -133,4 +133,28 @@ extension Package.Dependency {
             products: products
         )
     }
+
+    // MARK: - URL form (`branch:` requirement)
+
+    /// `.package(url:branch:products:)` factory — git-URL dependency
+    /// pinned to a branch. For untagged intra-Institute deps resolved off
+    /// `main` during active development (the ecosystem default while
+    /// packages remain unversioned). Mirrors the single-file extractor's
+    /// `branch:` form at `Lint.File.Single.Extractor`.
+    @inlinable
+    public static func package(
+        url: Swift.String,
+        branch: Swift.String,
+        products: [Product.Name]
+    ) -> Package.Dependency {
+        var name: Swift.String = url.split(separator: "/").last.map(Swift.String.init) ?? url
+        if name.hasSuffix(".git") {
+            name.removeLast(4)
+        }
+        return Package.Dependency(
+            source: .url(URI(stringLiteral: url), .branch(branch)),
+            name: Package.Name(_unchecked: name),
+            products: products
+        )
+    }
 }
