@@ -323,6 +323,7 @@ extension Lint.File.Single {
                 return try Self.runStandardRunner(
                     binary: runnerBinary,
                     consumerPackageRoot: consumerPackageRoot,
+                    arguments: arguments,
                     selection: nil
                 )
             case .fastPathStandardBundleExcluding(let disabled):
@@ -334,6 +335,7 @@ extension Lint.File.Single {
                 return try Self.runStandardRunner(
                     binary: runnerBinary,
                     consumerPackageRoot: consumerPackageRoot,
+                    arguments: arguments,
                     selection: Lint.Manifest(disabled: disabled)
                 )
             case .evalFallback:
@@ -430,16 +432,26 @@ extension Lint.File.Single {
         }
     }
 
-    /// Spawn the prebuilt "standard runner" to lint
-    /// `consumerPackageRoot`, returning its exit code.
+    /// Spawn the prebuilt "standard runner" to lint the consumer's
+    /// declared targets, returning its exit code.
     ///
     /// Mirrors ``Manifest/Executable/dispatch(configuration:)``'s spawn
-    /// shape — `/usr/bin/env <runner> <consumerRoot>` via
+    /// shape — `/usr/bin/env <runner> <arguments>` via
     /// ``Process/Spawn`` with the parent's stdio inherited — so the
     /// runner's diagnostic stdout streams straight through to the
     /// caller. `environment: nil` inherits the parent environment
     /// (PATH, the toolchain runtime paths) per
     /// ``Process/Spawn`` semantics.
+    ///
+    /// `arguments` is the consumer's forwarded CLI argument vector (the
+    /// lint-target paths). It is forwarded VERBATIM so the fast path
+    /// lints exactly the paths the eval path lints:
+    /// ``Manifest/Executable/dispatch(configuration:)`` appends the same
+    /// `arguments` to its `swift run … Lint` invocation, and both the
+    /// runner and the eval-compiled `Lint` resolve them against the
+    /// inherited cwd. (The prior `[binary, consumerRoot]` invocation
+    /// dropped multi-path / non-cwd targets — a silent fast-path/eval
+    /// divergence; see ``runnerInvocation(binary:arguments:)``.)
     ///
     /// A terminating signal `s` is encoded as `-s`, matching
     /// ``dispatch(at:arguments:)``'s eval-path convention, so callers
@@ -455,6 +467,7 @@ extension Lint.File.Single {
     fileprivate static func runStandardRunner(
         binary: Swift.String,
         consumerPackageRoot: File.Path,
+        arguments: [Swift.String],
         selection: Lint.Manifest?
     ) throws(Lint.File.Single.Error) -> Swift.Int32 {
         let environment: [Swift.String: Swift.String]?
@@ -469,7 +482,7 @@ extension Lint.File.Single {
         } else {
             environment = nil  // inherit the parent environment
         }
-        let invocation: [Swift.String] = [binary, consumerPackageRoot.string]
+        let invocation: [Swift.String] = Self.runnerInvocation(binary: binary, arguments: arguments)
         let spawnConfiguration = Process.Spawn.Configuration(
             executable: "/usr/bin/env",
             arguments: invocation,
@@ -489,6 +502,31 @@ extension Lint.File.Single {
         case .signaled(let signal): return -signal
         case .stopped(let signal): return -signal
         }
+    }
+
+    /// Build the prebuilt-runner invocation argv: the runner `binary`
+    /// followed by the consumer's forwarded CLI `arguments` (the lint-target
+    /// paths).
+    ///
+    /// Forwarding `arguments` verbatim is what keeps the fast path and the
+    /// eval path in lock-step:
+    /// ``Manifest/Executable/dispatch(configuration:)`` builds
+    /// `["swift", "run", …, "Lint"] + configuration.arguments`, where
+    /// `configuration.arguments` is the same vector. So a multi-path
+    /// invocation (`swift-linter Sources Tests`) lints `Sources` AND `Tests`
+    /// on BOTH paths, and an empty `arguments` falls through to
+    /// ``Lint/run(configuration:)``'s `["."]` default on both. The earlier
+    /// `[binary, consumerPackageRoot.string]` form ignored `arguments`
+    /// entirely — the fast path silently linted only the package root, a
+    /// wrong-result-that-exits-0 divergence from the eval path.
+    ///
+    /// Pure + `internal` so the forwarding contract is unit-testable without a
+    /// real ``Process/Spawn``.
+    internal static func runnerInvocation(
+        binary: Swift.String,
+        arguments: [Swift.String]
+    ) -> [Swift.String] {
+        [binary] + arguments
     }
 
     /// Serialize a runtime selection ``Lint/Manifest`` to
