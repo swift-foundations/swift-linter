@@ -17,6 +17,7 @@ internal import Manifest_Loader
 internal import Manifest_Primitives
 internal import Manifest_Resolver
 internal import Package_Primitives
+internal import Process
 internal import SPM_Standard
 internal import Version_Primitives
 
@@ -299,6 +300,35 @@ extension Lint.File.Single {
             consumerPackageRoot: consumerPackageRoot
         )
 
+        // 3.5. Phase-3 fast path
+        // (Research/near-instant-lint-with-external-rule-loading.md): when a
+        // prebuilt "standard runner" is provisioned — its binary named by the
+        // `SWIFT_LINTER_RUNNER` environment variable — AND the consumer's
+        // active rule set is exactly the standard `Lint.Rule.Bundle.primitives`
+        // that runner bakes, lint via the runner. This skips the per-run eval
+        // materialize-compile (the ~155s SwiftSyntax-from-source floor that
+        // dominates a cold eval) and lints warm in ~0.65s.
+        //
+        // Failure-safe and additive: an unset `SWIFT_LINTER_RUNNER` (the local
+        // and pre-rollout default) OR any non-`fastPathStandardBundle`
+        // classification (inline/custom rules, non-`primitives` bundle,
+        // per-consumer excludes/enables, a `// parent:` chain) falls through to
+        // the eval pipeline below. External, consumer-declared rule loading is
+        // preserved on BOTH paths: the runner bundles the published standard
+        // rule packs, and the eval fallback compiles the consumer's declared
+        // packs (including inline rules) exactly as before.
+        if let runnerBinary: Swift.String = Environment.read("SWIFT_LINTER_RUNNER") {
+            switch Lint.File.Single.Classifier.classify(source: source) {
+            case .fastPathStandardBundle:
+                return try Self.runStandardRunner(
+                    binary: runnerBinary,
+                    consumerPackageRoot: consumerPackageRoot
+                )
+            case .evalFallback:
+                break  // fall through to the eval pipeline
+            }
+        }
+
         // 4. Resolve parent chain (Lint-specific; writes the folded
         // `Lint.Manifest` to a temp JSON file and returns its path).
         // The helper self-creates `.swift-lint/` so it runs cleanly
@@ -385,6 +415,46 @@ extension Lint.File.Single {
             case .spawnFailed(let consumerPackageRoot, let description):
                 throw .spawnFailed(consumerPackageRoot: consumerPackageRoot, description: description)
             }
+        }
+    }
+
+    /// Spawn the prebuilt "standard runner" to lint
+    /// `consumerPackageRoot`, returning its exit code.
+    ///
+    /// Mirrors ``Manifest/Executable/dispatch(configuration:)``'s spawn
+    /// shape — `/usr/bin/env <runner> <consumerRoot>` via
+    /// ``Process/Spawn`` with the parent's stdio inherited — so the
+    /// runner's diagnostic stdout streams straight through to the
+    /// caller. `environment: nil` inherits the parent environment
+    /// (PATH, the toolchain runtime paths) per
+    /// ``Process/Spawn`` semantics.
+    ///
+    /// A terminating signal `s` is encoded as `-s`, matching
+    /// ``dispatch(at:arguments:)``'s eval-path convention, so callers
+    /// distinguish abnormal termination from a non-zero exit.
+    fileprivate static func runStandardRunner(
+        binary: Swift.String,
+        consumerPackageRoot: File.Path
+    ) throws(Lint.File.Single.Error) -> Swift.Int32 {
+        let invocation: [Swift.String] = [binary, consumerPackageRoot.string]
+        let spawnConfiguration = Process.Spawn.Configuration(
+            executable: "/usr/bin/env",
+            arguments: invocation,
+            environment: nil
+        )
+        let status: Process.Status
+        do throws(Process.Error) {
+            status = try Process.Spawn.run(spawnConfiguration).status
+        } catch {
+            throw .spawnFailed(
+                consumerPackageRoot: consumerPackageRoot,
+                description: "standard-runner spawn failed: \(error)"
+            )
+        }
+        switch status {
+        case .exited(let code): return code
+        case .signaled(let signal): return -signal
+        case .stopped(let signal): return -signal
         }
     }
 

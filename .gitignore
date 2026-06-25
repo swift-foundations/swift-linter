@@ -77,3 +77,9 @@ Thumbs.db
 # ========== LOCAL OVERRIDES ==========
 # Package-specific rules below (managed by sync-gitignore.sh)
 
+# Phase-3 standard-runner build package: a nested SwiftPM package
+# (Runner/Package.swift + Sources/runner/main.swift) that CI builds and caches
+# as the prebuilt fast-path runner. Whitelist its source past the deny-all /*;
+# .build/.swiftpm/Package.resolved stay ignored by the canonical globals.
+!/Runner/
+

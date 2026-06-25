@@ -400,14 +400,109 @@ separate, small call.
 | **Today** | ~605s | ~605s | cold ~605s · warm ~10–40s |
 | **+ Phase 1** (prebuilt CLI) | ~335s (eval only) | ~335s | cold ~335s · warm ~10–40s |
 | **+ Phase 2** (`--watch`) | ~335s CI | ~335s CI | warm → sub-second per save |
-| **+ Phase 3** (prebuilt runners) | **~5–30s** (download cached runner + AST walk) | ~335s eval fallback *(or ~20–60s if Phase-3a eval cache + version-pinning)* | unchanged |
+| **+ Phase 3** (prebuilt runner) | **~0.65s warm** (cached runner exec + AST walk; ~310–560s one-time prebuild on cache miss) | ~335s eval fallback *(or ~20–60s if Phase-3a eval cache + version-pinning)* | unchanged |
 
 `Verified` numbers: SwiftSyntax-from-source 154.52s (Linux); eval 335s, engine
 270s (handoff, same-day Linux CI); local warm 10–40s (reasoned from persisted
 `.build` + single-target recompile); eval `.build` 1.3–2.6 GB; eval graph 158
-pkgs/156 branch. The ~5–30s Phase-3 figure is an estimate (download + lint walk,
-no compile) — `Unverified — recommend a spike` building one runner artifact and
-timing a real lint against carrier with the inline rule excluded.
+pkgs/156 branch.
+
+**Phase-3 figure now MEASURED (`Verified: 2026-06-25`, replacing the prior
+`~5–30s` estimate).** A debug full-bake runner (engine + SwiftSyntax + the
+standard primitives rule packs) was built and timed on Linux (`swift:6.3`,
+aarch64, debug, `-j 2`):
+
+- **Warm lint of carrier (48 files): ~0.58–0.65s** on container-local disk
+  (5-run median ~0.57s; the runner walks the package + applies the baked
+  `Lint.Rule.Bundle.primitives` with no recompile). An initial reading of
+  ~1.1s was traced to Docker gRPC-fuse `:ro` mount cold-cache overhead, not the
+  runner; native CI disk lands at ~0.65s. This is **~500–900× faster** than the
+  ~335–605s eval and **~10× better** than the doc's prior estimate.
+- **One-time prebuild: ~310–560s** (environment-sensitive: 309.96s on the
+  original spike, 555.69s on the 2026-06-25 reproduction; the spread is fuse
+  I/O + host load + the from-source SwiftSyntax floor). This is paid ONCE per
+  composite-cache-key value and shared across all consumers.
+- **Functionally verified:** the runner caught `[PRIM-FOUND-001]` on a known
+  `import Foundation` violation (26ms) and fires the 7 `int public parameter`
+  findings on carrier's `Fixture` conformers that carrier's own config excludes
+  — proving the runner is not a silent no-op and concretely showing why
+  excludes-bearing consumers need the runtime-selection overlay (below).
+
+**Debug, not release (`Verified: 2026-06-25`, `swiftlang/swift#89617`).** The
+runner ships **debug** because the A13/#89617 SIL crash (`FunctionSignatureOpts`)
+is `-O`/release-only — debug is clean, so the multi-package SIL-crash fix-wave is
+**NOT a Phase-3 prerequisite**; it is parked as a separate release-only arc.
+Runtime is already sub-second in debug, so release only shrinks the binary (a
+debug runner is ~134 MB — which also rules out orphan-branch central hosting and
+selects the per-consumer [CI-044] cache).
+
+### Phase 3 — implemented (2026-06-25): the "A-dynamic" standard runner
+
+The Phase-3 fast path is built (debug, behind an opt-in env var; HOLDING for the
+principal's rebuild-cadence ratification before the CI change goes live). Three
+pieces:
+
+1. **The runner** — a nested SwiftPM package `Runner/` in the swift-linter repo
+   (`Runner/Package.swift` + `Sources/runner/main.swift`) whose 10-line body is
+   `Lint.run(bundle: Lint.Rule.Bundle.primitives)`. It bakes the engine +
+   SwiftSyntax + the standard primitives rule packs once; the compiled `runner`
+   binary reads a target directory from argv and lints it warm.
+
+2. **CLI routing** — `Lint.File.Single.Classifier.classify(source:)` (Linter
+   Core, purely syntactic, **failure-safe**) returns `.fastPathStandardBundle`
+   IFF the consumer declares no `// parent:` chain AND its `Lint.run(...)` rule
+   closure is exactly the single bare expression `Lint.Rule.Bundle.primitives`.
+   `Lint.File.Single.dispatch` takes the fast path (execs the runner via
+   `Process.Spawn`) only when `SWIFT_LINTER_RUNNER` names a provisioned binary
+   AND the classifier says so; otherwise it falls through to the unchanged eval
+   pipeline. **External, consumer-declared rule loading is preserved on BOTH
+   paths**: the runner bundles the published standard rule packs, and inline/
+   custom-rule consumers compile their declared packs in the eval exactly as
+   before. Default behaviour is unchanged (unset `SWIFT_LINTER_RUNNER` ⇒ eval).
+
+3. **The A-dynamic composite cache key** — `swift-ci.yml`'s `swift-linter` job
+   caches the runner binary ([CI-044] tool-binary carve-out: a single binary,
+   **no `.build` cache** so [CI-040] holds, **exact-match with no
+   `restore-keys`** per [CI-042]). The key is a `sha256` COMPOSITE over the
+   engine `main` HEAD (which carries `Runner/`) **and** the `main` HEADs of the
+   standard rule-source repos — `swift-primitives-linter-rules`,
+   `swift-institute-linter-rules`, `swift-linter-rules`, `swift-linter-primitives`.
+   Effect: **rules always equal latest-committed `main`** (no tag, no version
+   pin — the `branch:"main"` convention is preserved, so the deferred pinning
+   decision is NOT tripped); a commit to the engine or any keyed rule pack busts
+   the key → one shared ~310–560s rebuild → instant ~0.65s warm thereafter.
+
+   *Composite-key scope (a deliberate correctness-vs-hit-rate knob):* only the
+   engine + the four rule-source repos are keyed, NOT the ~150 transitive
+   primitive support libraries the rule packs pull. Those do not define rules,
+   and keying them would reintroduce the ≈0 warm-hit-rate the no-cache decision
+   exists to avoid (Direction 2). A rule whose *behaviour* changes because an
+   underlying primitive changed (rare) would not bust the key until the rule
+   pack itself is re-committed. Surfaced for principal awareness.
+
+**Coverage (verified census 2026-06-25, classifier-accurate):** of 77 consumer
+`Lint.swift` files, the v1 classifier routes **63 (82%)** to the fast path
+(bare `Lint.Rule.Bundle.primitives`, no parent chain) and the other 14 to the
+eval fallback: **8 excludes-only** (`Bundle.primitives.excluding(rules:)`),
+**5 bare-`institute`/`universal`** (a different baked bundle than the primitives
+runner — would over-report, so they fall back), and **1 inline-rule** consumer
+(carrier). 0 consumers use `// parent:`. The classifier is correct for all 77
+(every fallback still lints via the unchanged eval path) and fast for the bare-
+primitives majority. The excludes-only 8 are reachable via the runtime-selection
+overlay below (→ 71/77); the 5 non-primitives bare consumers would need either
+that overlay generalized to any bundle, or per-bundle runners (variant 3-ii).
+
+**Runtime-selection overlay (the bounded next step, NOT yet built — surfaced for
+ratification).** To bring the 8 excludes-only consumers onto the fast path, the
+CLI would extract each consumer's `.excluding(rules:)`/`.disable(...)` rule IDs
+into a `Lint.Manifest` and pass it to the runner, which overlays it on the baked
+`Bundle.primitives` registry via the **existing** `Lint.Configuration.lift` +
+`inheriting:` machinery (the same mechanism the `// parent:` chain already uses).
+This is the research-doc-ratified "selection as runtime config"; it stays
+failure-safe (any unparseable selection ⇒ eval fallback) and adds a small,
+bounded AST extraction. It is held back from v1 because closure-selection
+extraction is correctness-critical on an advisory gate and is best ratified
+alongside the rebuild-cadence call.
 
 ### What each sub-question resolves to
 
@@ -439,21 +534,25 @@ timing a real lint against carrier with the inline rule excluded.
 
 ### Ask-principal items
 
-1. **Phase 3 is a rule-dispatch design change (additive fast-path).** It does not
-   alter the consumer-facing `Lint.swift` contract for pure-bundle consumers, and
-   the eval path remains the general fallback — but introducing prebuilt runners +
-   a runtime enable/disable config path is an engine architecture decision the
-   principal must ratify, including variant 3-i (one combined runner) vs 3-ii
-   (per-bundle runners). Per the supervisor ground rules, surfaced explicitly.
-2. **Version-pinning rule packs** (the enabler for a *correct* CI eval cache, and
-   independently good for reproducibility) reverses the active-dev `branch:"main"`
-   convention, is gated on an ecosystem-wide tagging rollout (no tags exist
-   today), and changes the dep-requirement consumers write in `Lint.swift`.
-   Adopt only when CI cost is the *measured* binding constraint
-   (`ci-cache-strategy-branch-pinned-dependencies.md` trajectory).
+1. **Rebuild cadence — A-dynamic (default) vs A-pinned.** The implemented design
+   is **A-dynamic**: the runner's [CI-044] cache key is a composite over the
+   engine + standard-rule-pack `main` HEADs, so rules always track latest
+   `main` and a rule-pack commit triggers one shared ~310–560s rebuild. This
+   **preserves `branch:"main"`** (no pinning, so the deferred convention is not
+   reversed). The alternative, **A-pinned**, pins rule-pack versions to collapse
+   the key to one stable coordinate (higher warm-hit rate, but reverses the
+   `branch:"main"` convention and changes what consumers write in `Lint.swift`).
+   *This is the standing HOLD:* the build ships A-dynamic; switching to A-pinned
+   is the principal's call, informed by rule-pack commit frequency / warm-hit
+   telemetry. Variant **3-i (one combined runner)** is the implemented choice.
+2. **Runtime-selection overlay** — broadens the fast path from the 68 bare-bundle
+   consumers to the 8 excludes-only consumers via the existing `Lint.Manifest` +
+   `lift`/`inheriting:` machinery (see Phase-3-implemented §). Bounded,
+   failure-safe, correctness-critical AST extraction — ratify alongside cadence.
 3. **carrier-primitives' inline rule** — keep on the eval path, or promote to a
    published pack so it joins the fast path? (Recommended: promote; small,
-   aligns with modularization.)
+   aligns with modularization. Until then carrier correctly takes the eval
+   fallback — the classifier routes it there.)
 
 ### Risks
 
