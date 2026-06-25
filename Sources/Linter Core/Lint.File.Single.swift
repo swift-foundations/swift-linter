@@ -11,7 +11,6 @@
 
 internal import Environment
 public import File_System
-internal import JSON
 internal import Manifest_Executable
 internal import Manifest_Loader
 internal import Manifest_Primitives
@@ -187,7 +186,7 @@ extension Lint.File.Single {
         guard found else { return nil }
         let source: Swift.String
         do throws(File.System.Read.Full.Error) {
-            source = try Self.readFile(at: candidate)
+            source = try Self.contents(of: candidate)
         } catch {
             return nil
         }
@@ -234,8 +233,12 @@ extension Lint.File.Single {
 
     /// Read a file's full contents into a `Swift.String`.
     ///
+    /// `internal` (not `fileprivate`) so the sibling-file ``Channel`` and the
+    /// detection helpers can share one file-read implementation. Nested
+    /// accessor name per `[API-NAME-002]` — `Lint.File.Single.contents(of:)`.
+    ///
     /// F-A2.3 cascade: typed `File.Path` parameter.
-    fileprivate static func readFile(at path: File.Path) throws(File.System.Read.Full.Error) -> Swift.String {
+    internal static func contents(of path: File.Path) throws(File.System.Read.Full.Error) -> Swift.String {
         let bytes: [Byte] = try File(path).read.full { (span: Swift.Span<Byte>) -> [Byte] in
             var array: [Byte] = []
             array.reserveCapacity(span.count)
@@ -278,6 +281,12 @@ extension Lint.File.Single {
     /// ``route(output:classification:)`` — the runner bakes text + advisory
     /// and cannot reshape its output. Defaults to ``Output/standard``.
     ///
+    /// `nonce` is a per-run-unique token (the CLI supplies a random one) woven
+    /// into the selection / parent ``Channel`` temp-file names so concurrent
+    /// `swift-linter` runs on the same consumer root no longer clobber a FIXED
+    /// path. Defaults to `""` (the stable name) for single-process library and
+    /// test callers.
+    ///
     /// F-A2.3 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
     /// `consumerPackageRoot` is typed `File.Path`. The CLI binding
     /// converts the CLI-supplied bare string once at the boundary
@@ -285,14 +294,15 @@ extension Lint.File.Single {
     public static func dispatch(
         at consumerPackageRoot: File.Path,
         arguments: [Swift.String],
-        output: Output = .standard
+        output: Output = .standard,
+        nonce: Swift.String = ""
     ) throws(Lint.File.Single.Error) -> Swift.Int32 {
         let consumerLintSwiftPath: File.Path = consumerPackageRoot / "Lint.swift"
 
         // 1. Read source.
         let source: Swift.String
         do throws(File.System.Read.Full.Error) {
-            source = try Self.readFile(at: consumerLintSwiftPath)
+            source = try Self.contents(of: consumerLintSwiftPath)
         } catch {
             throw .readFailed(path: consumerLintSwiftPath, description: "\(error)")
         }
@@ -347,7 +357,8 @@ extension Lint.File.Single {
                     binary: runnerBinary,
                     consumerPackageRoot: consumerPackageRoot,
                     arguments: arguments,
-                    selection: nil
+                    selection: nil,
+                    nonce: nonce
                 )
             case .fastPathStandardBundleExcluding(let disabled):
                 // The consumer activates Bundle.primitives minus `disabled`.
@@ -359,7 +370,8 @@ extension Lint.File.Single {
                     binary: runnerBinary,
                     consumerPackageRoot: consumerPackageRoot,
                     arguments: arguments,
-                    selection: Lint.Manifest(disabled: disabled)
+                    selection: Lint.Manifest(disabled: disabled),
+                    nonce: nonce
                 )
             case .evalFallback:
                 break  // fall through to the eval pipeline
@@ -382,7 +394,8 @@ extension Lint.File.Single {
         // `.swift-lint/eval/` over the same parent directory.
         let parentManifestPath: File.Path? = try Self.resolveParentChain(
             consumerSource: source,
-            consumerPackageRoot: consumerPackageRoot
+            consumerPackageRoot: consumerPackageRoot,
+            nonce: nonce
         )
 
         // 5–6. Resolve the engine dependency the generated Package.swift
@@ -416,11 +429,11 @@ extension Lint.File.Single {
         }
         let dependencies: [Package.Dependency] = [linterDependency] + extractedDependencies
 
-        // 7. Build environment (parent-chain env var when present).
+        // 7. Build environment (parent-chain channel variable when present).
         let environment: [Swift.String: Swift.String]?
         if let path: File.Path = parentManifestPath {
             var snapshot: Environment.Snapshot = Environment.Snapshot.current()
-            snapshot.values["SWIFT_LINTER_PARENT_MANIFEST"] = path.string
+            snapshot.values[Channel.parent.variable] = path.string
             environment = snapshot.values
         } else {
             environment = nil
@@ -490,26 +503,33 @@ extension Lint.File.Single {
     /// distinguish abnormal termination from a non-zero exit.
     ///
     /// When `selection` is non-`nil` (a pure-bundle consumer with
-    /// `.excluding(rules:)`), it is serialized to
-    /// `<consumerRoot>/.swift-lint/selection-manifest.json` and the path is
-    /// passed to the runner via the `SWIFT_LINTER_SELECTION_MANIFEST`
-    /// environment variable; the runner's `Lint.run(bundle:)` overlays it on
+    /// `.excluding(rules:)`), it is written via ``Channel/selection`` (a
+    /// per-run-unique file under `<consumerRoot>/.swift-lint/`) and the path is
+    /// passed to the runner in the channel's environment variable; the runner's
+    /// `Lint.run(bundle:)` reads it via ``Channel/read()`` and overlays it on
     /// its baked registry so it lints `Bundle.primitives` minus the consumer's
     /// exclusions. `nil` runs the full baked bundle (bare-bundle consumer).
     fileprivate static func runStandardRunner(
         binary: Swift.String,
         consumerPackageRoot: File.Path,
         arguments: [Swift.String],
-        selection: Lint.Manifest?
+        selection: Lint.Manifest?,
+        nonce: Swift.String
     ) throws(Lint.File.Single.Error) -> Swift.Int32 {
         let environment: [Swift.String: Swift.String]?
         if let selection: Lint.Manifest = selection {
-            let manifestPath: File.Path = try Self.writeSelectionManifest(
-                selection,
-                consumerPackageRoot: consumerPackageRoot
-            )
+            let manifestPath: File.Path
+            do throws(Channel.Error) {
+                manifestPath = try Channel.selection.write(
+                    selection,
+                    consumerPackageRoot: consumerPackageRoot,
+                    nonce: nonce
+                )
+            } catch {
+                throw .materializationFailed(reason: "write selection manifest: \(error)")
+            }
             var snapshot: Environment.Snapshot = Environment.Snapshot.current()
-            snapshot.values["SWIFT_LINTER_SELECTION_MANIFEST"] = manifestPath.string
+            snapshot.values[Channel.selection.variable] = manifestPath.string
             environment = snapshot.values
         } else {
             environment = nil  // inherit the parent environment
@@ -586,70 +606,6 @@ extension Lint.File.Single {
         }
     }
 
-    /// Serialize a runtime selection ``Lint/Manifest`` to
-    /// `<consumerRoot>/.swift-lint/selection-manifest.json` and return its
-    /// path. Mirrors ``resolveParentChain``'s self-creating atomic-write shape.
-    fileprivate static func writeSelectionManifest(
-        _ manifest: Lint.Manifest,
-        consumerPackageRoot: File.Path
-    ) throws(Lint.File.Single.Error) -> File.Path {
-        let directory: File.Path = consumerPackageRoot / ".swift-lint"
-        do throws(File.System.Create.Directory.Error) {
-            try File.Directory(directory).create.recursive()
-        } catch {
-            throw .materializationFailed(reason: "create directory \(directory.string): \(error)")
-        }
-        let path: File.Path = directory / "selection-manifest.json"
-        let json: Swift.String = Lint.Manifest.serialize(manifest).jsonString()
-        do throws(File.System.Write.Atomic.Error) {
-            try File(path).write.atomic(json)
-        } catch {
-            throw .materializationFailed(reason: "write selection manifest \(path.string): \(error)")
-        }
-        return path
-    }
-
-    /// Dispatched-runner side of the selection-overlay mechanism: read the
-    /// runtime selection ``Lint/Manifest`` from the JSON file at the path in
-    /// the `SWIFT_LINTER_SELECTION_MANIFEST` environment variable.
-    ///
-    /// Returns the manifest when the env var is set AND the file reads +
-    /// parses successfully; `nil` otherwise (no overlay — the runner lints its
-    /// full baked bundle). Failures are silent on the runner side; the
-    /// coordinator surfaces write failures via the dispatch result. Distinct
-    /// from ``configuration(parentOf:)`` (the `// parent:` inheritance chain) —
-    /// this is the fast-path consumer's own `.excluding(rules:)` selection.
-    public static func selectionManifest() -> Lint.Manifest? {
-        guard let raw: Swift.String = Environment.read("SWIFT_LINTER_SELECTION_MANIFEST") else {
-            return nil
-        }
-        let path: File.Path
-        do throws(Paths.Path.Error) {
-            path = try File.Path(raw)
-        } catch {
-            return nil
-        }
-        let source: Swift.String
-        do throws(File.System.Read.Full.Error) {
-            source = try Self.readFile(at: path)
-        } catch {
-            return nil
-        }
-        let parsed: JSON
-        do throws(JSON.Error) {
-            parsed = try JSON.parse(source)
-        } catch {
-            return nil
-        }
-        let manifest: Lint.Manifest
-        do throws(JSON.Error) {
-            manifest = try Lint.Manifest.deserialize(parsed)
-        } catch {
-            return nil
-        }
-        return manifest
-    }
-
     /// Walk the parent chain expressed in `consumerSource` and write
     /// the folded `Lint.Manifest` to a temp JSON file. Returns the
     /// path to the file when a chain is present, `nil` when no
@@ -663,7 +619,8 @@ extension Lint.File.Single {
     /// proceeds without parent inheritance.
     fileprivate static func resolveParentChain(
         consumerSource: Swift.String,
-        consumerPackageRoot: File.Path
+        consumerPackageRoot: File.Path,
+        nonce: Swift.String
     ) throws(Lint.File.Single.Error) -> File.Path? {
         guard let linterPath: Swift.String = Environment.read("SWIFT_LINTER_PATH") else {
             return nil
@@ -722,27 +679,16 @@ extension Lint.File.Single {
             return nil
         }
         let folded: Lint.Manifest = Self.foldParents(parentChain)
-        let serialized: JSON = Lint.Manifest.serialize(folded)
-        let jsonString: Swift.String = serialized.jsonString()
-        // Ensure `.swift-lint/` exists before the atomic write. Pre-
-        // Thread-I this directory was created as a side-effect of
-        // Lint.File.Single.Materializer.materialize running first; the
-        // refactored dispatch resolves the parent chain BEFORE
-        // handing off to Manifest.Executable.dispatch, so the helper
-        // is now self-sufficient.
-        let parentDirectory: File.Path = consumerPackageRoot / ".swift-lint"
-        do throws(File.System.Create.Directory.Error) {
-            try File.Directory(parentDirectory).create.recursive()
+        // Write via the parent ``Channel`` (self-creates `.swift-lint/`, atomic
+        // write, per-run-unique name). The dispatch resolves the parent chain
+        // BEFORE handing off to Manifest.Executable.dispatch, so the channel
+        // write runs cleanly before the eval project materializes over the same
+        // `.swift-lint/` parent directory.
+        do throws(Channel.Error) {
+            return try Channel.parent.write(folded, consumerPackageRoot: consumerPackageRoot, nonce: nonce)
         } catch {
-            throw .materializationFailed(reason: "create directory \(parentDirectory.string): \(error)")
+            throw .materializationFailed(reason: "write parent manifest: \(error)")
         }
-        let filePath: File.Path = parentDirectory / "parent-manifest.json"
-        do throws(File.System.Write.Atomic.Error) {
-            try File(filePath).write.atomic(jsonString)
-        } catch {
-            throw .materializationFailed(reason: "write parent manifest \(filePath.string): \(error)")
-        }
-        return filePath
     }
 
     /// Fold a parent-first chain of `Lint.Manifest` values into a
@@ -766,56 +712,24 @@ extension Lint.File.Single {
         )
     }
 
-    /// Dispatched-executable side of the parent-chain mechanism:
-    /// read the parent `Lint.Manifest` from the JSON file at the
-    /// path in the `SWIFT_LINTER_PARENT_MANIFEST` environment
-    /// variable, and lift it against the supplied local rule
-    /// `registry`.
+    /// Dispatched-executable side of the parent-chain mechanism: read the parent
+    /// `Lint.Manifest` via the parent ``Channel`` and lift it against the
+    /// supplied local rule `registry`.
     ///
-    /// Returns the resulting `Lint.Configuration` when the env var
-    /// is set AND the file reads + parses successfully. Returns
-    /// `nil` when:
-    /// - The env var is unset (no parent chain was resolved by the
-    ///   coordinator, or the dispatched executable is being run
-    ///   directly without coordinator setup).
-    /// - The file is missing or unreadable.
-    /// - The file's contents fail to deserialize as a
-    ///   ``Lint/Manifest``.
+    /// Returns the resulting `Lint.Configuration` when the parent channel's
+    /// variable is SET and the file reads + parses; returns `nil` ONLY when the
+    /// variable is UNSET (no parent chain was resolved by the coordinator, or
+    /// the executable is run directly without coordinator setup).
     ///
-    /// Failures are silent on the dispatched-executable side —
-    /// they fall through to consumer-only configuration (no parent
-    /// inheritance). The coordinator side surfaces parent-chain
-    /// failures explicitly via the dispatch result.
+    /// Fail-loud: a SET-but-unreadable/unparseable parent manifest THROWS
+    /// ``Channel/Error`` rather than silently dropping the parent's rules. This
+    /// is the parent-channel half of the unified ``Channel`` guarantee — the
+    /// caller (`Lint.run(dependencies:rules:)`) surfaces the failure and exits
+    /// non-zero instead of linting with a silently-narrowed rule set.
     public static func configuration(
         parentOf registry: [Lint.Rule.ID: Lint.Rule]
-    ) -> Lint.Configuration? {
-        // F-A2.9 (env-boundary) — `SWIFT_LINTER_PARENT_MANIFEST` is a
-        // raw bare string; convert to `File.Path` at the boundary.
-        guard let raw: Swift.String = Environment.read("SWIFT_LINTER_PARENT_MANIFEST") else {
-            return nil
-        }
-        let path: File.Path
-        do throws(Paths.Path.Error) {
-            path = try File.Path(raw)
-        } catch {
-            return nil
-        }
-        let source: Swift.String
-        do throws(File.System.Read.Full.Error) {
-            source = try Self.readFile(at: path)
-        } catch {
-            return nil
-        }
-        let parsed: JSON
-        do throws(JSON.Error) {
-            parsed = try JSON.parse(source)
-        } catch {
-            return nil
-        }
-        let manifest: Lint.Manifest
-        do throws(JSON.Error) {
-            manifest = try Lint.Manifest.deserialize(parsed)
-        } catch {
+    ) throws(Channel.Error) -> Lint.Configuration? {
+        guard let manifest: Lint.Manifest = try Channel.parent.read() else {
             return nil
         }
         return Lint.Configuration.lift(manifest: manifest, registry: registry)

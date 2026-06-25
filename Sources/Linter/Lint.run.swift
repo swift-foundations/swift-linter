@@ -11,6 +11,7 @@
 
 internal import File_System
 public import Linter_Primitives
+internal import Process
 public import SPM_Standard
 internal import Standard_Library_Extensions
 internal import Terminal_Primitives
@@ -93,7 +94,18 @@ extension Lint {
     /// (every bare-bundle consumer, and local runs) the behaviour is unchanged.
     public static func run(bundle: [Lint.Rule.Configuration]) {
         let base: Lint.Configuration = Lint.Configuration { bundle }
-        guard let selection: Lint.Manifest = Lint.File.Single.selectionManifest() else {
+        // Read the runtime selection overlay via the fail-loud ``Channel``. A
+        // SET-but-unreadable selection manifest MUST NOT silently widen to the
+        // full baked bundle (it would re-fire an EXCLUDED rule) — on a channel
+        // error we emit to stderr and exit non-zero rather than lint a wrong
+        // (wider) rule set with exit 0.
+        let selection: Lint.Manifest?
+        do throws(Lint.File.Single.Channel.Error) {
+            selection = try Lint.File.Single.Channel.selection.read()
+        } catch {
+            failLoud("selection-manifest channel: \(error)")
+        }
+        guard let selection else {
             run(configuration: base)
             return
         }
@@ -107,6 +119,18 @@ extension Lint {
             inheriting: base
         )
         run(configuration: overlaid)
+    }
+
+    /// Emit `message` to stderr and terminate the process with a non-zero exit.
+    ///
+    /// The fail-loud sink for a selection / parent ``Lint/File/Single/Channel``
+    /// hard error: a set-but-unreadable manifest is a wrong-result-that-would-
+    /// otherwise-exit-0 hazard, so the dispatched executable exits non-zero —
+    /// the swift-linter CLI propagates that as its own non-zero exit. stdout
+    /// stays the pure diagnostic stream; the error goes to stderr only.
+    private static func failLoud(_ message: Swift.String) -> Never {
+        Lint.Reporter.Text.emit(error: message, to: Terminal.Stream.stderr.write)
+        Process.exit(1)
     }
 
     /// Run the linter with a complete configuration.
@@ -180,7 +204,16 @@ extension Lint {
         for entry in collected {
             registry[entry.rule.id] = entry.rule
         }
-        let parent: Lint.Configuration? = Lint.File.Single.configuration(parentOf: registry)
+        // Read the folded parent chain via the fail-loud ``Channel``. A
+        // SET-but-unreadable parent manifest MUST NOT silently drop the
+        // parent's rules — on a channel error we fail loud rather than lint a
+        // silently-narrowed rule set with exit 0.
+        let parent: Lint.Configuration?
+        do throws(Lint.File.Single.Channel.Error) {
+            parent = try Lint.File.Single.configuration(parentOf: registry)
+        } catch {
+            failLoud("parent-manifest channel: \(error)")
+        }
         let configuration = Lint.Configuration(inheriting: parent) { collected }
         run(configuration: configuration)
     }

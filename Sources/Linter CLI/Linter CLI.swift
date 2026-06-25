@@ -125,12 +125,23 @@ extension Lint {
                 // produce.
                 let output: Lint.File.Single.Output =
                     (format == .text && policy == .advisory) ? .standard : .nonStandard
+                // Per-run nonce (2f): woven into the selection / parent channel
+                // temp-file names so concurrent `swift-linter` runs on the same
+                // consumer root never clobber a FIXED path. A 64-bit random hex
+                // token is unique-per-run with overwhelming probability; the CLI
+                // is the right place to mint it (Linter Core stays kernel-free,
+                // mirroring the injected cwd closure).
+                let runNonce: Swift.String = Swift.String(
+                    UInt64.random(in: UInt64.min ... UInt64.max),
+                    radix: 16
+                )
                 let dispatchedExitCode: Swift.Int32
                 do throws(Lint.File.Single.Error) {
                     dispatchedExitCode = try Lint.File.Single.dispatch(
                         at: consumerRoot,
                         arguments: paths,
-                        output: output
+                        output: output,
+                        nonce: runNonce
                     )
                 } catch {
                     do throws(ISO_9945.Kernel.IO.Write.Error) {

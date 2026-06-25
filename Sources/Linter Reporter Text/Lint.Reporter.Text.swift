@@ -86,6 +86,26 @@ extension Lint.Reporter.Text {
         }
     }
 
+    /// Emit a one-line `[Lint] error: <message>` diagnostic via `write` (the
+    /// caller passes **stderr** — stdout stays the pure diagnostic stream).
+    ///
+    /// Used by the consumer entry points (`Lint.run(bundle:)` /
+    /// `Lint.run(dependencies:rules:)`) to fail LOUD when a selection / parent
+    /// ``Lint/File/Single/Channel`` read hard-errors — the message goes to
+    /// stderr immediately before the process exits non-zero, so a
+    /// set-but-unreadable manifest can never be mistaken for a clean run. Write
+    /// errors are swallowed best-effort, matching the other emitters.
+    public static func emit(
+        error message: Swift.String,
+        to write: Terminal.Stream.Write
+    ) {
+        do throws(ISO_9945.Kernel.IO.Write.Error) {
+            _ = try write(("[Lint] error: " + message + "\n").utf8.lazy.map(Byte.init))
+        } catch {
+            // Best-effort stderr write; broken pipe acceptable.
+        }
+    }
+
     /// Pure formatter for the run-summary line (no trailing newline). Split out
     /// so the field composition is unit-testable without a write surface.
     public static func summaryLine(

@@ -116,6 +116,7 @@ let package = Package(
                 "Linter Reporter SARIF",
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "Package Primitives", package: "swift-package-primitives"),
+                .product(name: "Process", package: "swift-process"),
                 .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
                 .product(name: "URI Standard Library Integration", package: "swift-uri-standard"),
