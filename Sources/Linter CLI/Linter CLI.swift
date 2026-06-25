@@ -116,7 +116,7 @@ extension Lint {
             // project at `<consumerRoot>/.swift-lint/eval/`, and dispatches
             // `swift run --package-path <eval> Lint <args>`. The dispatched
             // executable IS the linter binary for the consumer.
-            if Lint.File.Single.detect(at: consumerRoot) != nil {
+            if Lint.File.Single.Detection.detect(at: consumerRoot) != nil {
                 // The prebuilt-runner fast path can only reproduce the runner's
                 // baked output shape (text format, advisory exit). Tell dispatch
                 // whether the requested output is that shape; any other request

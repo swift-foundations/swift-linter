@@ -17,7 +17,7 @@ extension Lint.File.Single.Test {
     struct Runner {}
 }
 
-// MARK: - runnerInvocation(binary:arguments:)
+// MARK: - Lint.File.Single.Runner.invocation(binary:arguments:)
 //
 // Hole 1a regression. The prebuilt-runner fast path MUST forward the
 // consumer's CLI `arguments` (the lint-target paths) so it lints EXACTLY the
@@ -31,7 +31,7 @@ extension Lint.File.Single.Test {
 extension Lint.File.Single.Test.Runner {
     @Test
     func `Multi-path arguments are forwarded verbatim after the binary`() {
-        let invocation = Lint.File.Single.runnerInvocation(
+        let invocation = Lint.File.Single.Runner.invocation(
             binary: "/usr/local/bin/swift-linter-runner",
             arguments: ["Sources", "Tests"]
         )
@@ -40,7 +40,7 @@ extension Lint.File.Single.Test.Runner {
 
     @Test
     func `A single dot target is forwarded`() {
-        let invocation = Lint.File.Single.runnerInvocation(
+        let invocation = Lint.File.Single.Runner.invocation(
             binary: "runner",
             arguments: ["."]
         )
@@ -53,7 +53,7 @@ extension Lint.File.Single.Test.Runner {
         // with no trailing args, where `Lint.run(configuration:)` falls back
         // to `["."]`. The fast path must match — no synthetic consumer-root
         // argument that the eval path never receives.
-        let invocation = Lint.File.Single.runnerInvocation(
+        let invocation = Lint.File.Single.Runner.invocation(
             binary: "runner",
             arguments: []
         )
