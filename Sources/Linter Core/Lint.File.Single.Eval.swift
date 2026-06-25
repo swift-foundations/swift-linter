@@ -17,6 +17,7 @@ internal import Manifest_Resolver
 internal import Package_Primitives
 internal import SPM_Standard
 internal import SwiftSyntax
+internal import URI_Standard_Library_Integration
 
 extension Lint.File.Single {
     /// The eval fallback: materialize a temporary SwiftPM project around the
@@ -43,7 +44,12 @@ extension Lint.File.Single.Eval {
     /// dependency. `SWIFT_LINTER_PATH`, when set, still wins (the local-dev inner
     /// loop builds against the engine HEAD). `private` — an internal eval-pipeline
     /// constant, not consumer-facing API.
-    private static let engineDependencyURL: Swift.String =
+    ///
+    /// Typed as ``RFC_3986/URI`` via its `ExpressibleByStringLiteral` conformance:
+    /// a hardcoded, source-reviewed constant whose validity is guaranteed at
+    /// compile time, so a malformed literal traps at load (an authoring defect)
+    /// rather than threading a runtime `URIError` no caller could recover from.
+    private static let engineDependencyURL: URI =
         "https://github.com/swift-foundations/swift-linter.git"
 
     /// The git branch the materialized eval tracks for the engine when no
@@ -111,7 +117,7 @@ extension Lint.File.Single.Eval {
                 products: ["Linter"]
             )
         } else {
-            linterDependency = try Self.publishedEngineDependency()
+            linterDependency = Self.publishedEngineDependency()
         }
         let dependencies: [Package.Dependency] = [linterDependency] + extractedDependencies
 
@@ -163,21 +169,11 @@ extension Lint.File.Single.Eval {
 
     /// Build the branch-pinned URL engine dependency (override the branch via
     /// `SWIFT_LINTER_BRANCH`). Tag-free; tracks ``engineDependencyBranch``.
-    private static func publishedEngineDependency()
-        throws(Lint.File.Single.Error) -> Package.Dependency
-    {
+    private static func publishedEngineDependency() -> Package.Dependency {
         let branch: Swift.String =
             Environment.read("SWIFT_LINTER_BRANCH") ?? Self.engineDependencyBranch
-        let url: URI
-        do throws(URIError) {
-            url = try URI(Self.engineDependencyURL)
-        } catch {
-            throw .materializationFailed(
-                reason: "invalid engine dependency URL `\(Self.engineDependencyURL)`: \(error)"
-            )
-        }
         return Package.Dependency(
-            source: .url(url, branch: branch),
+            source: .url(Self.engineDependencyURL, branch: branch),
             name: "swift-linter",
             products: ["Linter"]
         )
