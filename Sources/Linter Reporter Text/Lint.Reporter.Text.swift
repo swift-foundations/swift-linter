@@ -9,7 +9,6 @@
 //
 // ===----------------------------------------------------------------------===//
 
-public import Cardinal_Primitives
 public import Linter_Primitives
 public import Terminal_Primitives
 
@@ -66,19 +65,18 @@ extension Lint.Reporter.Text {
     /// any runtime overlay/exclusions), so it reflects what actually ran; `M`
     /// (the runtime-disabled count) annotates the overlay/exclusion case.
     ///
-    /// The four counts are typed `Tagged<Domain, Cardinal>` — a *cardinal of
-    /// rules / source files / findings* — rather than bare `Int` so the
-    /// reporter's public surface reads typed intent (`[IMPL-010]`). These spell
-    /// the same underlying types as Linter Core's `Lint.Rule.Count` /
-    /// `Lint.Source.Count` / `Lint.Finding.Count` aliases; Reporter Text cannot
-    /// import Linter Core (sibling targets), so the `Tagged<…>` form is written
-    /// out here. The eventual single home is swift-linter-primitives.
+    /// The four counts are bare `Int` — display-only cardinalities formatted
+    /// into this one line, never indexed or arithmetic-combined. Typing them
+    /// (`Count` / `Index<Element>.Count`) would pull a cardinal/collection
+    /// dependency tree into the reporter for no semantic gain; leanness wins
+    /// for display values (the `int public parameter` finding here is a known,
+    /// accepted advisory).
     public static func emit(
         summaryFor package: Swift.String,
-        activeRules: Tagged<Lint.Rule, Cardinal>,
-        excludedRules: Tagged<Lint.Rule, Cardinal>,
-        filesLinted: Tagged<Lint.Source, Cardinal>,
-        violations: Tagged<Lint.Finding, Cardinal>,
+        activeRules: Swift.Int,
+        excludedRules: Swift.Int,
+        filesLinted: Swift.Int,
+        violations: Swift.Int,
         to write: Terminal.Stream.Write
     ) {
         let line: Swift.String = Summary.line(

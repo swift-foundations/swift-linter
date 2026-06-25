@@ -11,7 +11,6 @@
 
 import SwiftSyntax
 import SwiftParser
-internal import Cardinal_Primitives
 public import File_System
 internal import Linter_Primitives
 
@@ -111,12 +110,12 @@ extension Lint.Run {
         var manager = Source.Manager()
         var findings: [Lint.Finding] = []
         var suppressed: [Lint.Finding] = []
-        var filesLinted: Lint.Source.Count = .zero
+        var filesLinted = 0
         for root in paths {
             let sourcePaths = Lint.Source.Walker.paths(under: root)
             for sourcePath in sourcePaths {
                 let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager)
-                filesLinted += .one
+                filesLinted += 1
                 let suppression = Lint.Suppression.scan(
                     tree: parsed.tree,
                     converter: parsed.converter

@@ -9,7 +9,6 @@
 //
 // ===----------------------------------------------------------------------===//
 
-import Cardinal_Primitives
 import Linter_Primitives
 import Linter_Reporter_Text
 import Testing

@@ -9,7 +9,6 @@
 //
 // ===----------------------------------------------------------------------===//
 
-public import Cardinal_Primitives
 public import Linter_Primitives
 
 extension Lint.Reporter.Text {
@@ -30,25 +29,24 @@ extension Lint.Reporter.Text.Summary {
     /// any runtime overlay/exclusions), so it reflects what actually ran; `M`
     /// (the runtime-disabled count) annotates the overlay/exclusion case.
     ///
-    /// The four counts are typed `Tagged<Domain, Cardinal>` (a *cardinal of
-    /// rules / source files / findings*) per `[IMPL-010]`. They spell the same
-    /// underlying types as Linter Core's `Lint.Rule.Count` / `Lint.Source.Count`
-    /// / `Lint.Finding.Count` aliases; Reporter Text cannot import Linter Core
-    /// (sibling targets), so the `Tagged<…>` form is written out. `Cardinal`'s
-    /// `CustomStringConvertible` (Cardinal Primitives SLI) forwards through
-    /// `Tagged`, so the counts interpolate to their decimal `rawValue` directly.
+    /// The four counts are bare `Int`: display-only cardinalities formatted
+    /// into this one line, never indexed or arithmetic-combined. Typing them
+    /// (`Count`/`Index<Element>.Count`) would pull a cardinal/collection
+    /// dependency tree into the reporter for no semantic gain — leanness wins
+    /// for display values (the `int public parameter` finding here is a known,
+    /// accepted advisory).
     public static func line(
         package: Swift.String,
-        activeRules: Tagged<Lint.Rule, Cardinal>,
-        excludedRules: Tagged<Lint.Rule, Cardinal>,
-        filesLinted: Tagged<Lint.Source, Cardinal>,
-        violations: Tagged<Lint.Finding, Cardinal>
+        activeRules: Swift.Int,
+        excludedRules: Swift.Int,
+        filesLinted: Swift.Int,
+        violations: Swift.Int
     ) -> Swift.String {
-        let ruleSet: Swift.String = excludedRules > .zero
+        let ruleSet: Swift.String = excludedRules > 0
             ? "\(activeRules) active rules (−\(excludedRules) excluded)"
             : "\(activeRules) active rules"
-        let fileWord: Swift.String = filesLinted == .one ? "file" : "files"
-        let violationWord: Swift.String = violations == .one ? "violation" : "violations"
+        let fileWord: Swift.String = filesLinted == 1 ? "file" : "files"
+        let violationWord: Swift.String = violations == 1 ? "violation" : "violations"
         return "\(package) · \(ruleSet) · \(filesLinted) \(fileWord) linted · \(violations) \(violationWord)"
     }
 }

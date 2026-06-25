@@ -9,7 +9,6 @@
 //
 // ===----------------------------------------------------------------------===//
 
-public import Cardinal_Primitives
 public import Linter_Primitives
 
 extension Lint.Run {
@@ -42,20 +41,22 @@ extension Lint.Run {
         /// "<files linted>" field) so a clean run is self-evidently a real
         /// run rather than a silent no-op.
         ///
-        /// Typed `Lint.Source.Count` (`Tagged<Lint.Source, Cardinal>`) rather
-        /// than a bare `Int` — a *cardinal of source files* — so the public
-        /// Outcome surface reads typed intent (`[IMPL-010]`).
+        /// A bare `Int`: a display-only count formatted into the one-line run
+        /// summary, never indexed or arithmetic-combined beyond a `+= 1` walk
+        /// tally. Typing it (`Count`/`Index<Element>.Count`) would pull a
+        /// cardinal/collection dependency tree into the engine for no semantic
+        /// gain — leanness wins for a display value.
         // swift-linter:disable:next compound identifier
         // REASON: a stored scalar count on the public Outcome value type; a nested-accessor
         // rename (`files.linted`) is disproportionate for a count and would churn the public
         // Outcome API + the run-summary call sites without improving the surface ([API-NAME-002]).
-        public let filesLinted: Lint.Source.Count
+        public let filesLinted: Swift.Int
 
         @inlinable
         public init(
             findings: [Lint.Finding] = [],
             suppressed: [Lint.Finding] = [],
-            filesLinted: Lint.Source.Count = .zero
+            filesLinted: Swift.Int = 0
         ) {
             self.findings = findings
             self.suppressed = suppressed
