@@ -420,8 +420,15 @@ aarch64, debug, `-j 2`):
   ~335–605s eval and **~10× better** than the doc's prior estimate.
 - **One-time prebuild: ~310–560s** (environment-sensitive: 309.96s on the
   original spike, 555.69s on the 2026-06-25 reproduction; the spread is fuse
-  I/O + host load + the from-source SwiftSyntax floor). This is paid ONCE per
-  composite-cache-key value and shared across all consumers.
+  I/O + host load + the from-source SwiftSyntax floor). It is paid ONCE per
+  composite-cache-key value **per consumer repo**: GitHub Actions caches are
+  repo-scoped, so a keyed-HEAD change triggers one runner rebuild on EACH active
+  consumer repo's next CI run (verified 2026-06-25 — pair-primitives and
+  ordinal-primitives each rebuilt their own runner, ~360s/~464s), NOT one
+  ecosystem-wide rebuild; the runner is warm within that repo thereafter. Cost
+  model under A-dynamic: ≈ N(active repos) × one rebuild per keyed change,
+  parallel across repos — input to the A-pinned trade-off (pinning lowers key
+  churn frequency). Matches the existing per-repo Phase-1 dispatcher cache.
 - **Functionally verified:** the runner caught `[PRIM-FOUND-001]` on a known
   `import Foundation` violation (26ms) and fires the 7 `int public parameter`
   findings on carrier's `Fixture` conformers that carrier's own config excludes
