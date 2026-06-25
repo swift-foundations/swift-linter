@@ -270,13 +270,20 @@ extension Lint.File.Single {
     /// `arguments` is forwarded to the dispatched `Lint` executable
     /// (the consumer's `Lint.swift` as compiled in the eval project).
     ///
+    /// `output` is the CLI's requested output shape. When it is
+    /// ``Output/nonStandard`` (`--format` other than text, or a non-advisory
+    /// `--exit-policy`) the prebuilt-runner fast path is bypassed via
+    /// ``route(output:classification:)`` — the runner bakes text + advisory
+    /// and cannot reshape its output. Defaults to ``Output/standard``.
+    ///
     /// F-A2.3 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
     /// `consumerPackageRoot` is typed `File.Path`. The CLI binding
     /// converts the CLI-supplied bare string once at the boundary
     /// per `[IMPL-010]`.
     public static func dispatch(
         at consumerPackageRoot: File.Path,
-        arguments: [Swift.String]
+        arguments: [Swift.String],
+        output: Output = .standard
     ) throws(Lint.File.Single.Error) -> Swift.Int32 {
         let consumerLintSwiftPath: File.Path = consumerPackageRoot / "Lint.swift"
 
@@ -317,8 +324,14 @@ extension Lint.File.Single {
         // preserved on BOTH paths: the runner bundles the published standard
         // rule packs, and the eval fallback compiles the consumer's declared
         // packs (including inline rules) exactly as before.
+        //
+        // `output` gates the fast path too: a non-`.standard` request
+        // (`--format sarif`, non-advisory `--exit-policy`) routes to eval via
+        // ``route(output:classification:)`` — the runner bakes text + advisory
+        // and cannot reshape its output, so it must never be entered for a
+        // shape it cannot produce.
         if let runnerBinary: Swift.String = Environment.read("SWIFT_LINTER_RUNNER") {
-            switch Lint.File.Single.Classifier.classify(source: source) {
+            switch Self.route(output: output, classification: Lint.File.Single.Classifier.classify(source: source)) {
             case .fastPathStandardBundle:
                 return try Self.runStandardRunner(
                     binary: runnerBinary,
@@ -527,6 +540,31 @@ extension Lint.File.Single {
         arguments: [Swift.String]
     ) -> [Swift.String] {
         [binary] + arguments
+    }
+
+    /// The runner-vs-eval routing verdict, combining the requested `output`
+    /// shape with the source `classification`.
+    ///
+    /// `.standard` output defers entirely to the classifier (the source
+    /// decides). Any ``Output/nonStandard`` request forces
+    /// ``Lint/File/Single/Classification/evalFallback(reason:)`` REGARDLESS of
+    /// the source — the prebuilt runner bakes text + advisory output and
+    /// cannot reproduce a SARIF format or a strict exit policy, so it must
+    /// never be taken for such a request. Pure + `internal` so the gate is
+    /// unit-testable without a real ``Process/Spawn``.
+    internal static func route(
+        output: Output,
+        classification: Lint.File.Single.Classification
+    ) -> Lint.File.Single.Classification {
+        switch output {
+        case .standard:
+            return classification
+        case .nonStandard:
+            return .evalFallback(
+                reason: "consumer requested an output shape the standard runner cannot produce "
+                    + "(non-text `--format` or non-advisory `--exit-policy`)"
+            )
+        }
     }
 
     /// Serialize a runtime selection ``Lint/Manifest`` to

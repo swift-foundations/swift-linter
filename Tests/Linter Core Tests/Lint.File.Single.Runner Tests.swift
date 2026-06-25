@@ -60,3 +60,69 @@ extension Lint.File.Single.Test.Runner {
         #expect(invocation == ["runner"])
     }
 }
+
+// MARK: - route(output:classification:)
+//
+// Hole 1c gate. The prebuilt runner bakes a single output shape (text format,
+// advisory exit). It cannot reshape output for `--format sarif` or escalate
+// for `--exit-policy strict`, so a non-standard output request MUST route to
+// the eval fallback regardless of the source classification — the runner must
+// never be entered for output it cannot produce. `.standard` output defers
+// entirely to the source classification.
+
+extension Lint.File.Single.Test.Runner {
+    private func isEvalFallback(_ classification: Lint.File.Single.Classification) -> Swift.Bool {
+        if case .evalFallback = classification { return true }
+        return false
+    }
+
+    @Test
+    func `Standard output preserves a bare-bundle fast-path classification`() {
+        #expect(
+            Lint.File.Single.route(output: .standard, classification: .fastPathStandardBundle)
+                == .fastPathStandardBundle
+        )
+    }
+
+    @Test
+    func `Standard output preserves an excluding fast-path classification`() {
+        let excluding: Lint.File.Single.Classification =
+            .fastPathStandardBundleExcluding(disabled: ["raw value access"])
+        #expect(Lint.File.Single.route(output: .standard, classification: excluding) == excluding)
+    }
+
+    @Test
+    func `Standard output preserves an eval-fallback classification`() {
+        #expect(
+            isEvalFallback(
+                Lint.File.Single.route(
+                    output: .standard,
+                    classification: .evalFallback(reason: "inline rule")
+                )
+            )
+        )
+    }
+
+    @Test
+    func `Non-standard output forces eval even for a bare-bundle fast path`() {
+        // `--format sarif` / `--exit-policy strict` ⇒ the runner can't produce
+        // the requested shape, so route to eval despite a fast-path source.
+        #expect(
+            isEvalFallback(
+                Lint.File.Single.route(output: .nonStandard, classification: .fastPathStandardBundle)
+            )
+        )
+    }
+
+    @Test
+    func `Non-standard output forces eval even for an excluding fast path`() {
+        #expect(
+            isEvalFallback(
+                Lint.File.Single.route(
+                    output: .nonStandard,
+                    classification: .fastPathStandardBundleExcluding(disabled: ["int public parameter"])
+                )
+            )
+        )
+    }
+}

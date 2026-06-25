@@ -117,11 +117,20 @@ extension Lint {
             // `swift run --package-path <eval> Lint <args>`. The dispatched
             // executable IS the linter binary for the consumer.
             if Lint.File.Single.detect(at: consumerRoot) != nil {
+                // The prebuilt-runner fast path can only reproduce the runner's
+                // baked output shape (text format, advisory exit). Tell dispatch
+                // whether the requested output is that shape; any other request
+                // (`--format sarif`, `--exit-policy strict`) routes to the eval
+                // fallback so the runner is never entered for output it cannot
+                // produce.
+                let output: Lint.File.Single.Output =
+                    (format == .text && policy == .advisory) ? .standard : .nonStandard
                 let dispatchedExitCode: Swift.Int32
                 do throws(Lint.File.Single.Error) {
                     dispatchedExitCode = try Lint.File.Single.dispatch(
                         at: consumerRoot,
-                        arguments: paths
+                        arguments: paths,
+                        output: output
                     )
                 } catch {
                     do throws(ISO_9945.Kernel.IO.Write.Error) {
