@@ -45,11 +45,14 @@ extension Lint {
         public init(entries: [Lint.Suppression.Entry] = []) {
             self.entries = entries
         }
-
-        /// Empty suppression map — used when no directives appear in a
-        /// source file.
-        public static let empty: Self = Self()
     }
+}
+
+extension Lint.Suppression {
+    /// Empty suppression map — used when no directives appear in a
+    /// source file. (`static` member lives in an extension, not the type
+    /// body, per `[API-IMPL-008]`.)
+    public static let empty: Self = Self()
 }
 
 extension Lint.Suppression {
@@ -107,7 +110,6 @@ extension Lint.Suppression {
             scanTrivia(
                 token.leadingTrivia,
                 tokenStartPosition: token.position,
-                tokenContentLine: converter.location(for: token.positionAfterSkippingLeadingTrivia).line,
                 converter: converter,
                 tree: tree,
                 entries: &entries
@@ -115,7 +117,6 @@ extension Lint.Suppression {
             scanTrivia(
                 token.trailingTrivia,
                 tokenStartPosition: token.endPositionBeforeTrailingTrivia,
-                tokenContentLine: converter.location(for: token.endPositionBeforeTrailingTrivia).line,
                 converter: converter,
                 tree: tree,
                 entries: &entries
@@ -128,7 +129,6 @@ extension Lint.Suppression {
     fileprivate static func scanTrivia(
         _ trivia: Trivia,
         tokenStartPosition: AbsolutePosition,
-        tokenContentLine: Swift.Int,
         converter: SourceLocationConverter,
         tree: SourceFileSyntax,
         entries: inout [Lint.Suppression.Entry]
@@ -213,11 +213,6 @@ extension Lint.Suppression {
                 pendingReasonIndex = nil
             }
         }
-
-        _ = tokenContentLine // referenced for diagnostic clarity; the
-                              // converter call above provides the same
-                              // info per-piece, so this is unused at
-                              // the function-body level.
     }
 
     /// Parses the directive's suffix into a `Lint.Rule.ID`.
