@@ -19,6 +19,8 @@ internal import Manifest_Resolver
 internal import Package_Primitives
 internal import Process
 internal import SPM_Standard
+internal import SwiftParser
+internal import SwiftSyntax
 internal import Version_Primitives
 
 /// Detection + dispatch for the unified single-file consumer manifest
@@ -300,12 +302,11 @@ extension Lint.File.Single {
             throw .missingToolsVersion(path: consumerLintSwiftPath)
         }
 
-        // 3. Extract `Lint.run(dependencies:)` clauses.
-        let extractedDependencies: [Package.Dependency] = try Lint.File.Single.Extractor.dependencies(
-            from: source,
-            sourcePath: consumerLintSwiftPath,
-            consumerPackageRoot: consumerPackageRoot
-        )
+        // 3. Parse `Lint.swift` exactly ONCE. The single parsed tree is threaded
+        // to BOTH the fast-path classifier (next) and — only on the eval branch
+        // — the dependency extractor, so dispatch never parses the same source
+        // twice.
+        let parsed: SourceFileSyntax = Parser.parse(source: source)
 
         // 3.5. Phase-3 fast path
         // (Research/near-instant-lint-with-external-rule-loading.md): when a
@@ -330,8 +331,17 @@ extension Lint.File.Single {
         // ``route(output:classification:)`` — the runner bakes text + advisory
         // and cannot reshape its output, so it must never be entered for a
         // shape it cannot produce.
+        //
+        // Classify-before-extract: the fast path needs NO dependency extraction
+        // (the runner bakes its own packs), so classification runs FIRST. A
+        // malformed `.package(...)` declaration therefore no longer blocks a
+        // fast-path consumer — dependency extraction is deferred to the eval
+        // branch, which is the only path that actually consumes the deps.
         if let runnerBinary: Swift.String = Environment.read("SWIFT_LINTER_RUNNER") {
-            switch Self.route(output: output, classification: Lint.File.Single.Classifier.classify(source: source)) {
+            switch Self.route(
+                output: output,
+                classification: Lint.File.Single.Classifier.classify(source: source, parsed: parsed)
+            ) {
             case .fastPathStandardBundle:
                 return try Self.runStandardRunner(
                     binary: runnerBinary,
@@ -355,6 +365,15 @@ extension Lint.File.Single {
                 break  // fall through to the eval pipeline
             }
         }
+
+        // 3.6. EVAL branch. Extract `Lint.run(dependencies:)` clauses from the
+        // already-parsed tree — only the eval path materializes a project and
+        // therefore needs the consumer's declared `.package(...)` dependencies.
+        let extractedDependencies: [Package.Dependency] = try Lint.File.Single.Extractor.dependencies(
+            parsed: parsed,
+            sourcePath: consumerLintSwiftPath,
+            consumerPackageRoot: consumerPackageRoot
+        )
 
         // 4. Resolve parent chain (Lint-specific; writes the folded
         // `Lint.Manifest` to a temp JSON file and returns its path).

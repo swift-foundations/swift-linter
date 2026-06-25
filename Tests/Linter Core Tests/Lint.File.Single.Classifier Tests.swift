@@ -253,6 +253,28 @@ extension Lint.File.Single.Classifier.Test {
     }
 
     @Test
+    func `A non-directive parent substring stays on the fast path`() {
+        // 2e: the parent gate uses `Manifest.Parent.scan` (line-anchored,
+        // leading-30-lines) — the SAME routine the resolver uses — not a raw
+        // `source.contains("// parent:")`. A `// parent:` appearing as a
+        // trailing comment (not a line-anchored directive) is NOT a parent
+        // chain: the resolver would not act on it, so the consumer stays on the
+        // fast path. The old substring match wrongly forced eval here.
+        let source = """
+            // swift-linter-tools-version: 0.1
+            import Linter
+            import Linter_Primitives_Rules
+
+            Lint.run(dependencies: [
+                .package(path: "../swift-primitives-linter-rules", products: ["Linter Primitives Rules"])
+            ]) {
+                Lint.Rule.Bundle.primitives  // not a // parent: directive, just prose
+            }
+            """
+        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle)
+    }
+
+    @Test
     func `Source without a run call falls back to eval`() {
         let source = """
             // swift-linter-tools-version: 0.1

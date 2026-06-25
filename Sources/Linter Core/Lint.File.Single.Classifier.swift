@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 internal import Linter_Primitives
+internal import Manifest_Primitives
 internal import SwiftParser
 internal import SwiftSyntax
 
@@ -58,15 +59,32 @@ extension Lint.File.Single.Classifier {
     /// latest-`main` set is handled separately by the runner's
     /// composite cache key ([CI-044]), not here.
     public static func classify(source: Swift.String) -> Lint.File.Single.Classification {
+        Self.classify(source: source, parsed: Parser.parse(source: source))
+    }
+
+    /// Classify a consumer's `Lint.swift` from a PRE-PARSED tree, so the
+    /// dispatch pipeline can parse `Lint.swift` exactly ONCE and thread the
+    /// same `parsed` tree to both this classifier and the dependency
+    /// ``Extractor``. `source` is still required for the byte-level
+    /// `// parent:` directive scan. The public ``classify(source:)`` is a thin
+    /// wrapper that parses, for callers (and tests) that hold only the text.
+    internal static func classify(
+        source: Swift.String,
+        parsed sourceFile: SourceFileSyntax
+    ) -> Lint.File.Single.Classification {
         // (1) A `// parent:` inheritance chain is not reproduced by the
-        // runner. Reject conservatively before any parsing.
-        if source.contains("// parent:") {
+        // runner. Recognise the directive with the SAME routine the parent
+        // resolver uses (`Manifest.Parent.scan`) — line-anchored and bounded to
+        // the leading 30 lines — rather than a raw `source.contains` substring
+        // match, which would also fire on the text appearing mid-line or in a
+        // string/comment far below the header. Single source of truth for the
+        // directive grammar.
+        if Manifest_Primitives.Manifest.Parent.scan(in: source) != nil {
             return .evalFallback(reason: "consumer declares a `// parent:` inheritance chain")
         }
 
         // (2) The rule closure must be exactly the baked bundle.
-        let sourceFile: SourceFileSyntax = Parser.parse(source: source)
-        guard let runCall: FunctionCallExprSyntax = Self.findRunCall(in: sourceFile) else {
+        guard let runCall: FunctionCallExprSyntax = Lint.File.Single.RunCall.find(in: sourceFile) else {
             return .evalFallback(reason: "no top-level `Lint.run(...)` call expression")
         }
         guard let closure: ClosureExprSyntax = Self.ruleClosure(of: runCall) else {
@@ -169,35 +187,6 @@ extension Lint.File.Single.Classifier {
         if slice.first == "`" { slice = slice.dropFirst() }
         if slice.last == "`" { slice = slice.dropLast() }
         return Swift.String(slice)
-    }
-
-    /// Find the first top-level `Lint.run(...)` / `run(...)` call. Mirrors
-    /// the recognition in ``Lint/File/Single/Extractor`` so the same call
-    /// the dependency extractor reads is the one classified.
-    fileprivate static func findRunCall(in sourceFile: SourceFileSyntax) -> FunctionCallExprSyntax? {
-        for item in sourceFile.statements {
-            guard let expr: ExprSyntax = item.item.as(ExprSyntax.self) else { continue }
-            guard let call: FunctionCallExprSyntax = expr.as(FunctionCallExprSyntax.self) else { continue }
-            if Self.isLintRunCall(call) {
-                return call
-            }
-        }
-        return nil
-    }
-
-    /// Match `Lint.run(...)` (qualified) or `run(...)` (unqualified).
-    fileprivate static func isLintRunCall(_ call: FunctionCallExprSyntax) -> Swift.Bool {
-        if let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self) {
-            guard member.declName.baseName.text == "run" else { return false }
-            guard let base: DeclReferenceExprSyntax = member.base?.as(DeclReferenceExprSyntax.self) else {
-                return true
-            }
-            return base.baseName.text == "Lint"
-        }
-        if let ref: DeclReferenceExprSyntax = call.calledExpression.as(DeclReferenceExprSyntax.self) {
-            return ref.baseName.text == "run"
-        }
-        return false
     }
 
     /// The rule-activation closure of a `Lint.run(...)` call — the

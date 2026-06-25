@@ -55,8 +55,24 @@ extension Lint.File.Single.Extractor {
         sourcePath: File.Path,
         consumerPackageRoot: File.Path
     ) throws(Lint.File.Single.Error) -> [Package.Dependency] {
-        let sourceFile: SourceFileSyntax = Parser.parse(source: source)
-        guard let runCall: FunctionCallExprSyntax = findRunCall(in: sourceFile) else {
+        try Self.dependencies(
+            parsed: Parser.parse(source: source),
+            sourcePath: sourcePath,
+            consumerPackageRoot: consumerPackageRoot
+        )
+    }
+
+    /// Extract `.package(...)` declarations from a PRE-PARSED tree, so the
+    /// dispatch pipeline can parse `Lint.swift` exactly ONCE and thread the
+    /// same tree to both the ``Classifier`` and this extractor. The public
+    /// ``dependencies(from:sourcePath:consumerPackageRoot:)`` is a thin wrapper
+    /// that parses, for callers (and tests) that hold only the text.
+    internal static func dependencies(
+        parsed sourceFile: SourceFileSyntax,
+        sourcePath: File.Path,
+        consumerPackageRoot: File.Path
+    ) throws(Lint.File.Single.Error) -> [Package.Dependency] {
+        guard let runCall: FunctionCallExprSyntax = Lint.File.Single.RunCall.find(in: sourceFile) else {
             throw .dependenciesNotFound(
                 path: sourcePath,
                 description: "no top-level Lint.run(...) call expression found in source"
@@ -92,36 +108,6 @@ extension Lint.File.Single.Extractor {
             deps.append(dep)
         }
         return deps
-    }
-
-    /// Find the first top-level expression that is a `Lint.run(...)`
-    /// or unqualified `run(...)` function call.
-
-    fileprivate static func findRunCall(in sourceFile: SourceFileSyntax) -> FunctionCallExprSyntax? {
-        for item in sourceFile.statements {
-            guard let expr: ExprSyntax = item.item.as(ExprSyntax.self) else { continue }
-            guard let call: FunctionCallExprSyntax = expr.as(FunctionCallExprSyntax.self) else { continue }
-            if Self.isLintRunCall(call) {
-                return call
-            }
-        }
-        return nil
-    }
-
-    /// Match `Lint.run(...)` (qualified) or `run(...)` (unqualified).
-
-    fileprivate static func isLintRunCall(_ call: FunctionCallExprSyntax) -> Swift.Bool {
-        if let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self) {
-            guard member.declName.baseName.text == "run" else { return false }
-            guard let base: DeclReferenceExprSyntax = member.base?.as(DeclReferenceExprSyntax.self) else {
-                return true
-            }
-            return base.baseName.text == "Lint"
-        }
-        if let ref: DeclReferenceExprSyntax = call.calledExpression.as(DeclReferenceExprSyntax.self) {
-            return ref.baseName.text == "run"
-        }
-        return false
     }
 
     /// Parse a `.package(path:products:)` or
