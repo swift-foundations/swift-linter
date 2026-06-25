@@ -55,6 +55,54 @@ extension Lint.Reporter.Text {
         }
     }
 
+    /// Emit the always-on one-line run summary to `write` (the engine passes
+    /// **stderr** — stdout stays the pure diagnostic stream). Emitted on EVERY
+    /// run, including a 0-violation one, so a clean run is self-evidently a real
+    /// run rather than a silent no-op.
+    ///
+    /// Shape: `<package> · <K> active rules[ (−<M> excluded)] · <F> files linted · <V> violations`.
+    /// `K` is the *effective* active-rule count (after bundle composition AND
+    /// any runtime overlay/exclusions), so it reflects what actually ran; `M`
+    /// (the runtime-disabled count) annotates the overlay/exclusion case.
+    public static func emit(
+        summaryFor package: Swift.String,
+        activeRules: Swift.Int,
+        excludedRules: Swift.Int,
+        filesLinted: Swift.Int,
+        violations: Swift.Int,
+        to write: Terminal.Stream.Write
+    ) {
+        let line: Swift.String = summaryLine(
+            package: package,
+            activeRules: activeRules,
+            excludedRules: excludedRules,
+            filesLinted: filesLinted,
+            violations: violations
+        )
+        do throws(ISO_9945.Kernel.IO.Write.Error) {
+            _ = try write((line + "\n").utf8.lazy.map(Byte.init))
+        } catch {
+            // Best-effort stderr write; broken pipe acceptable.
+        }
+    }
+
+    /// Pure formatter for the run-summary line (no trailing newline). Split out
+    /// so the field composition is unit-testable without a write surface.
+    public static func summaryLine(
+        package: Swift.String,
+        activeRules: Swift.Int,
+        excludedRules: Swift.Int,
+        filesLinted: Swift.Int,
+        violations: Swift.Int
+    ) -> Swift.String {
+        let ruleSet: Swift.String = excludedRules > 0
+            ? "\(activeRules) active rules (−\(excludedRules) excluded)"
+            : "\(activeRules) active rules"
+        let fileWord: Swift.String = filesLinted == 1 ? "file" : "files"
+        let violationWord: Swift.String = violations == 1 ? "violation" : "violations"
+        return "\(package) · \(ruleSet) · \(filesLinted) \(fileWord) linted · \(violations) \(violationWord)"
+    }
+
     /// Format all findings as a single text block (one line per finding).
     ///
     /// Convenience for testing and for consumers that prefer batch

@@ -103,13 +103,21 @@ extension Lint.Run {
         /// surfaced one.
         public let suppressed: [Lint.Finding]
 
+        /// The number of source files the walker visited and the engine
+        /// parsed this run. Powers the always-on run summary (the
+        /// "<files linted>" field) so a clean run is self-evidently a real
+        /// run rather than a silent no-op.
+        public let filesLinted: Swift.Int
+
         @inlinable
         public init(
             findings: [Lint.Finding] = [],
-            suppressed: [Lint.Finding] = []
+            suppressed: [Lint.Finding] = [],
+            filesLinted: Swift.Int = 0
         ) {
             self.findings = findings
             self.suppressed = suppressed
+            self.filesLinted = filesLinted
         }
     }
 
@@ -139,10 +147,12 @@ extension Lint.Run {
         var manager = Source.Manager()
         var findings: [Lint.Finding] = []
         var suppressed: [Lint.Finding] = []
+        var filesLinted: Swift.Int = 0
         for root in paths {
             let sourcePaths = Lint.Source.Walker.paths(under: root)
             for sourcePath in sourcePaths {
                 let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager)
+                filesLinted += 1
                 let suppression = Lint.Suppression.scan(
                     tree: parsed.tree,
                     converter: parsed.converter
@@ -177,7 +187,7 @@ extension Lint.Run {
                 }
             }
         }
-        return Outcome(findings: findings, suppressed: suppressed)
+        return Outcome(findings: findings, suppressed: suppressed, filesLinted: filesLinted)
     }
 
     /// Reads, parses, and registers the source file at

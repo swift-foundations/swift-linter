@@ -126,8 +126,27 @@ extension Lint {
             return
         }
         do throws(Lint.Run.Error) {
-            let findings: [Lint.Finding] = try Lint.Run.run(paths: consumerPaths, configuration: configuration)
-            Lint.Reporter.Text.emit(findings: findings, to: Terminal.Stream.stdout.write)
+            let outcome: Lint.Run.Outcome = try Lint.Run.run(
+                paths: consumerPaths,
+                configuration: configuration,
+                capturing: .all
+            )
+            Lint.Reporter.Text.emit(findings: outcome.findings, to: Terminal.Stream.stdout.write)
+            // Always-on run summary to STDERR — stdout stays the pure diagnostic
+            // stream. This is the shared terminal both the prebuilt runner
+            // (`run(bundle:)`) and the eval-compiled executable
+            // (`run(dependencies:)`) funnel through, so one emission covers both
+            // paths. `effective` reflects the rule set AFTER bundle composition
+            // and any runtime overlay/exclusions — i.e. what actually ran.
+            let package: Swift.String = consumerPaths.first?.components.last?.string ?? "."
+            Lint.Reporter.Text.emit(
+                summaryFor: package,
+                activeRules: configuration.rules.effective.entries.count,
+                excludedRules: configuration.rules.effective.disabled.count,
+                filesLinted: outcome.filesLinted,
+                violations: outcome.findings.count,
+                to: Terminal.Stream.stderr.write
+            )
         } catch {
             print("[Lint] error: \(error)")
         }
