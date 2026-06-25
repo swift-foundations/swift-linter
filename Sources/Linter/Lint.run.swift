@@ -81,9 +81,32 @@ internal import Terminal_Primitives
 extension Lint {
     /// Run the linter with a bundle of rule configurations.
     ///
-    /// Equivalent to `run(configuration: Lint.Configuration { bundle })`.
+    /// Equivalent to `run(configuration: Lint.Configuration { bundle })`,
+    /// EXCEPT when a runtime selection manifest is provisioned (the Phase-3
+    /// fast path — `SWIFT_LINTER_SELECTION_MANIFEST`). A pure-bundle consumer
+    /// that activates `Bundle.primitives.excluding(rules: [...])` is routed to
+    /// the prebuilt standard runner (which bakes the *full* bundle); the CLI
+    /// passes the consumer's exclusions as a ``Lint/Manifest``, and this method
+    /// overlays them on the baked registry via
+    /// ``Lint/Configuration/lift(manifest:registry:inheriting:)`` so the runner
+    /// lints `bundle` MINUS the consumer's `disabled` IDs. Absent the env var
+    /// (every bare-bundle consumer, and local runs) the behaviour is unchanged.
     public static func run(bundle: [Lint.Rule.Configuration]) {
-        run(configuration: Lint.Configuration { bundle })
+        let base: Lint.Configuration = Lint.Configuration { bundle }
+        guard let selection: Lint.Manifest = Lint.File.Single.selectionManifest() else {
+            run(configuration: base)
+            return
+        }
+        var registry: [Lint.Rule.ID: Lint.Rule] = [:]
+        for entry in bundle {
+            registry[entry.rule.id] = entry.rule
+        }
+        let overlaid: Lint.Configuration = Lint.Configuration.lift(
+            manifest: selection,
+            registry: registry,
+            inheriting: base
+        )
+        run(configuration: overlaid)
     }
 
     /// Run the linter with a complete configuration.

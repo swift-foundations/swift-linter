@@ -322,7 +322,19 @@ extension Lint.File.Single {
             case .fastPathStandardBundle:
                 return try Self.runStandardRunner(
                     binary: runnerBinary,
-                    consumerPackageRoot: consumerPackageRoot
+                    consumerPackageRoot: consumerPackageRoot,
+                    selection: nil
+                )
+            case .fastPathStandardBundleExcluding(let disabled):
+                // The consumer activates Bundle.primitives minus `disabled`.
+                // Pass that selection to the runner as a Lint.Manifest; the
+                // runner overlays it on its baked registry so it lints exactly
+                // the consumer's reduced rule set (Bundle.primitives MINUS the
+                // exclusions) — no per-run recompile.
+                return try Self.runStandardRunner(
+                    binary: runnerBinary,
+                    consumerPackageRoot: consumerPackageRoot,
+                    selection: Lint.Manifest(disabled: disabled)
                 )
             case .evalFallback:
                 break  // fall through to the eval pipeline
@@ -432,15 +444,36 @@ extension Lint.File.Single {
     /// A terminating signal `s` is encoded as `-s`, matching
     /// ``dispatch(at:arguments:)``'s eval-path convention, so callers
     /// distinguish abnormal termination from a non-zero exit.
+    ///
+    /// When `selection` is non-`nil` (a pure-bundle consumer with
+    /// `.excluding(rules:)`), it is serialized to
+    /// `<consumerRoot>/.swift-lint/selection-manifest.json` and the path is
+    /// passed to the runner via the `SWIFT_LINTER_SELECTION_MANIFEST`
+    /// environment variable; the runner's `Lint.run(bundle:)` overlays it on
+    /// its baked registry so it lints `Bundle.primitives` minus the consumer's
+    /// exclusions. `nil` runs the full baked bundle (bare-bundle consumer).
     fileprivate static func runStandardRunner(
         binary: Swift.String,
-        consumerPackageRoot: File.Path
+        consumerPackageRoot: File.Path,
+        selection: Lint.Manifest?
     ) throws(Lint.File.Single.Error) -> Swift.Int32 {
+        let environment: [Swift.String: Swift.String]?
+        if let selection: Lint.Manifest = selection {
+            let manifestPath: File.Path = try Self.writeSelectionManifest(
+                selection,
+                consumerPackageRoot: consumerPackageRoot
+            )
+            var snapshot: Environment.Snapshot = Environment.Snapshot.current()
+            snapshot.values["SWIFT_LINTER_SELECTION_MANIFEST"] = manifestPath.string
+            environment = snapshot.values
+        } else {
+            environment = nil  // inherit the parent environment
+        }
         let invocation: [Swift.String] = [binary, consumerPackageRoot.string]
         let spawnConfiguration = Process.Spawn.Configuration(
             executable: "/usr/bin/env",
             arguments: invocation,
-            environment: nil
+            environment: environment
         )
         let status: Process.Status
         do throws(Process.Error) {
@@ -456,6 +489,70 @@ extension Lint.File.Single {
         case .signaled(let signal): return -signal
         case .stopped(let signal): return -signal
         }
+    }
+
+    /// Serialize a runtime selection ``Lint/Manifest`` to
+    /// `<consumerRoot>/.swift-lint/selection-manifest.json` and return its
+    /// path. Mirrors ``resolveParentChain``'s self-creating atomic-write shape.
+    fileprivate static func writeSelectionManifest(
+        _ manifest: Lint.Manifest,
+        consumerPackageRoot: File.Path
+    ) throws(Lint.File.Single.Error) -> File.Path {
+        let directory: File.Path = consumerPackageRoot / ".swift-lint"
+        do throws(File.System.Create.Directory.Error) {
+            try File.Directory(directory).create.recursive()
+        } catch {
+            throw .materializationFailed(reason: "create directory \(directory.string): \(error)")
+        }
+        let path: File.Path = directory / "selection-manifest.json"
+        let json: Swift.String = Lint.Manifest.serialize(manifest).jsonString()
+        do throws(File.System.Write.Atomic.Error) {
+            try File(path).write.atomic(json)
+        } catch {
+            throw .materializationFailed(reason: "write selection manifest \(path.string): \(error)")
+        }
+        return path
+    }
+
+    /// Dispatched-runner side of the selection-overlay mechanism: read the
+    /// runtime selection ``Lint/Manifest`` from the JSON file at the path in
+    /// the `SWIFT_LINTER_SELECTION_MANIFEST` environment variable.
+    ///
+    /// Returns the manifest when the env var is set AND the file reads +
+    /// parses successfully; `nil` otherwise (no overlay — the runner lints its
+    /// full baked bundle). Failures are silent on the runner side; the
+    /// coordinator surfaces write failures via the dispatch result. Distinct
+    /// from ``configuration(parentOf:)`` (the `// parent:` inheritance chain) —
+    /// this is the fast-path consumer's own `.excluding(rules:)` selection.
+    public static func selectionManifest() -> Lint.Manifest? {
+        guard let raw: Swift.String = Environment.read("SWIFT_LINTER_SELECTION_MANIFEST") else {
+            return nil
+        }
+        let path: File.Path
+        do throws(Paths.Path.Error) {
+            path = try File.Path(raw)
+        } catch {
+            return nil
+        }
+        let source: Swift.String
+        do throws(File.System.Read.Full.Error) {
+            source = try Self.readFile(at: path)
+        } catch {
+            return nil
+        }
+        let parsed: JSON
+        do throws(JSON.Error) {
+            parsed = try JSON.parse(source)
+        } catch {
+            return nil
+        }
+        let manifest: Lint.Manifest
+        do throws(JSON.Error) {
+            manifest = try Lint.Manifest.deserialize(parsed)
+        } catch {
+            return nil
+        }
+        return manifest
     }
 
     /// Walk the parent chain expressed in `consumerSource` and write

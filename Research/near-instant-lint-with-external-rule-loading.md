@@ -480,29 +480,35 @@ pieces:
    underlying primitive changed (rare) would not bust the key until the rule
    pack itself is re-committed. Surfaced for principal awareness.
 
-**Coverage (verified census 2026-06-25, classifier-accurate):** of 77 consumer
-`Lint.swift` files, the v1 classifier routes **63 (82%)** to the fast path
-(bare `Lint.Rule.Bundle.primitives`, no parent chain) and the other 14 to the
-eval fallback: **8 excludes-only** (`Bundle.primitives.excluding(rules:)`),
-**5 bare-`institute`/`universal`** (a different baked bundle than the primitives
-runner — would over-report, so they fall back), and **1 inline-rule** consumer
-(carrier). 0 consumers use `// parent:`. The classifier is correct for all 77
-(every fallback still lints via the unchanged eval path) and fast for the bare-
-primitives majority. The excludes-only 8 are reachable via the runtime-selection
-overlay below (→ 71/77); the 5 non-primitives bare consumers would need either
-that overlay generalized to any bundle, or per-bundle runners (variant 3-ii).
+**Coverage (verified census 2026-06-25, classifier-accurate).** Of 77 consumer
+`Lint.swift` files: **63** activate bare `Lint.Rule.Bundle.primitives` and **8**
+activate `Bundle.primitives.excluding(rules:)`. With the v1.1 selection overlay
+(below) BOTH route to the fast path → **71/77 (92%)**. The remaining 6 take the
+eval fallback: **5 bare-`institute`/`universal`** (a different baked bundle than
+the primitives runner — would over-report, so they fall back) and **1 inline-
+rule** consumer (carrier). 0 consumers use `// parent:`. The classifier is
+correct for all 77 (every fallback still lints via the unchanged eval path).
+The 5 non-primitives bare consumers would need the overlay generalized to any
+bundle, or per-bundle runners (variant 3-ii).
 
-**Runtime-selection overlay (the bounded next step, NOT yet built — surfaced for
-ratification).** To bring the 8 excludes-only consumers onto the fast path, the
-CLI would extract each consumer's `.excluding(rules:)`/`.disable(...)` rule IDs
-into a `Lint.Manifest` and pass it to the runner, which overlays it on the baked
-`Bundle.primitives` registry via the **existing** `Lint.Configuration.lift` +
-`inheriting:` machinery (the same mechanism the `// parent:` chain already uses).
-This is the research-doc-ratified "selection as runtime config"; it stays
-failure-safe (any unparseable selection ⇒ eval fallback) and adds a small,
-bounded AST extraction. It is held back from v1 because closure-selection
-extraction is correctness-critical on an advisory gate and is best ratified
-alongside the rebuild-cadence call.
+**Runtime-selection overlay — v1.1, BUILT (`Verified: 2026-06-25`; on branch,
+unpushed, holding for principal ratification).** Brings the 8 excludes-only
+consumers onto the fast path (63 → 71/77). The CLI classifier extracts each
+consumer's `.excluding(rules: [...])` IDs — both forms: bare string literals
+(`"raw value access"`) and typed `.id` accessors (`Lint.Rule.`raw value access`.id`,
+whose backtick name == its `id:` string, verified 97/97 across the rule packs) —
+into a `Lint.Manifest`, written to `.swift-lint/selection-manifest.json` and
+passed to the runner via `SWIFT_LINTER_SELECTION_MANIFEST`. The runner's
+`Lint.run(bundle:)` overlays it on its baked registry via the **existing**
+`Lint.Configuration.lift(manifest:registry:inheriting:)` (the same mechanism the
+`// parent:` chain uses), linting `Bundle.primitives` MINUS the consumer's
+exclusions. **Correctness gate (the whole risk):** extraction is exact or the
+consumer drops to the eval fallback — a single unreadable array element fails
+the *entire* extraction (`bakedBundleExclusions` returns `nil`), so a dropped
+exclusion can never silently fire an excluded rule. Covered by per-form unit
+tests (exact disabled-set assertions; mis-extraction fails the test) plus an
+unreadable-element → fallback test. Default behaviour unchanged for the 63 bare
+consumers (no selection env var ⇒ full baked bundle).
 
 ### What each sub-question resolves to
 
@@ -545,10 +551,14 @@ alongside the rebuild-cadence call.
    *This is the standing HOLD:* the build ships A-dynamic; switching to A-pinned
    is the principal's call, informed by rule-pack commit frequency / warm-hit
    telemetry. Variant **3-i (one combined runner)** is the implemented choice.
-2. **Runtime-selection overlay** — broadens the fast path from the 68 bare-bundle
-   consumers to the 8 excludes-only consumers via the existing `Lint.Manifest` +
-   `lift`/`inheriting:` machinery (see Phase-3-implemented §). Bounded,
-   failure-safe, correctness-critical AST extraction — ratify alongside cadence.
+2. **Runtime-selection overlay (v1.1) — BUILT, on branch, unpushed.** Broadens
+   the fast path from the 63 bare-bundle consumers to the 8 excludes-only
+   consumers (→ 71/77) via the existing `Lint.Manifest` + `lift`/`inheriting:`
+   machinery (see Phase-3-implemented §). Failure-safe; exact extraction or eval
+   fallback. Verified end-to-end (bare carrier = 7 `int public parameter`
+   findings; overlay disabling it = 0; a different rule still fires). Ratify to
+   push (it bumps the engine HEAD → the composite key busts → the runner
+   rebuilds once with the overlay-aware `run(bundle:)`, then warm).
 3. **carrier-primitives' inline rule** — keep on the eval path, or promote to a
    published pack so it joins the fast path? (Recommended: promote; small,
    aligns with modularization. Until then carrier correctly takes the eval

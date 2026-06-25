@@ -9,6 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
+import Linter_Primitives
 import Testing
 @testable import Linter_Core
 
@@ -33,6 +34,15 @@ extension Lint.File.Single.Classifier.Test {
     private func isEvalFallback(_ classification: Lint.File.Single.Classification) -> Swift.Bool {
         if case .evalFallback = classification { return true }
         return false
+    }
+
+    /// Pattern helper — extract the excluded ID set, or `nil` if the
+    /// classification is not `.fastPathStandardBundleExcluding`.
+    private func excluded(
+        _ classification: Lint.File.Single.Classification
+    ) -> Swift.Set<Lint.Rule.ID>? {
+        if case .fastPathStandardBundleExcluding(let disabled) = classification { return disabled }
+        return nil
     }
 
     @Test
@@ -68,8 +78,9 @@ extension Lint.File.Single.Classifier.Test {
     }
 
     @Test
-    func `Excluding-rules selection falls back to eval`() {
-        // swift-cardinal-primitives shape: bundle minus per-package excludes.
+    func `Excluding with string-literal IDs is fast path with exact exclusions`() {
+        // swift-ordinal-primitives shape: bundle minus per-package excludes,
+        // expressed as bare `Lint.Rule.ID` string literals.
         let source = """
             // swift-linter-tools-version: 0.1
             import Linter
@@ -79,8 +90,98 @@ extension Lint.File.Single.Classifier.Test {
                 .package(path: "../swift-primitives-linter-rules", products: ["Linter Primitives Rules"])
             ]) {
                 Lint.Rule.Bundle.primitives.excluding(rules: [
-                    Lint.Rule.`raw value access`.id,
+                    "raw value access",
+                    "chained rawvalue access",
+                    "int public parameter",
+                    "pointer advanced by",
                 ])
+            }
+            """
+        let expected: Swift.Set<Lint.Rule.ID> = [
+            "raw value access", "chained rawvalue access", "int public parameter", "pointer advanced by",
+        ]
+        #expect(excluded(Lint.File.Single.Classifier.classify(source: source)) == expected)
+    }
+
+    @Test
+    func `Excluding with .id-accessor IDs is fast path with exact exclusions`() {
+        // swift-cardinal-primitives shape: typed `Lint.Rule.`name`.id` accessors.
+        // The backtick name == the rule's `id:` string (institute convention).
+        let source = """
+            // swift-linter-tools-version: 0.1
+            import Linter
+            import Linter_Primitives_Rules
+            import Primitives_Linter_Rule_RawValue
+
+            Lint.run(dependencies: [
+                .package(path: "../swift-primitives-linter-rules", products: ["Linter Primitives Rules"])
+            ]) {
+                Lint.Rule.Bundle.primitives.excluding(rules: [
+                    Lint.Rule.`raw value access`.id,
+                    Lint.Rule.`chained rawvalue access`.id,
+                    Lint.Rule.`unchecked call site`.id,
+                ])
+            }
+            """
+        let expected: Swift.Set<Lint.Rule.ID> = [
+            "raw value access", "chained rawvalue access", "unchecked call site",
+        ]
+        #expect(excluded(Lint.File.Single.Classifier.classify(source: source)) == expected)
+    }
+
+    @Test
+    func `Excluding with mixed string and .id forms extracts both exactly`() {
+        let source = """
+            // swift-linter-tools-version: 0.1
+            import Linter
+            import Linter_Primitives_Rules
+
+            Lint.run(dependencies: [
+                .package(path: "../swift-primitives-linter-rules", products: ["Linter Primitives Rules"])
+            ]) {
+                Lint.Rule.Bundle.primitives.excluding(rules: [
+                    "raw value access",
+                    Lint.Rule.`pointer advanced by`.id,
+                ])
+            }
+            """
+        let expected: Swift.Set<Lint.Rule.ID> = ["raw value access", "pointer advanced by"]
+        #expect(excluded(Lint.File.Single.Classifier.classify(source: source)) == expected)
+    }
+
+    @Test
+    func `Excluding with an unreadable element falls back to eval (never guess)`() {
+        // A computed/interpolated element the classifier cannot read exactly
+        // must drop the WHOLE consumer to the eval fallback — a partially-
+        // extracted exclusion set would silently fire an excluded rule.
+        let source = """
+            // swift-linter-tools-version: 0.1
+            import Linter
+            import Linter_Primitives_Rules
+
+            Lint.run(dependencies: [
+                .package(path: "../swift-primitives-linter-rules", products: ["Linter Primitives Rules"])
+            ]) {
+                Lint.Rule.Bundle.primitives.excluding(rules: [
+                    "raw value access",
+                    someComputedRuleID(),
+                ])
+            }
+            """
+        #expect(isEvalFallback(Lint.File.Single.Classifier.classify(source: source)))
+    }
+
+    @Test
+    func `Excluding with an empty list falls back to eval`() {
+        let source = """
+            // swift-linter-tools-version: 0.1
+            import Linter
+            import Linter_Primitives_Rules
+
+            Lint.run(dependencies: [
+                .package(path: "../swift-primitives-linter-rules", products: ["Linter Primitives Rules"])
+            ]) {
+                Lint.Rule.Bundle.primitives.excluding(rules: [])
             }
             """
         #expect(isEvalFallback(Lint.File.Single.Classifier.classify(source: source)))
