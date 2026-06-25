@@ -27,6 +27,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/swift-primitives/swift-ascii-primitives.git", branch: "main"),
+        .package(url: "https://github.com/swift-primitives/swift-cardinal-primitives.git", branch: "main"),
         .package(url: "https://github.com/swift-primitives/swift-glob-primitives.git", branch: "main"),
         .package(url: "https://github.com/swift-primitives/swift-linter-primitives.git", branch: "main"),
         .package(url: "https://github.com/swift-primitives/swift-manifest-primitives.git", branch: "main"),
@@ -51,6 +52,7 @@ let package = Package(
         .target(
             name: "Linter Reporter Text",
             dependencies: [
+                .product(name: "Cardinal Primitives", package: "swift-cardinal-primitives"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
                 .product(
@@ -88,6 +90,7 @@ let package = Package(
             name: "Linter Core",
             dependencies: [
                 .product(name: "ASCII Primitives", package: "swift-ascii-primitives"),
+                .product(name: "Cardinal Primitives", package: "swift-cardinal-primitives"),
                 .product(name: "Glob Primitives", package: "swift-glob-primitives"),
                 .product(name: "Glob Primitives Standard Library Integration", package: "swift-glob-primitives"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
@@ -114,6 +117,7 @@ let package = Package(
                 "Linter Core",
                 "Linter Reporter Text",
                 "Linter Reporter SARIF",
+                .product(name: "Cardinal Primitives", package: "swift-cardinal-primitives"),
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "Package Primitives", package: "swift-package-primitives"),
                 .product(name: "Process", package: "swift-process"),
@@ -137,6 +141,7 @@ let package = Package(
                 "Linter Core",
                 "Linter Reporter Text",
                 "Linter Reporter SARIF",
+                .product(name: "Cardinal Primitives", package: "swift-cardinal-primitives"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "URI Standard", package: "swift-uri-standard"),

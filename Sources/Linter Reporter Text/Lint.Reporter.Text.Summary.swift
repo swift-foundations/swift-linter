@@ -9,6 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import Cardinal_Primitives
 public import Linter_Primitives
 
 extension Lint.Reporter.Text {
@@ -28,18 +29,26 @@ extension Lint.Reporter.Text.Summary {
     /// `K` is the *effective* active-rule count (after bundle composition AND
     /// any runtime overlay/exclusions), so it reflects what actually ran; `M`
     /// (the runtime-disabled count) annotates the overlay/exclusion case.
+    ///
+    /// The four counts are typed `Tagged<Domain, Cardinal>` (a *cardinal of
+    /// rules / source files / findings*) per `[IMPL-010]`. They spell the same
+    /// underlying types as Linter Core's `Lint.Rule.Count` / `Lint.Source.Count`
+    /// / `Lint.Finding.Count` aliases; Reporter Text cannot import Linter Core
+    /// (sibling targets), so the `Tagged<…>` form is written out. `Cardinal`'s
+    /// `CustomStringConvertible` (Cardinal Primitives SLI) forwards through
+    /// `Tagged`, so the counts interpolate to their decimal `rawValue` directly.
     public static func line(
         package: Swift.String,
-        activeRules: Swift.Int,
-        excludedRules: Swift.Int,
-        filesLinted: Swift.Int,
-        violations: Swift.Int
+        activeRules: Tagged<Lint.Rule, Cardinal>,
+        excludedRules: Tagged<Lint.Rule, Cardinal>,
+        filesLinted: Tagged<Lint.Source, Cardinal>,
+        violations: Tagged<Lint.Finding, Cardinal>
     ) -> Swift.String {
-        let ruleSet: Swift.String = excludedRules > 0
+        let ruleSet: Swift.String = excludedRules > .zero
             ? "\(activeRules) active rules (−\(excludedRules) excluded)"
             : "\(activeRules) active rules"
-        let fileWord: Swift.String = filesLinted == 1 ? "file" : "files"
-        let violationWord: Swift.String = violations == 1 ? "violation" : "violations"
+        let fileWord: Swift.String = filesLinted == .one ? "file" : "files"
+        let violationWord: Swift.String = violations == .one ? "violation" : "violations"
         return "\(package) · \(ruleSet) · \(filesLinted) \(fileWord) linted · \(violations) \(violationWord)"
     }
 }

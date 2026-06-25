@@ -9,6 +9,7 @@
 //
 // ===----------------------------------------------------------------------===//
 
+internal import Cardinal_Primitives
 internal import File_System
 public import Linter_Primitives
 internal import Process
@@ -163,12 +164,16 @@ extension Lint {
             // paths. `effective` reflects the rule set AFTER bundle composition
             // and any runtime overlay/exclusions — i.e. what actually ran.
             let package: Swift.String = consumerPaths.first?.components.last?.string ?? "."
+            // `.count` is the stdlib boundary where the typed counts enter:
+            // `Tagged<Domain, Cardinal>(_: UInt)` (Cardinal Tagged Primitives)
+            // wraps each non-negative `Array.count`. `outcome.filesLinted` is
+            // already typed (`Lint.Source.Count`).
             Lint.Reporter.Text.emit(
                 summaryFor: package,
-                activeRules: configuration.rules.effective.entries.count,
-                excludedRules: configuration.rules.effective.disabled.count,
+                activeRules: Lint.Rule.Count(UInt(configuration.rules.effective.entries.count)),
+                excludedRules: Lint.Rule.Count(UInt(configuration.rules.effective.disabled.count)),
                 filesLinted: outcome.filesLinted,
-                violations: outcome.findings.count,
+                violations: Lint.Finding.Count(UInt(outcome.findings.count)),
                 to: Terminal.Stream.stderr.write
             )
         } catch {

@@ -9,6 +9,9 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import Cardinal_Primitives
+public import Linter_Primitives
+
 extension Lint.Run {
     /// Outcome of a lint run that distinguishes the surfaced findings
     /// from those elided by per-finding ``Lint/Suppression`` directives.
@@ -38,17 +41,21 @@ extension Lint.Run {
         /// parsed this run. Powers the always-on run summary (the
         /// "<files linted>" field) so a clean run is self-evidently a real
         /// run rather than a silent no-op.
+        ///
+        /// Typed `Lint.Source.Count` (`Tagged<Lint.Source, Cardinal>`) rather
+        /// than a bare `Int` — a *cardinal of source files* — so the public
+        /// Outcome surface reads typed intent (`[IMPL-010]`).
         // swift-linter:disable:next compound identifier
         // REASON: a stored scalar count on the public Outcome value type; a nested-accessor
-        // rename (`files.linted`) is disproportionate for an Int and would churn the public
+        // rename (`files.linted`) is disproportionate for a count and would churn the public
         // Outcome API + the run-summary call sites without improving the surface ([API-NAME-002]).
-        public let filesLinted: Swift.Int
+        public let filesLinted: Lint.Source.Count
 
         @inlinable
         public init(
             findings: [Lint.Finding] = [],
             suppressed: [Lint.Finding] = [],
-            filesLinted: Swift.Int = 0
+            filesLinted: Lint.Source.Count = .zero
         ) {
             self.findings = findings
             self.suppressed = suppressed
