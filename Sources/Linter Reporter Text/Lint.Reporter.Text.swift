@@ -147,6 +147,12 @@ extension Lint.Reporter.Text {
         let body = "\(record.identifier): \(record.message)"
         let line = prefix + severity + body
         guard let visibility = finding.visibility else { return line }
-        return line + " [visibility: \(visibility.rawValue)]"
+        // swift-linter:disable:next raw value access
+        // REASON: `Lint.Visibility` is a `String`-backed `RawRepresentable` enum
+        // (`case public`/`internal`/…), NOT a Tagged newtype; `.rawValue` is the
+        // canonical access for its wire token at this text-display boundary. The
+        // rule's display/serialization disposition ([PATTERN-017]).
+        let token: Swift.String = visibility.rawValue
+        return line + " [visibility: \(token)]"
     }
 }

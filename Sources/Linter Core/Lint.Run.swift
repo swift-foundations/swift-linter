@@ -76,7 +76,7 @@ extension Lint.Run {
         paths: [File.Path],
         configuration: Lint.Configuration
     ) throws(Error) -> [Lint.Finding] {
-        let outcome = try run(paths: paths, configuration: configuration, capturing: .all)
+        let outcome = try run(paths: paths, capturing: .all, configuration: configuration)
         return outcome.findings
     }
 
@@ -91,10 +91,15 @@ extension Lint.Run {
     /// The rule-wide-disable axis is honored at
     /// ``Lint/Configuration/Rules/effective`` — rule IDs in
     /// ``Lint/Configuration/Rules/disabled`` never reach this loop.
+    ///
+    /// `configuration` sits LAST (after the `capturing:` modifier) so the
+    /// configuration-bearing parameter is at the last non-closure position per
+    /// `[API-IMPL-014]` — `paths` is the primary domain input; the run is tuned
+    /// by `capturing:` and `configuration:`.
     public static func run(
         paths: [File.Path],
-        configuration: Lint.Configuration,
-        capturing capture: Capture
+        capturing capture: Capture,
+        configuration: Lint.Configuration
     ) throws(Error) -> Outcome {
         // Witness-shape engine. Each effective entry stores a `Lint.Rule`
         // witness with any per-rule path filter already folded in via
@@ -133,7 +138,7 @@ extension Lint.Run {
                             record: record,
                             visibility: visibility
                         )
-                        if suppression.suppresses(line: record.location.position.line, rule: ruleID) {
+                        if suppression.suppresses(line: record.location.line, rule: ruleID) {
                             if capture != .findings {
                                 suppressed.append(finding)
                             }

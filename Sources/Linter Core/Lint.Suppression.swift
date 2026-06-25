@@ -109,6 +109,12 @@ extension Lint.Suppression {
         for token in tree.tokens(viewMode: .sourceAccurate) {
             scanTrivia(
                 token.leadingTrivia,
+                // swift-linter:disable:next raw value access
+                // REASON: `token.position` is SwiftSyntax's `TokenSyntax.position`
+                // (the token's `AbsolutePosition` source offset), not a Tagged-newtype
+                // ordinal `.position`. The accessor-name match cannot distinguish the
+                // SwiftSyntax property from the ordinal accessor it targets ([PATTERN-017]);
+                // this is the legitimate SwiftSyntax boundary the trivia scanner walks from.
                 tokenStartPosition: token.position,
                 converter: converter,
                 tree: tree,

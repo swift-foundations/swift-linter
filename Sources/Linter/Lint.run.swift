@@ -153,8 +153,8 @@ extension Lint {
         do throws(Lint.Run.Error) {
             let outcome: Lint.Run.Outcome = try Lint.Run.run(
                 paths: consumerPaths,
-                configuration: configuration,
-                capturing: .all
+                capturing: .all,
+                configuration: configuration
             )
             Lint.Reporter.Text.emit(findings: outcome.findings, to: Terminal.Stream.stdout.write)
             // Always-on run summary to STDERR — stdout stays the pure diagnostic

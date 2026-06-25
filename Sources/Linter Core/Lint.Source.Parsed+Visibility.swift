@@ -73,6 +73,12 @@ extension Lint.Source.Parsed {
         guard location.line >= 1, location.column >= 1 else { return nil }
         let lineStarts = converter.sourceLines
         guard location.line.underlying <= UInt(lineStarts.count) else { return nil }
+        // swift-linter:disable:next raw value access
+        // REASON: `converter.position(ofLine:column:)` is SwiftSyntax's documented
+        // reverse line:column -> AbsolutePosition lookup, not a Tagged-newtype
+        // `.position` rawValue access. The rule's accessor-name match cannot tell
+        // a SwiftSyntax method named `position` from the ordinal accessor it targets
+        // ([PATTERN-017]); this is the legitimate SwiftSyntax boundary.
         return converter.position(
             ofLine: Int(location.line.underlying),
             column: Int(bitPattern: location.column)

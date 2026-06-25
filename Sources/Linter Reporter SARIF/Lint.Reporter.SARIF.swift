@@ -107,9 +107,15 @@ extension Lint.Reporter.SARIF {
             ] as JSON),
         ]
         if let visibility = finding.visibility {
+            // swift-linter:disable:next raw value access
+            // REASON: `Lint.Visibility` is a `String`-backed `RawRepresentable` enum
+            // (`case public`/`internal`/…), NOT a Tagged newtype; `.rawValue` is the
+            // canonical access for its wire token at this SARIF serialization boundary.
+            // The rule's display/serialization disposition ([PATTERN-017]).
+            let token: Swift.String = visibility.rawValue
             fields.append((
                 "properties",
-                ["visibility": JSON(stringLiteral: visibility.rawValue)] as JSON
+                ["visibility": JSON(stringLiteral: token)] as JSON
             ))
         }
         return JSON.object(fields)
