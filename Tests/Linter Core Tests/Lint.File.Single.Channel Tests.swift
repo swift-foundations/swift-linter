@@ -9,7 +9,6 @@
 //
 // ===----------------------------------------------------------------------===//
 
-import Foundation
 import File_System
 import Testing
 @testable import Linter_Core
@@ -30,29 +29,28 @@ extension Lint.File.Single.Channel {
 //     silently drop a parent's rules.
 // The fail-loud SET path is exercised through `resolve(raw:)`, which is the
 // SET case in isolation (no process-env mutation required).
+//
+// Fixtures use the institute `File_System` temp APIs (Foundation-free per
+// [PRIM-FOUND-001]); a broken temp environment is a broken test, not a runtime
+// fault, so `try!` is the right shape for setup.
 
 extension Lint.File.Single.Channel.Test {
-    /// Foundation-backed fixture dir (tests are exempt from PRIM-FOUND). A
-    /// broken temp environment here is a broken test, not a runtime fault —
-    /// `try!` is the right shape, matching `Lint.Suppression Tests`.
-    private static func freshRoot() -> File.Path {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("lint-channel-fixture-\(UUID().uuidString)")
-        try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return try! File.Path(directory.path)
+    private static func freshRoot(key: Swift.String) -> File.Path {
+        try! File.Path.Temporary.deterministic(prefix: "lint-channel-root-", key: key, suffix: "")
     }
 
-    private static func writeFile(_ content: Swift.String) -> File.Path {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("lint-channel-file-\(UUID().uuidString)")
-        try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let file = directory.appendingPathComponent("manifest.json")
-        try! content.data(using: .utf8)!.write(to: file)
-        return try! File.Path(file.path)
+    private static func writeFixture(key: Swift.String, content: Swift.String) -> File.Path {
+        let path = try! File.Path.Temporary.deterministic(
+            prefix: "lint-channel-file-",
+            key: key,
+            suffix: ".json"
+        )
+        try! File(path).write.atomic(content)
+        return path
     }
 
     @Test
-    func `An UNSET channel variable reads as nil (no overlay)`() throws {
+    func `An UNSET channel variable reads as nil (no overlay)`() throws(Lint.File.Single.Channel.Error) {
         // A variable guaranteed unset in the test environment — only an UNSET
         // variable is a legitimate nil.
         let channel = Lint.File.Single.Channel(
@@ -84,7 +82,7 @@ extension Lint.File.Single.Channel.Test {
 
     @Test
     func `A SET-but-malformed manifest HARD-ERRORS as unparseable`() {
-        let path = Self.writeFile("this is not valid json {{{")
+        let path = Self.writeFixture(key: "malformed", content: "this is not valid json {{{")
         let channel = Lint.File.Single.Channel.parent
         do throws(Lint.File.Single.Channel.Error) {
             _ = try channel.resolve(raw: path.string)
@@ -100,8 +98,8 @@ extension Lint.File.Single.Channel.Test {
     }
 
     @Test
-    func `Write then resolve round-trips the manifest`() throws {
-        let root = Self.freshRoot()
+    func `Write then resolve round-trips the manifest`() throws(Lint.File.Single.Channel.Error) {
+        let root = Self.freshRoot(key: "roundtrip")
         let manifest = Lint.Manifest(disabled: ["raw value access", "int public parameter"])
         let written = try Lint.File.Single.Channel.selection.write(
             manifest,
@@ -113,7 +111,7 @@ extension Lint.File.Single.Channel.Test {
     }
 
     @Test
-    func `The nonce makes the temp-file name unique per run`() throws {
+    func `The nonce makes the temp-file name unique per run`() throws(Paths.Path.Error) {
         let root = try File.Path("/tmp/swift-linter-nonce-test")
         let fixed = try Lint.File.Single.Channel.selection.path(consumerPackageRoot: root, nonce: "")
         let unique = try Lint.File.Single.Channel.selection.path(consumerPackageRoot: root, nonce: "deadbeef")

@@ -84,7 +84,7 @@ extension Lint.File.Single.Classifier {
         }
 
         // (2) The rule closure must be exactly the baked bundle.
-        guard let runCall: FunctionCallExprSyntax = Lint.File.Single.RunCall.find(in: sourceFile) else {
+        guard let runCall: FunctionCallExprSyntax = Lint.File.Single.Invocation.find(in: sourceFile) else {
             return .evalFallback(reason: "no top-level `Lint.run(...)` call expression")
         }
         guard let closure: ClosureExprSyntax = Self.ruleClosure(of: runCall) else {

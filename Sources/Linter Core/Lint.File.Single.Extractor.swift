@@ -72,7 +72,7 @@ extension Lint.File.Single.Extractor {
         sourcePath: File.Path,
         consumerPackageRoot: File.Path
     ) throws(Lint.File.Single.Error) -> [Package.Dependency] {
-        guard let runCall: FunctionCallExprSyntax = Lint.File.Single.RunCall.find(in: sourceFile) else {
+        guard let runCall: FunctionCallExprSyntax = Lint.File.Single.Invocation.find(in: sourceFile) else {
             throw .dependenciesNotFound(
                 path: sourcePath,
                 description: "no top-level Lint.run(...) call expression found in source"

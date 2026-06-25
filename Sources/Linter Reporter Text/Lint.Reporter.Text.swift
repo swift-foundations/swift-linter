@@ -72,7 +72,7 @@ extension Lint.Reporter.Text {
         violations: Swift.Int,
         to write: Terminal.Stream.Write
     ) {
-        let line: Swift.String = summaryLine(
+        let line: Swift.String = Summary.line(
             package: package,
             activeRules: activeRules,
             excludedRules: excludedRules,
@@ -104,23 +104,6 @@ extension Lint.Reporter.Text {
         } catch {
             // Best-effort stderr write; broken pipe acceptable.
         }
-    }
-
-    /// Pure formatter for the run-summary line (no trailing newline). Split out
-    /// so the field composition is unit-testable without a write surface.
-    public static func summaryLine(
-        package: Swift.String,
-        activeRules: Swift.Int,
-        excludedRules: Swift.Int,
-        filesLinted: Swift.Int,
-        violations: Swift.Int
-    ) -> Swift.String {
-        let ruleSet: Swift.String = excludedRules > 0
-            ? "\(activeRules) active rules (−\(excludedRules) excluded)"
-            : "\(activeRules) active rules"
-        let fileWord: Swift.String = filesLinted == 1 ? "file" : "files"
-        let violationWord: Swift.String = violations == 1 ? "violation" : "violations"
-        return "\(package) · \(ruleSet) · \(filesLinted) \(fileWord) linted · \(violations) \(violationWord)"
     }
 
     /// Format all findings as a single text block (one line per finding).

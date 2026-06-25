@@ -90,27 +90,6 @@ extension Lint {
     }
 }
 
-extension Lint.Manifest {
-    /// Property.View on ``Lint/Manifest`` for rule-related leaves.
-    public struct Rules: Sendable, Hashable {
-        /// Rule IDs to activate at this manifest's layer.
-        public let enabled: Set<Lint.Rule.ID>
-
-        /// Rule IDs to deactivate at this manifest's layer. Layered
-        /// with parent inheritance per the Configuration's
-        /// ``Lint/Configuration/Rules/effective`` override semantics.
-        public let disabled: Set<Lint.Rule.ID>
-
-        public init(
-            enabled: Set<Lint.Rule.ID> = [],
-            disabled: Set<Lint.Rule.ID> = []
-        ) {
-            self.enabled = enabled
-            self.disabled = disabled
-        }
-    }
-}
-
 // MARK: - JSON.Serializable
 
 extension Lint.Manifest: JSON.Serializable {

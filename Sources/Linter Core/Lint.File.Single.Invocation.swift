@@ -12,7 +12,8 @@
 internal import SwiftSyntax
 
 extension Lint.File.Single {
-    /// Shared recognizer for the consumer's top-level `Lint.run(...)` call.
+    /// Shared recognizer for the consumer's top-level `Lint.run(...)`
+    /// invocation.
     ///
     /// Both the dependency ``Extractor`` and the fast-path ``Classifier`` must
     /// locate THE SAME `Lint.run(...)` (or unqualified `run(...)`) call in the
@@ -21,10 +22,13 @@ extension Lint.File.Single {
     /// the recognition here guarantees they operate on the same call and
     /// removes the byte-identical `findRunCall`/`isLintRunCall` duplication that
     /// previously lived in BOTH ``Extractor`` and ``Classifier``.
-    internal enum RunCall {}
+    ///
+    /// Named `Invocation` (not `RunCall`) per `[API-NAME-001]` — a single-word
+    /// nest member rather than a compound type name.
+    internal enum Invocation {}
 }
 
-extension Lint.File.Single.RunCall {
+extension Lint.File.Single.Invocation {
     /// Find the first top-level expression that is a `Lint.run(...)` or
     /// unqualified `run(...)` function call.
     internal static func find(in sourceFile: SourceFileSyntax) -> FunctionCallExprSyntax? {

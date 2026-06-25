@@ -13,7 +13,7 @@ import Linter_Primitives
 import Linter_Reporter_Text
 import Testing
 
-// MARK: - Lint.Reporter.Text.summaryLine(package:activeRules:excludedRules:filesLinted:violations:)
+// MARK: - Lint.Reporter.Text.Summary.line(package:activeRules:excludedRules:filesLinted:violations:)
 //
 // The always-on run summary's pure formatter. The emitted line goes to STDERR
 // (stdout stays the pure diagnostic stream — verified at the integration level
@@ -25,7 +25,7 @@ import Testing
 struct `Run summary line` {
     @Test
     func `Clean bare run prints package, active rules, files, zero violations`() {
-        let line = Lint.Reporter.Text.summaryLine(
+        let line = Lint.Reporter.Text.Summary.line(
             package: "swift-pair-primitives",
             activeRules: 90,
             excludedRules: 0,
@@ -39,7 +39,7 @@ struct `Run summary line` {
     func `Overlay exclusion case annotates the excluded count`() {
         // The resolved-set field reflects the runtime overlay: 83 active
         // (= 90 − 7) with the 7 excluded annotated.
-        let line = Lint.Reporter.Text.summaryLine(
+        let line = Lint.Reporter.Text.Summary.line(
             package: "swift-cardinal-primitives",
             activeRules: 83,
             excludedRules: 7,
@@ -51,7 +51,7 @@ struct `Run summary line` {
 
     @Test
     func `Singular file and violation forms`() {
-        let line = Lint.Reporter.Text.summaryLine(
+        let line = Lint.Reporter.Text.Summary.line(
             package: "pkg",
             activeRules: 1,
             excludedRules: 0,
@@ -63,7 +63,7 @@ struct `Run summary line` {
 
     @Test
     func `Zero-violation run still composes a full summary (never silent)`() {
-        let line = Lint.Reporter.Text.summaryLine(
+        let line = Lint.Reporter.Text.Summary.line(
             package: "pkg",
             activeRules: 90,
             excludedRules: 0,
