@@ -25,21 +25,8 @@ extension Lint.Driver.Manifest {
     /// typed `File.Path` on both parameter and return.
     public static func path(at consumerPackageRoot: File.Path) -> File.Path? {
         let candidate: File.Path = consumerPackageRoot / "Lint.swift"
-        let directory: File.Directory
-        do throws(Paths.Path.Error) {
-            directory = try File.Directory(validating: consumerPackageRoot.string)
-        } catch {
-            return nil
-        }
-        let entries: [File.Directory.Entry]
-        do throws(File.Directory.Contents.Error) {
-            entries = try directory.entries()
-        } catch {
-            return nil
-        }
-        for entry in entries where Swift.String(entry.name) == "Lint.swift" {
-            return candidate
-        }
-        return nil
+        // Single typed existence query (see Lint.File.Single.Detection.detect
+        // for the same collapse of a directory-enumeration reinvention).
+        return File.System.Stat.isFile(at: candidate) ? candidate : nil
     }
 }

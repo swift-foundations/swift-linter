@@ -90,6 +90,10 @@ extension Lint.File.Single {
     ///
     /// F-A2.3 cascade: typed `File.Path` parameter.
     internal static func contents(of path: File.Path) throws(File.System.Read.Full.Error) -> Swift.String {
+        // `read.full` yields a borrowed `Span<Byte>`; copying it out requires an
+        // index walk (`Span` is `~Escapable` and not a `Sequence`, so neither
+        // `Array(span)` nor `for byte in span` is available). This is the
+        // canonical low-level Span→Array copy, not a reinvention.
         let bytes: [Byte] = try File(path).read.full { (span: Swift.Span<Byte>) -> [Byte] in
             var array: [Byte] = []
             array.reserveCapacity(span.count)

@@ -44,27 +44,12 @@ extension Lint.File.Single.Detection {
     /// is also typed.
     public static func detect(at consumerPackageRoot: File.Path) -> File.Path? {
         let candidate: File.Path = consumerPackageRoot / "Lint.swift"
-        let directory: File.Directory
-        do throws(Paths.Path.Error) {
-            directory = try File.Directory(validating: consumerPackageRoot.string)
-        } catch {
-            // Silent-fallback contract: invalid directory path falls through to
-            // "no Shape-γ manifest detected." The caller moves on to
-            // nested-package detection.
-            return nil
-        }
-        let entries: [File.Directory.Entry]
-        do throws(File.Directory.Contents.Error) {
-            entries = try directory.entries()
-        } catch {
-            return nil
-        }
-        var found = false
-        for entry in entries where Swift.String(entry.name) == "Lint.swift" {
-            found = true
-            break
-        }
-        guard found else { return nil }
+        // Existence is a single typed `Stat.isFile` query — not a directory
+        // validate + `entries()` enumeration + name loop (which reinvented what
+        // swift-file-system already provides). A missing directory, a missing
+        // file, or a non-regular entry all yield `false` → the silent-fallback
+        // "no Shape-γ manifest detected", and the caller moves on.
+        guard File.System.Stat.isFile(at: candidate) else { return nil }
         let source: Swift.String
         do throws(File.System.Read.Full.Error) {
             source = try Lint.File.Single.contents(of: candidate)
