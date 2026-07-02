@@ -1,0 +1,10 @@
+# .github/metadata.yaml
+description: "SwiftSyntax-based AST linter for Swift packages."
+topics:
+  - foundations
+  - linting
+  - static-analysis
+  - sarif
+homepage: "https://swift-institute.org"
+readme:
+  family: E
