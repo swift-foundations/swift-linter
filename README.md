@@ -1,6 +1,8 @@
 # swift-linter
 
-![Development Status](https://img.shields.io/badge/status-active--development-blue.svg)
+![CI](https://github.com/swift-foundations/swift-linter/actions/workflows/lint.yml/badge.svg) ![Development Status](https://img.shields.io/badge/status-active--development-blue.svg)
+
+> **Note**: swift-linter currently depends on a package that has not yet been published; it will become externally buildable when that dependency's repository goes public with the ongoing incremental release.
 
 SwiftSyntax-based AST linter for Swift packages. Hosts rules whose
 predicates require an abstract syntax tree — typed-system escape
@@ -26,9 +28,11 @@ emits SARIF 2.1.0 JSON suitable for CI artifact upload.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/swift-foundations/swift-linter.git", from: "0.1.0"),
+    .package(url: "https://github.com/swift-foundations/swift-linter.git", branch: "main"),
 ]
 ```
+
+> Pre-1.0: no version tags yet. APIs may change; pin a commit for reproducible builds.
 
 ```swift
 .target(
@@ -117,7 +121,7 @@ import Linter_Institute_Rules
 Lint.run(dependencies: [
     .package(
         url: "https://github.com/swift-foundations/swift-institute-linter-rules.git",
-        from: "0.1.0",
+        branch: "main",
         products: ["Linter Institute Rules"]
     ),
 ]) {
@@ -187,8 +191,8 @@ let package = Package(
     name: "Lint",
     products: [.executable(name: "Lint", targets: ["Lint"])],
     dependencies: [
-        .package(url: "https://github.com/swift-foundations/swift-linter.git", from: "0.1.0"),
-        .package(url: "https://github.com/swift-foundations/swift-linter-rules.git", from: "0.1.0"),
+        .package(url: "https://github.com/swift-foundations/swift-linter.git", branch: "main"),
+        .package(url: "https://github.com/swift-foundations/swift-linter-rules.git", branch: "main"),
     ],
     targets: [
         .executableTarget(
@@ -301,7 +305,7 @@ import Linter_Institute_Rules
 Lint.run(dependencies: [
     .package(
         url: "https://github.com/swift-foundations/swift-institute-linter-rules.git",
-        from: "0.1.0",
+        branch: "main",
         products: ["Linter Institute Rules"]
     ),
 ]) {
@@ -373,6 +377,12 @@ transitively.
 
 A DocC catalog covering the rule catalog, configuration schema, and CI
 integration recipes is deferred to a separate cycle.
+
+## Status & maintainer
+
+This package is public alpha (pre-1.0): interfaces are stabilizing and APIs may change until a first tagged release.
+
+Maintained by [Coen ten Thije Boonkkamp](https://github.com/coenttb) — available for Swift infrastructure and document-systems consulting: coen@coenttb.com.
 
 ## License
 
