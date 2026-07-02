@@ -1,5 +1,5 @@
 # .github/metadata.yaml
-description: "SwiftSyntax-based AST linter for Swift packages."
+description: "A SwiftSyntax-based AST linter with SARIF-compatible diagnostics for Swift."
 topics:
   - foundations
   - linting
