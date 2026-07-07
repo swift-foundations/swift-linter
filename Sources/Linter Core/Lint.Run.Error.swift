@@ -13,7 +13,9 @@ public import File_System
 
 extension Lint.Run {
     /// F-A2.14 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
-    /// typed `File.Path` payloads on both cases. Errors emitted from
+    /// typed `File.Path` payloads on both cases.
+    ///
+    /// Errors emitted from
     /// `parsedSource` carry the path-shaped value through to the
     /// reporter without an intermediate string boundary.
     public enum Error: Swift.Error, Hashable, Sendable {

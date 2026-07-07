@@ -53,12 +53,15 @@ internal import SwiftSyntax
 /// detect in priority order: single-file Shape γ → nested-package →
 /// legacy inert.
 extension Lint.File {
+    /// Namespace for the single-file (`Lint.swift`) consumer manifest shape.
     public enum Single: Swift.Sendable {}
 }
 
 extension Lint.File.Single {
     /// Canonicalize a CLI-supplied consumer-root path to its absolute
-    /// form. When the path is `"."` or empty (the canonical
+    /// form.
+    ///
+    /// When the path is `"."` or empty (the canonical
     /// `swift-linter .` invocation), substitutes the current working
     /// directory yielded by `currentWorkingDirectory()`; otherwise
     /// returns the path unchanged.
@@ -151,7 +154,7 @@ extension Lint.File.Single {
         arguments: [Swift.String],
         output: Output = .standard,
         nonce: Swift.String = ""
-    ) throws(Lint.File.Single.Error) -> Swift.Int32 {
+    ) throws(Self.Error) -> Swift.Int32 {
         let consumerLintSwiftPath: File.Path = consumerPackageRoot / "Lint.swift"
 
         // 1. Read source.
@@ -205,7 +208,7 @@ extension Lint.File.Single {
         if let runnerBinary: Swift.String = Environment.read("SWIFT_LINTER_RUNNER") {
             switch Self.route(
                 output: output,
-                classification: Lint.File.Single.Classifier.classify(source: source, parsed: parsed)
+                classification: Self.Classifier.classify(source: source, parsed: parsed)
             ) {
             case .fastPathStandardBundle:
                 return try Runner.run(
@@ -215,6 +218,7 @@ extension Lint.File.Single {
                     selection: nil,
                     nonce: nonce
                 )
+
             case .fastPathStandardBundleExcluding(let disabled):
                 // The consumer activates Bundle.primitives minus `disabled`.
                 // Pass that selection to the runner as a Lint.Manifest; the
@@ -228,6 +232,7 @@ extension Lint.File.Single {
                     selection: Lint.Manifest(disabled: disabled),
                     nonce: nonce
                 )
+
             case .evalFallback:
                 break  // fall through to the eval pipeline
             }
@@ -265,6 +270,7 @@ extension Lint.File.Single {
         switch output {
         case .standard:
             return classification
+
         case .nonStandard:
             return .evalFallback(
                 reason: "consumer requested an output shape the standard runner cannot produce "

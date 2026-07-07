@@ -19,5 +19,6 @@ public import Linter_Primitives
 /// single `Lint.Reporter.<Format>` qualified reference resolves at
 /// every consumer site.
 extension Lint {
+    /// Namespace shared by all output-format reporters (``Reporter/Text``, ``Reporter/SARIF``).
     public enum Reporter {}
 }

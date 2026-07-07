@@ -10,18 +10,19 @@
 // ===----------------------------------------------------------------------===//
 
 public import ArgumentParser
-public import File_System_Core
 import File_System
+public import File_System_Core
 import Kernel
 import Linter
-import Linter_Reporter_Text
 import Linter_Reporter_SARIF
+import Linter_Reporter_Text
 import Terminal_Primitives
 
 extension Lint.Reporter.Format: ExpressibleByArgument {}
 extension Lint.Run.Policy: ExpressibleByArgument {}
 
 extension File.Path: @retroactive ExpressibleByArgument {
+    /// Creates a path by validating the CLI-supplied argument string, or `nil` if invalid.
     public init?(argument: Swift.String) {
         do throws(Paths.Path.Error) {
             self = try File.Path(argument)
@@ -43,7 +44,13 @@ extension Lint {
         @Option(name: .customLong("lint-swift-path"), help: "Path to Lint.swift. Defaults to <path>/Lint.swift if present.")
         var linter: File_System.File.Path?
 
-        @Option(name: [.customLong("exit-policy"), .customLong("strict")], help: "Exit policy. Choices: advisory (exit 0 always), strict (exit non-zero when any finding has severity:error). The legacy --strict flag is honored.")
+        @Option(
+            name: [.customLong("exit-policy"), .customLong("strict")],
+            help: """
+                Exit policy. Choices: advisory (exit 0 always), strict (exit non-zero when any \
+                finding has severity:error). The legacy --strict flag is honored.
+                """
+        )
         var policy: Lint.Run.Policy = .advisory
     }
 }
@@ -61,20 +68,20 @@ extension Lint.CLI {
         commandName: "swift-linter",
         abstract: "SwiftSyntax-based AST linter for the swift-primitives ecosystem.",
         discussion: """
-        Augments SwiftLint by hosting AST-shaped rules whose predicate cannot \
-        be expressed as a regex on source text. The engine ships rule-pack-\
-        agnostic — without an explicit configuration, zero rules fire.
+            Augments SwiftLint by hosting AST-shaped rules whose predicate cannot \
+            be expressed as a regex on source text. The engine ships rule-pack-\
+            agnostic — without an explicit configuration, zero rules fire.
 
-        Three consumer shapes are detected at the package root, in priority \
-        order: (1) a single-file `Lint.swift` with a `// swift-linter-tools-\
-        version:` magic-comment header (Shape γ — recommended; declares \
-        SwiftPM deps + rule activations in one file), (2) a `Lint/` nested \
-        SwiftPM package (the prior recommended shape; consumers wire engine \
-        + rule packs in its `Package.swift`), or (3) a legacy single-file \
-        `Lint.swift` declaring `let manifest: Lint.Manifest` (inert post-\
-        Phase-B.1 decouple). When none is present, the CLI runs with the \
-        empty default Configuration.
-        """
+            Three consumer shapes are detected at the package root, in priority \
+            order: (1) a single-file `Lint.swift` with a `// swift-linter-tools-\
+            version:` magic-comment header (Shape γ — recommended; declares \
+            SwiftPM deps + rule activations in one file), (2) a `Lint/` nested \
+            SwiftPM package (the prior recommended shape; consumers wire engine \
+            + rule packs in its `Package.swift`), or (3) a legacy single-file \
+            `Lint.swift` declaring `let manifest: Lint.Manifest` (inert post-\
+            Phase-B.1 decouple). When none is present, the CLI runs with the \
+            empty default Configuration.
+            """
     )
 }
 
@@ -85,6 +92,9 @@ extension Lint.CLI {
     // `Path.Error` via `try File.Path(_:)`, `Lint.Run.Error`) — they
     // unify to `any Error` at the boundary by necessity, not by choice.
     // swift-linter:disable:next untyped throws
+    // REASON: signature forced by external protocol ArgumentParser.ParsableCommand.run()
+    // (bare `throws`); typed throws is unavailable here until upstream adoption.
+    // swiftlint:disable:next typed_throws_required
     func run() throws {
         // Resolve `"."` / empty to an absolute path before any
         // engine-side path arithmetic. SwiftPM rejects the literal
@@ -145,7 +155,7 @@ extension Lint.CLI {
             // is the right place to mint it (Linter Core stays kernel-free,
             // mirroring the injected cwd closure).
             let runNonce: Swift.String = Swift.String(
-                UInt64.random(in: UInt64.min ... UInt64.max),
+                UInt64.random(in: UInt64.min...UInt64.max),
                 radix: 16
             )
             let dispatchedExitCode: Swift.Int32
@@ -246,7 +256,8 @@ extension Lint.CLI {
             onMissingLinterPath: {
                 do throws(ISO_9945.Kernel.IO.Write.Error) {
                     _ = try Terminal.Stream.stderr.write(
-                        "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n".utf8.lazy.map(Byte.init)
+                        "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n".utf8.lazy
+                            .map(Byte.init)
                     )
                 } catch {
                     // Best-effort stderr write; broken pipe is acceptable.
@@ -262,6 +273,7 @@ extension Lint.CLI {
         switch format {
         case .text:
             Lint.Reporter.Text.emit(findings: findings, to: Terminal.Stream.stdout.write)
+
         case .sarif:
             Lint.Reporter.SARIF.emit(findings: findings, to: Terminal.Stream.stdout.write)
         }

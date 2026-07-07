@@ -21,7 +21,9 @@ extension Lint.Reporter.Text {
 }
 
 extension Lint.Reporter.Text.Summary {
-    /// Pure formatter for the run-summary line (no trailing newline). Split
+    /// Pure formatter for the run-summary line (no trailing newline).
+    ///
+    /// Split
     /// out so the field composition is unit-testable without a write surface.
     ///
     /// Shape: `<package> · <K> active rules[ (−<M> excluded)] · <F> files linted · <V> violations`.
@@ -42,7 +44,8 @@ extension Lint.Reporter.Text.Summary {
         filesLinted: Swift.Int,
         violations: Swift.Int
     ) -> Swift.String {
-        let ruleSet: Swift.String = excludedRules > 0
+        let ruleSet: Swift.String =
+            excludedRules > 0
             ? "\(activeRules) active rules (−\(excludedRules) excluded)"
             : "\(activeRules) active rules"
         let fileWord: Swift.String = filesLinted == 1 ? "file" : "files"

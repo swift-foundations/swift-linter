@@ -9,9 +9,10 @@
 //
 // ===----------------------------------------------------------------------===//
 
-import Testing
 import File_System
 import Linter_Primitives
+import Testing
+
 @testable import Linter_Core
 
 extension Lint.Driver {

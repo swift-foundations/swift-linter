@@ -57,7 +57,9 @@ extension Lint.Source.Parsed {
     }
 
     /// Reconstruct an `AbsolutePosition` from a 1-based
-    /// `(line, column)` pair. SwiftSyntax 602 exposes
+    /// `(line, column)` pair.
+    ///
+    /// SwiftSyntax 602 exposes
     /// `SourceLocationConverter.position(ofLine:column:)` which we
     /// reuse directly; this wrapper only adds the bounds guard so an
     /// out-of-range location yields `nil` rather than tripping a
@@ -87,12 +89,15 @@ extension Lint.Source.Parsed {
 
     /// Deepest syntax node whose source-accurate range
     /// `[positionAfterLeadingTrivia, endPosition)` contains
-    /// `position`. Returns `nil` when no node contains the position
+    /// `position`.
+    ///
+    /// Returns `nil` when no node contains the position
     /// (e.g., position is past the file's end).
     private borrowing func deepestNode(containing position: AbsolutePosition) -> Syntax? {
         let root = Syntax(tree)
         guard root.positionAfterSkippingLeadingTrivia <= position,
-              position < root.endPosition else {
+            position < root.endPosition
+        else {
             return nil
         }
         var best: Syntax = root
@@ -103,7 +108,8 @@ extension Lint.Source.Parsed {
             var descended = false
             for child in cursor.children(viewMode: .sourceAccurate) {
                 if child.positionAfterSkippingLeadingTrivia <= position,
-                   position < child.endPosition {
+                    position < child.endPosition
+                {
                     cursor = child
                     best = child
                     descended = true

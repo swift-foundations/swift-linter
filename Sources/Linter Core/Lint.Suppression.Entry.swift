@@ -24,11 +24,14 @@ extension Lint.Suppression {
         public let rule: Lint.Rule.ID
 
         /// Optional REASON prose harvested from a `// REASON: ...`
-        /// continuation. Recorded for observability but not consulted
+        /// continuation.
+        ///
+        /// Recorded for observability but not consulted
         /// during finding-elision; the engine treats reasons as
         /// metadata only.
         public let reason: Swift.String?
 
+        /// Creates a suppression entry for the given line, rule, and optional reason.
         @inlinable
         public init(
             line: Text.Line.Number,

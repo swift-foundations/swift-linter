@@ -44,11 +44,14 @@ extension Lint.File.Single {
         /// coordinator (writer) to the dispatched executable (reader).
         public let variable: Swift.String
 
-        /// The temp-file basename stem under `<consumerRoot>/.swift-lint/`. A
+        /// The temp-file basename stem under `<consumerRoot>/.swift-lint/`.
+        ///
+        /// A
         /// per-run nonce and `.json` are appended by
         /// ``path(consumerPackageRoot:nonce:)``.
         public let basename: Swift.String
 
+        /// Creates a channel with the given environment variable and basename stem.
         @inlinable
         public init(variable: Swift.String, basename: Swift.String) {
             self.variable = variable
@@ -59,7 +62,9 @@ extension Lint.File.Single {
 
 extension Lint.File.Single.Channel {
     /// The selection-overlay channel: a fast-path consumer's own
-    /// `.excluding(rules:)` set. The coordinator writes it; the prebuilt
+    /// `.excluding(rules:)` set.
+    ///
+    /// The coordinator writes it; the prebuilt
     /// standard runner reads it and overlays it on its baked registry so it
     /// lints `Bundle.primitives` MINUS the consumer's exclusions.
     public static let selection = Self(
@@ -67,7 +72,9 @@ extension Lint.File.Single.Channel {
         basename: "selection-manifest"
     )
 
-    /// The parent-inheritance channel: the folded `// parent:` chain. The
+    /// The parent-inheritance channel: the folded `// parent:` chain.
+    ///
+    /// The
     /// coordinator writes it; the eval-compiled `Lint` reads and lifts it
     /// against the local rule registry as the `inheriting:` configuration.
     public static let parent = Self(
@@ -100,7 +107,9 @@ extension Lint.File.Single.Channel {
     }
 
     /// Coordinator side: serialize `manifest` to this channel's per-run file
-    /// under `<consumerPackageRoot>/.swift-lint/` and return its path. The
+    /// under `<consumerPackageRoot>/.swift-lint/` and return its path.
+    ///
+    /// The
     /// caller sets ``variable`` to the returned path in the dispatched
     /// process's environment.
     public func write(
@@ -141,7 +150,9 @@ extension Lint.File.Single.Channel {
         return try self.resolve(raw: raw)
     }
 
-    /// Fail-loud resolution of a SET variable's raw value into a manifest. This
+    /// Fail-loud resolution of a SET variable's raw value into a manifest.
+    ///
+    /// This
     /// is the SET case, so it ALWAYS throws on failure — never returns a
     /// sentinel that a caller could mistake for "no overlay". `internal` so the
     /// fail-loud contract is unit-testable without mutating the process

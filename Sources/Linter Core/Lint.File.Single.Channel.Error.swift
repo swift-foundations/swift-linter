@@ -12,8 +12,8 @@
 public import File_System
 
 extension Lint.File.Single.Channel {
-    /// Errors raised by a ``Channel``'s ``Channel/write(_:consumerPackageRoot:nonce:)``
-    /// and ``Channel/read()``.
+    /// Errors raised by the ``Channel`` operations
+    /// ``Channel/write(_:consumerPackageRoot:nonce:)`` and ``Channel/read()``.
     ///
     /// The read-side cases (``invalidPath`` / ``unreadable`` / ``unparseable``)
     /// fire ONLY when the channel's environment variable is SET — a set-but-

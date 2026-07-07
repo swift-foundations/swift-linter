@@ -11,6 +11,7 @@
 
 import File_System
 import Testing
+
 @testable import Linter_Core
 
 extension Lint.File.Single.Channel {
@@ -36,15 +37,18 @@ extension Lint.File.Single.Channel {
 
 extension Lint.File.Single.Channel.Test {
     private static func freshRoot(key: Swift.String) -> File.Path {
+        // swift-format-ignore: NeverUseForceTry
         try! File.Path.Temporary.deterministic(prefix: "lint-channel-root-", key: key, suffix: "")
     }
 
     private static func writeFixture(key: Swift.String, content: Swift.String) -> File.Path {
+        // swift-format-ignore: NeverUseForceTry
         let path = try! File.Path.Temporary.deterministic(
             prefix: "lint-channel-file-",
             key: key,
             suffix: ".json"
         )
+        // swift-format-ignore: NeverUseForceTry
         try! File(path).write.atomic(content)
         return path
     }
@@ -74,6 +78,7 @@ extension Lint.File.Single.Channel.Test {
             switch error {
             case .unreadable:
                 break  // expected
+
             default:
                 Issue.record("expected .unreadable, got \(error)")
             }
@@ -91,6 +96,7 @@ extension Lint.File.Single.Channel.Test {
             switch error {
             case .unparseable:
                 break  // expected
+
             default:
                 Issue.record("expected .unparseable, got \(error)")
             }

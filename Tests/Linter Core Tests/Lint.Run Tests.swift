@@ -9,9 +9,10 @@
 //
 // ===----------------------------------------------------------------------===//
 
-import Testing
 import File_System
 import Linter_Primitives
+import Testing
+
 @testable import Linter_Core
 
 extension Lint.Run {
@@ -35,17 +36,19 @@ extension Lint.Rule {
         default: .warning,
         findings: { source, severity in
             if Lint.Brand.owned(["Cardinal"], in: source) { return [] }
-            return [Diagnostic.Record(
-                location: Source.Location(
-                    fileID: source.file.fileID,
-                    filePath: source.file.filePath,
-                    line: 1,
-                    column: 1
-                ),
-                severity: severity,
-                identifier: "brand aware fixture",
-                message: "brand aware fixture rule fired"
-            )]
+            return [
+                Diagnostic.Record(
+                    location: Source.Location(
+                        fileID: source.file.fileID,
+                        filePath: source.file.filePath,
+                        line: 1,
+                        column: 1
+                    ),
+                    severity: severity,
+                    identifier: "brand aware fixture",
+                    message: "brand aware fixture rule fired"
+                )
+            ]
         }
     )
 }
@@ -55,11 +58,12 @@ extension Lint.Run.Test.`Brand Pre-Pass` {
         _ name: Swift.String,
         testFile: Swift.String = #filePath
     ) throws(Paths.Path.Error) -> File.Path {
-        var components: [Swift.String] = testFile
+        var components: [Swift.String] =
+            testFile
             .split(separator: "/", omittingEmptySubsequences: false)
             .map(Swift.String.init)
-        _ = components.popLast() // "Lint.Run Tests.swift"
-        _ = components.popLast() // "Linter Core Tests"
+        _ = components.popLast()  // "Lint.Run Tests.swift"
+        _ = components.popLast()  // "Linter Core Tests"
         components.append("Fixtures")
         components.append(name)
         return try File.Path(components.joined(separator: "/"))
@@ -98,17 +102,19 @@ extension Lint.Rule {
         id: "test fixture",
         default: .warning,
         findings: { source, severity in
-            [Diagnostic.Record(
-                location: Source.Location(
-                    fileID: source.file.fileID,
-                    filePath: source.file.filePath,
-                    line: 1,
-                    column: 1
-                ),
-                severity: severity,
-                identifier: "test fixture",
-                message: "fixture rule fired"
-            )]
+            [
+                Diagnostic.Record(
+                    location: Source.Location(
+                        fileID: source.file.fileID,
+                        filePath: source.file.filePath,
+                        line: 1,
+                        column: 1
+                    ),
+                    severity: severity,
+                    identifier: "test fixture",
+                    message: "fixture rule fired"
+                )
+            ]
         }
     )
 }
@@ -141,11 +147,12 @@ extension Lint.Run.Test.Integration {
         // testFile = .../swift-linter/Tests/Linter Core Tests/Lint.Run Tests.swift
         // Strip the filename and the test-target directory, leaving
         // .../swift-linter/Tests/, then descend into the fixture path.
-        var components: [Swift.String] = testFile
+        var components: [Swift.String] =
+            testFile
             .split(separator: "/", omittingEmptySubsequences: false)
             .map(Swift.String.init)
-        _ = components.popLast() // "Lint.Run Tests.swift"
-        _ = components.popLast() // "Linter Core Tests"
+        _ = components.popLast()  // "Lint.Run Tests.swift"
+        _ = components.popLast()  // "Linter Core Tests"
         components.append("Fixtures")
         components.append("path-filter-fixture")
         return try File.Path(components.joined(separator: "/"))

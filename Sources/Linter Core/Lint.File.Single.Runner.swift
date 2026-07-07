@@ -57,7 +57,7 @@ extension Lint.File.Single.Runner {
         nonce: Swift.String
     ) throws(Lint.File.Single.Error) -> Swift.Int32 {
         let environment: [Swift.String: Swift.String]?
-        if let selection: Lint.Manifest = selection {
+        if let selection {
             let manifestPath: File.Path
             do throws(Lint.File.Single.Channel.Error) {
                 manifestPath = try Lint.File.Single.Channel.selection.write(

@@ -64,7 +64,9 @@ extension Lint.File.Single.Extractor {
 
     /// Extract `.package(...)` declarations from a PRE-PARSED tree, so the
     /// dispatch pipeline can parse `Lint.swift` exactly ONCE and thread the
-    /// same tree to both the ``Classifier`` and this extractor. The public
+    /// same tree to both the ``Classifier`` and this extractor.
+    ///
+    /// The public
     /// ``dependencies(from:sourcePath:consumerPackageRoot:)`` is a thin wrapper
     /// that parses, for callers (and tests) that hold only the text.
     internal static func dependencies(
@@ -78,9 +80,11 @@ extension Lint.File.Single.Extractor {
                 description: "no top-level Lint.run(...) call expression found in source"
             )
         }
-        guard let dependenciesArg: LabeledExprSyntax = runCall.arguments.first(
-            where: { $0.label?.text == "dependencies" }
-        ) else {
+        guard
+            let dependenciesArg: LabeledExprSyntax = runCall.arguments.first(
+                where: { $0.label?.text == "dependencies" }
+            )
+        else {
             throw .dependenciesNotFound(
                 path: sourcePath,
                 description: "Lint.run(...) call has no `dependencies:` argument"
@@ -121,7 +125,7 @@ extension Lint.File.Single.Extractor {
         consumerPackageRoot: File.Path
     ) throws(Lint.File.Single.Error) -> Package.Dependency {
         guard let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self),
-              member.declName.baseName.text == "package"
+            member.declName.baseName.text == "package"
         else {
             throw .malformedPackageCall(
                 path: sourcePath,
@@ -140,14 +144,19 @@ extension Lint.File.Single.Extractor {
             switch arg.label?.text {
             case "path":
                 pathArg = try Self.extractStringLiteral(arg.expression, sourcePath: sourcePath)
+
             case "url":
                 urlArg = try Self.extractStringLiteral(arg.expression, sourcePath: sourcePath)
+
             case "from":
                 fromArg = try Self.extractStringLiteral(arg.expression, sourcePath: sourcePath)
+
             case "branch":
                 branchArg = try Self.extractStringLiteral(arg.expression, sourcePath: sourcePath)
+
             case "products":
                 productsArg = try Self.extractStringArray(arg.expression, sourcePath: sourcePath)
+
             case nil:
                 // Unlabeled positional arg — accepted for the
                 // `.package(url:_:products:)` range form.
@@ -167,6 +176,7 @@ extension Lint.File.Single.Extractor {
                     let value: Swift.String = try Self.extractStringLiteral(arg.expression, sourcePath: sourcePath)
                     rangeBounds.append(value)
                 }
+
             default:
                 throw .malformedPackageCall(
                     path: sourcePath,
@@ -263,7 +273,7 @@ extension Lint.File.Single.Extractor {
             )
         }
         guard literal.segments.count == 1,
-              let segment: StringSegmentSyntax = literal.segments.first?.as(StringSegmentSyntax.self)
+            let segment: StringSegmentSyntax = literal.segments.first?.as(StringSegmentSyntax.self)
         else {
             throw .malformedPackageCall(
                 path: sourcePath,
@@ -274,7 +284,9 @@ extension Lint.File.Single.Extractor {
     }
 
     /// Extract the `(lower, upper)` string-literal bounds from a
-    /// `"X"..<"Y"` range expression. Returns `nil` when the
+    /// `"X"..<"Y"` range expression.
+    ///
+    /// Returns `nil` when the
     /// expression is not a half-open range with string-literal
     /// operands, so the caller can fall back to single-literal
     /// extraction.
@@ -293,8 +305,8 @@ extension Lint.File.Single.Extractor {
         }
         let elements: [ExprSyntax] = sequence.elements.map { $0 }
         guard elements.count == 3,
-              let op: BinaryOperatorExprSyntax = elements[1].as(BinaryOperatorExprSyntax.self),
-              op.operator.text == "..<"
+            let op: BinaryOperatorExprSyntax = elements[1].as(BinaryOperatorExprSyntax.self),
+            op.operator.text == "..<"
         else {
             return nil
         }

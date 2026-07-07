@@ -68,10 +68,14 @@ public import Linter_Primitives
 /// walks the parent chain and folds each manifest into a layered
 /// ``Lint/Configuration`` with `inheriting:` parent.
 extension Lint {
+    /// The serializable per-layer manifest carrying the rule
+    /// enable/disable set and path exclusions declared in a `Lint.swift`.
     public struct Manifest: Sendable, Hashable {
         /// Rule-related leaves (``Rules/enabled`` / ``Rules/disabled``)
         /// surfaced via the institute's larger.smaller Property.View
-        /// shape. Reads as `manifest.rules.enabled` /
+        /// shape.
+        ///
+        /// Reads as `manifest.rules.enabled` /
         /// `manifest.rules.disabled` mirroring
         /// ``Lint/Configuration/Rules``.
         public let rules: Rules
@@ -79,6 +83,7 @@ extension Lint {
         /// Package-specific path-prefix exclusions.
         public let excluded: [File_System.File.Path]
 
+        /// Creates a manifest from its enabled/disabled rule ID sets and path exclusions.
         public init(
             enabled: Set<Lint.Rule.ID> = [],
             disabled: Set<Lint.Rule.ID> = [],
@@ -93,14 +98,16 @@ extension Lint {
 // MARK: - JSON.Serializable
 
 extension Lint.Manifest: JSON.Serializable {
+    /// Serializes a manifest to its wire-format JSON object.
     public static func serialize(_ value: Self) -> JSON {
         [
             "enabled": .array(value.rules.enabled.map { .string($0.underlying) }),
             "disabled": .array(value.rules.disabled.map { .string($0.underlying) }),
-            "excluded": .array(value.excluded.map { .string($0.description) })
+            "excluded": .array(value.excluded.map { .string($0.description) }),
         ]
     }
 
+    /// Deserializes a manifest from its wire-format JSON object.
     public static func deserialize(_ json: JSON) throws(JSON.Error) -> Self {
         // F-A3.1 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
         // typed `Set<Lint.Rule.ID>` locals replace the prior

@@ -9,15 +9,20 @@
 //
 // ===----------------------------------------------------------------------===//
 
+public import JSON
 public import Linter_Primitives
 public import Linter_Reporter_Text
-public import JSON
 public import Terminal_Primitives
 
+// REASON: Phase 2 Stream C (OQ-T2 closed) — Reporter writes directly via the L2 terminal
+// syscall extension per platform; the OS-conditional import is the deliberate unification
+// boundary chosen when the Phase 1.5 closure stand-in was retired, not undifferentiated L1
+// primitive code.
+// swiftlint:disable:next l1_no_platform_conditionals
 #if !os(Windows)
-public import ISO_9945_Kernel_Terminal
+    public import ISO_9945_Kernel_Terminal
 #else
-public import Windows_32_Kernel_Terminal
+    public import Windows_32_Kernel_Terminal
 #endif
 
 /// SARIF 2.1.0 reporter — emits a single sarifLog object covering all
@@ -36,6 +41,7 @@ public import Windows_32_Kernel_Terminal
 /// via the L2 syscall extension. SARIF is a single-shot document (one
 /// JSON object per run) so the write fires once with the full payload.
 extension Lint.Reporter {
+    /// SARIF 2.1.0 reporter namespace — emits a single sarifLog object per run.
     public enum SARIF {}
 }
 
@@ -71,10 +77,10 @@ extension Lint.Reporter.SARIF {
                             "name": "swift-linter",
                             "informationUri": "https://swift-institute.org",
                             "rules": [],
-                        ],
+                        ]
                     ],
                     "results": JSON.array(findings.map(result(for:))),
-                ],
+                ]
             ],
         ]
     }
@@ -94,17 +100,20 @@ extension Lint.Reporter.SARIF {
             ("ruleId", JSON(stringLiteral: record.identifier)),
             ("level", JSON(stringLiteral: level(for: record.severity))),
             ("message", ["text": JSON(stringLiteral: record.message)] as JSON),
-            ("locations", [
+            (
+                "locations",
                 [
-                    "physicalLocation": [
-                        "artifactLocation": ["uri": JSON(stringLiteral: pathOrID)],
-                        "region": [
-                            "startLine": JSON(integerLiteral: Int(record.location.line.underlying)),
-                            "startColumn": JSON(integerLiteral: Int(bitPattern: record.location.column)),
-                        ],
-                    ],
-                ],
-            ] as JSON),
+                    [
+                        "physicalLocation": [
+                            "artifactLocation": ["uri": JSON(stringLiteral: pathOrID)],
+                            "region": [
+                                "startLine": JSON(integerLiteral: Int(record.location.line.underlying)),
+                                "startColumn": JSON(integerLiteral: Int(bitPattern: record.location.column)),
+                            ],
+                        ]
+                    ]
+                ] as JSON
+            ),
         ]
         if let visibility = finding.visibility {
             // swift-linter:disable:next raw value access
@@ -113,16 +122,19 @@ extension Lint.Reporter.SARIF {
             // canonical access for its wire token at this SARIF serialization boundary.
             // The rule's display/serialization disposition ([PATTERN-017]).
             let token: Swift.String = visibility.rawValue
-            fields.append((
-                "properties",
-                ["visibility": JSON(stringLiteral: token)] as JSON
-            ))
+            fields.append(
+                (
+                    "properties",
+                    ["visibility": JSON(stringLiteral: token)] as JSON
+                )
+            )
         }
         return JSON.object(fields)
     }
 
     /// SARIF maps `.remark → "note"` (SARIF's level vocabulary is
     /// `error / warning / note / none`; remark has no SARIF analog).
+    ///
     /// All other tokens defer to `Diagnostic.Severity.wireToken`.
     static func level(for severity: Diagnostic.Severity) -> Swift.String {
         switch severity {

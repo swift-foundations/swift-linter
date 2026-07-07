@@ -59,7 +59,7 @@ extension Lint.File.Single.Detection {
         return Self.hasMagicComment(in: source) ? candidate : nil
     }
 
-    /// Detect whether `source`'s leading 30 lines contain a Shape-γ
+    /// Detect whether the leading 30 lines of `source` contain a Shape-γ
     /// magic-comment line whose version parses as ``Version/Tools``.
     internal static func hasMagicComment(in source: Swift.String) -> Swift.Bool {
         Self.parseMagicCommentToolsVersion(in: source) != nil

@@ -9,10 +9,10 @@
 //
 // ===----------------------------------------------------------------------===//
 
-import Testing
 import Linter_Primitives
-import Linter_Reporter_Text
 import Linter_Reporter_SARIF
+import Linter_Reporter_Text
+import Testing
 
 extension Lint.Reporter {
     @Suite

@@ -9,10 +9,10 @@
 //
 // ===----------------------------------------------------------------------===//
 
-import SwiftSyntax
-import SwiftParser
 public import File_System
 internal import Linter_Primitives
+import SwiftParser
+import SwiftSyntax
 
 /// Run the linter against one or more paths.
 ///
@@ -21,12 +21,13 @@ internal import Linter_Primitives
 /// and runs every activated rule against the same tree (per the brief's
 /// memory + perf constraint).
 extension Lint {
+    /// Namespace for the run entry points and their supporting types.
     public enum Run {}
 }
 
 extension Lint.Run {
-    /// Run the linter against `paths` using `configuration`'s effective
-    /// (parent-merged, override-applied, disabled-dropped) rule set.
+    /// Run the linter against `paths` using the effective
+    /// (parent-merged, override-applied, disabled-dropped) rule set of `configuration`.
     ///
     /// Each effective entry instantiates its rule via the typed metatype
     /// path: `entry.rule.init(severity: entry.severity ?? entry.rule.severity.default)`.
@@ -258,7 +259,12 @@ extension Lint.Run {
                 if sourcePath.underlying.isEmpty {
                     filePath = root
                 } else {
-                    guard let relative = try? File.Path(sourcePath.underlying) else { continue }
+                    let relative: File.Path
+                    do throws(File.Path.Error) {
+                        relative = try File.Path(sourcePath.underlying)
+                    } catch {
+                        continue
+                    }
                     filePath = root.appending(relative)
                 }
                 let file = File(filePath)

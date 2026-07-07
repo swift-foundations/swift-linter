@@ -93,15 +93,15 @@ extension Lint {
     /// lints `bundle` MINUS the consumer's `disabled` IDs. Absent the env var
     /// (every bare-bundle consumer, and local runs) the behaviour is unchanged.
     public static func run(bundle: [Lint.Rule.Configuration]) {
-        let base: Lint.Configuration = Lint.Configuration { bundle }
+        let base: Lint.Configuration = Self.Configuration { bundle }
         // Read the runtime selection overlay via the fail-loud ``Channel``. A
         // SET-but-unreadable selection manifest MUST NOT silently widen to the
         // full baked bundle (it would re-fire an EXCLUDED rule) — on a channel
         // error we emit to stderr and exit non-zero rather than lint a wrong
         // (wider) rule set with exit 0.
         let selection: Lint.Manifest?
-        do throws(Lint.File.Single.Channel.Error) {
-            selection = try Lint.File.Single.Channel.selection.read()
+        do throws(Self.File.Single.Channel.Error) {
+            selection = try Self.File.Single.Channel.selection.read()
         } catch {
             failLoud("selection-manifest channel: \(error)")
         }
@@ -113,7 +113,7 @@ extension Lint {
         for entry in bundle {
             registry[entry.rule.id] = entry.rule
         }
-        let overlaid: Lint.Configuration = Lint.Configuration.lift(
+        let overlaid: Lint.Configuration = Self.Configuration.lift(
             manifest: selection,
             registry: registry,
             inheriting: base
@@ -129,14 +129,15 @@ extension Lint {
     /// the swift-linter CLI propagates that as its own non-zero exit. stdout
     /// stays the pure diagnostic stream; the error goes to stderr only.
     private static func failLoud(_ message: Swift.String) -> Never {
-        Lint.Reporter.Text.emit(error: message, to: Terminal.Stream.stderr.write)
+        Self.Reporter.Text.emit(error: message, to: Terminal.Stream.stderr.write)
         Process.exit(1)
     }
 
     /// Run the linter with a complete configuration.
     public static func run(configuration: Lint.Configuration) {
         let arguments = Swift.CommandLine.arguments
-        let pathStrings: [Swift.String] = arguments.count >= 2
+        let pathStrings: [Swift.String] =
+            arguments.count >= 2
             ? [Swift.String](arguments.dropFirst())
             : ["."]
 
@@ -149,13 +150,13 @@ extension Lint {
             print("[Lint] error: invalid path argument: \(error)")
             return
         }
-        do throws(Lint.Run.Error) {
-            let outcome: Lint.Run.Outcome = try Lint.Run.run(
+        do throws(Self.Run.Error) {
+            let outcome: Lint.Run.Outcome = try Self.Run.run(
                 paths: consumerPaths,
                 capturing: .all,
                 configuration: configuration
             )
-            Lint.Reporter.Text.emit(findings: outcome.findings, to: Terminal.Stream.stdout.write)
+            Self.Reporter.Text.emit(findings: outcome.findings, to: Terminal.Stream.stdout.write)
             // Always-on run summary to STDERR — stdout stays the pure diagnostic
             // stream. This is the shared terminal both the prebuilt runner
             // (`run(bundle:)`) and the eval-compiled executable
@@ -167,7 +168,7 @@ extension Lint {
             // `Lint.Reporter.Text.Summary.line` — typing them would pull a
             // cardinal dependency tree into the engine for no semantic gain).
             // `.count` flows straight through.
-            Lint.Reporter.Text.emit(
+            Self.Reporter.Text.emit(
                 summaryFor: package,
                 activeRules: configuration.rules.effective.entries.count,
                 excludedRules: configuration.rules.effective.disabled.count,
@@ -213,12 +214,12 @@ extension Lint {
         // parent's rules — on a channel error we fail loud rather than lint a
         // silently-narrowed rule set with exit 0.
         let parent: Lint.Configuration?
-        do throws(Lint.File.Single.Channel.Error) {
-            parent = try Lint.File.Single.configuration(parentOf: registry)
+        do throws(Self.File.Single.Channel.Error) {
+            parent = try Self.File.Single.configuration(parentOf: registry)
         } catch {
             failLoud("parent-manifest channel: \(error)")
         }
-        let configuration = Lint.Configuration(inheriting: parent) { collected }
+        let configuration = Self.Configuration(inheriting: parent) { collected }
         run(configuration: configuration)
     }
 }

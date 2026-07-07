@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 import Testing
+
 @testable import Linter_Core
 
 extension Lint.File.Single.Test {

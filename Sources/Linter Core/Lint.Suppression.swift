@@ -35,12 +35,17 @@ public import SwiftSyntax
 /// is silently inert (no rule with that ID is suppressed); a future
 /// orphan-suppression audit rule may surface unknown IDs.
 extension Lint {
+    /// The per-source map of `swift-linter:disable` directives harvested from
+    /// comment trivia.
     public struct Suppression: Sendable, Equatable {
-        /// Lines suppressed per rule ID. Keyed by `(line, rule-id)`;
+        /// Lines suppressed per rule ID.
+        ///
+        /// Keyed by `(line, rule-id)`;
         /// the value is the optional REASON prose harvested from the
         /// directive's continuation.
         public let entries: [Lint.Suppression.Entry]
 
+        /// Creates a suppression map from its harvested entries.
         @inlinable
         public init(entries: [Lint.Suppression.Entry] = []) {
             self.entries = entries
@@ -74,7 +79,9 @@ extension Lint.Suppression {
 }
 
 extension Lint.Suppression {
-    /// Static-prefix tokens scanned for. Centralized so the scanner
+    /// Static-prefix tokens scanned for.
+    ///
+    /// Centralized so the scanner
     /// and any future audit tooling agree on the syntax surface.
     fileprivate static let disableNextPrefix: Swift.String = "// swift-linter:disable:next "
 
@@ -153,6 +160,7 @@ extension Lint.Suppression {
             switch piece {
             case .lineComment(let comment):
                 text = comment
+
             default:
                 // Whitespace and newlines between a directive and its
                 // following `// REASON:` continuation are legitimate —
@@ -165,8 +173,8 @@ extension Lint.Suppression {
 
             let directiveLine = converter.location(for: pieceStart).line
 
-            if text.hasPrefix(Lint.Suppression.disableNextPrefix) {
-                let suffix = Swift.String(text.dropFirst(Lint.Suppression.disableNextPrefix.count))
+            if text.hasPrefix(Self.disableNextPrefix) {
+                let suffix = Swift.String(text.dropFirst(Self.disableNextPrefix.count))
                 let ruleID = ruleIDFromDirectiveSuffix(suffix)
                 let suppressedLine = nextCodeLine(
                     afterDirectiveLine: directiveLine,
@@ -174,32 +182,38 @@ extension Lint.Suppression {
                     converter: converter
                 )
                 if let suppressedLine {
-                    entries.append(Lint.Suppression.Entry(
-                        line: Text.Line.Number(UInt(suppressedLine)),
-                        rule: ruleID,
-                        reason: nil
-                    ))
-                    pendingReasonIndex = entries.count - 1
+                    let newIndex = entries.count
+                    entries.append(
+                        Self.Entry(
+                            line: Text.Line.Number(UInt(suppressedLine)),
+                            rule: ruleID,
+                            reason: nil
+                        )
+                    )
+                    pendingReasonIndex = newIndex
                 } else {
                     pendingReasonIndex = nil
                 }
-            } else if text.hasPrefix(Lint.Suppression.disableLinePrefix) {
-                let suffix = Swift.String(text.dropFirst(Lint.Suppression.disableLinePrefix.count))
+            } else if text.hasPrefix(Self.disableLinePrefix) {
+                let suffix = Swift.String(text.dropFirst(Self.disableLinePrefix.count))
                 let ruleID = ruleIDFromDirectiveSuffix(suffix)
                 // `:line` targets the line carrying the directive
                 // itself — typically as a trailing comment.
-                entries.append(Lint.Suppression.Entry(
-                    line: Text.Line.Number(UInt(directiveLine)),
-                    rule: ruleID,
-                    reason: nil
-                ))
-                pendingReasonIndex = entries.count - 1
-            } else if text.hasPrefix(Lint.Suppression.reasonPrefix),
-                      let pending = pendingReasonIndex,
-                      pending < entries.count
+                let newIndex = entries.count
+                entries.append(
+                    Self.Entry(
+                        line: Text.Line.Number(UInt(directiveLine)),
+                        rule: ruleID,
+                        reason: nil
+                    )
+                )
+                pendingReasonIndex = newIndex
+            } else if text.hasPrefix(Self.reasonPrefix),
+                let pending = pendingReasonIndex,
+                pending < entries.count
             {
                 // Attach reason prose to the pending directive's entry.
-                let reasonBody = Swift.String(text.dropFirst(Lint.Suppression.reasonPrefix.count))
+                let reasonBody = Swift.String(text.dropFirst(Self.reasonPrefix.count))
                 let trimmed = reasonBody.trimmingPrefixWhitespace()
                 let previous = entries[pending].reason
                 let combined: Swift.String
@@ -208,7 +222,7 @@ extension Lint.Suppression {
                 } else {
                     combined = trimmed
                 }
-                entries[pending] = Lint.Suppression.Entry(
+                entries[pending] = Self.Entry(
                     line: entries[pending].line,
                     rule: entries[pending].rule,
                     reason: combined

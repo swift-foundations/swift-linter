@@ -58,18 +58,23 @@ internal import Manifest_Resolver
 /// depth, fetch, eval) emit a warning and drop the chain: the
 /// consumer-only Configuration is returned.
 extension Lint {
+    /// Namespace for consumer manifest detection, chain resolution, and dispatch.
     public enum Driver {}
 }
 
 // MARK: - Namespace accessors (Property.View metatype trick)
 
 extension Lint.Driver {
-    /// Namespace accessor for dispatch operations. Reads as
+    /// Namespace accessor for dispatch operations.
+    ///
+    /// Reads as
     /// `Lint.Driver.dispatch.nested(at: ..., arguments: ...)`.
     @inlinable
     public static var dispatch: Dispatch.Type { Dispatch.self }
 
-    /// Namespace accessor for manifest-detection operations. Reads as
+    /// Namespace accessor for manifest-detection operations.
+    ///
+    /// Reads as
     /// `Lint.Driver.manifest.path(at: ...)`.
     @inlinable
     public static var manifest: Manifest.Type { Manifest.self }
@@ -102,7 +107,7 @@ extension Lint.Driver {
     /// silent-fallback contract.
     ///
     /// - Parameters:
-    ///   - at: Filesystem path to the consumer's package root.
+    ///   - consumerPackageRoot: Filesystem path to the consumer's package root.
     ///   - manifestOverride: Optional explicit path to the
     ///     consumer's `Lint.swift`; overrides default detection at
     ///     `<consumerPackageRoot>/Lint.swift`.
@@ -110,12 +115,15 @@ extension Lint.Driver {
     ///     `SWIFT_LINTER_PATH` environment variable is unset. Default
     ///     is a no-op so library callers retain the silent-fallback
     ///     contract.
+    /// - Returns: The resolved, parent-merged ``Lint/Configuration`` for the
+    ///   consumer, or the empty-rules default when manifest evaluation or
+    ///   parent-chain resolution fails.
     /// F-A2.1 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
     /// path parameters are typed `File.Path`.
     public static func configuration(
         at consumerPackageRoot: File.Path,
         manifestOverride: File.Path? = nil,
-        onMissingLinterPath: () -> Void = { }
+        onMissingLinterPath: () -> Void = {}
     ) -> Lint.Configuration {
         let manifestDirectory: Swift.String
         let manifestFilename: Swift.String
@@ -160,12 +168,14 @@ extension Lint.Driver {
 
 extension Lint.Driver {
     /// Default Configuration for the single-file `Lint.swift`
-    /// fallback path. Post-Phase-B.1 decouple the engine ships no
+    /// fallback path.
+    ///
+    /// Post-Phase-B.1 decouple the engine ships no
     /// built-in rules, so this returns an empty-rules Configuration —
     /// the run produces zero findings unless the consumer extends
     /// the engine with rule registration of their own.
     fileprivate static func defaultConfiguration() -> Lint.Configuration {
-        Lint.Configuration { }
+        Lint.Configuration {}
     }
 
     /// Build a runtime Configuration from a parsed manifest.
@@ -197,7 +207,7 @@ extension Lint.Driver {
             inheriting: parent,
             excluded: manifest.excluded.map(Lint.Filter.Prefix.init),
             disabled: manifest.rules.disabled
-        ) { }
+        ) {}
     }
 
     /// The dependency set the driver shim compiles against.
@@ -252,7 +262,7 @@ extension Lint.Driver {
                 name: "swift-linter",
                 product: "Linter",
                 imports: ["Linter"]
-            )
+            ),
         ]
     }
 }

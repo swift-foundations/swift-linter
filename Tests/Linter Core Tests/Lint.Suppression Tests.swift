@@ -9,12 +9,13 @@
 //
 // ===----------------------------------------------------------------------===//
 
-import Testing
-import Foundation
 import File_System
-import SwiftSyntax
-import SwiftParser
+import Foundation
 import Linter_Primitives
+import SwiftParser
+import SwiftSyntax
+import Testing
+
 @testable import Linter_Core
 
 extension Lint.Suppression {
@@ -29,7 +30,9 @@ extension Lint.Suppression {
 
 extension Lint.Suppression.Test.Scanner {
     /// Parse `source` into a SwiftSyntax tree + converter pair and
-    /// build the suppression map. Helper so each test reads as
+    /// build the suppression map.
+    ///
+    /// Helper so each test reads as
     /// "given this source, the map has these entries".
     private static func scanSource(_ source: Swift.String, fileName: Swift.String = "<test>") -> Lint.Suppression {
         let tree = Parser.parse(source: source)
@@ -46,9 +49,9 @@ extension Lint.Suppression.Test.Scanner {
     @Test
     func `Source with no directives yields empty suppression map`() {
         let source = """
-        let x = 1
-        let y = 2
-        """
+            let x = 1
+            let y = 2
+            """
         let map = Self.scanSource(source)
         #expect(map.entries.isEmpty)
     }
@@ -58,9 +61,9 @@ extension Lint.Suppression.Test.Scanner {
         // Line 1: directive
         // Line 2: code (this is the suppressed line)
         let source = """
-        // swift-linter:disable:next some rule
-        let x = 1
-        """
+            // swift-linter:disable:next some rule
+            let x = 1
+            """
         let map = Self.scanSource(source)
         #expect(map.entries.count == 1)
         let entry = map.entries.first
@@ -74,10 +77,10 @@ extension Lint.Suppression.Test.Scanner {
         // Line 2: blank
         // Line 3: code (this is the suppressed line — the next CODE line)
         let source = """
-        // swift-linter:disable:next some rule
+            // swift-linter:disable:next some rule
 
-        let x = 1
-        """
+            let x = 1
+            """
         let map = Self.scanSource(source)
         #expect(map.entries.count == 1)
         #expect(map.entries.first?.line == 3)
@@ -88,9 +91,9 @@ extension Lint.Suppression.Test.Scanner {
         // Line 1: code, with the disable:line comment as trailing trivia
         // The directive applies to line 1 itself.
         let source = """
-        let x = 1 // swift-linter:disable:line some rule
-        let y = 2
-        """
+            let x = 1 // swift-linter:disable:line some rule
+            let y = 2
+            """
         let map = Self.scanSource(source)
         #expect(map.entries.count == 1)
         #expect(map.entries.first?.line == 1)
@@ -100,10 +103,10 @@ extension Lint.Suppression.Test.Scanner {
     @Test
     func `disable next with REASON continuation captures reason prose`() {
         let source = """
-        // swift-linter:disable:next some rule
-        // REASON: this site is the typed-system bottom-out per [CONV-016].
-        let x = 1
-        """
+            // swift-linter:disable:next some rule
+            // REASON: this site is the typed-system bottom-out per [CONV-016].
+            let x = 1
+            """
         let map = Self.scanSource(source)
         #expect(map.entries.count == 1)
         #expect(map.entries.first?.line == 3)
@@ -113,11 +116,11 @@ extension Lint.Suppression.Test.Scanner {
     @Test
     func `multiple disable directives produce independent entries`() {
         let source = """
-        // swift-linter:disable:next rule one
-        let a = 1
-        // swift-linter:disable:next rule two
-        let b = 2
-        """
+            // swift-linter:disable:next rule one
+            let a = 1
+            // swift-linter:disable:next rule two
+            let b = 2
+            """
         let map = Self.scanSource(source)
         #expect(map.entries.count == 2)
         // First entry on line 2 (rule one); second entry on line 4 (rule two).
@@ -127,9 +130,7 @@ extension Lint.Suppression.Test.Scanner {
 
     @Test
     func `suppresses returns true only for matching line and rule ID`() {
-        let map = Lint.Suppression(entries: [
-            Lint.Suppression.Entry(line: 5, rule: "rule one", reason: nil),
-        ])
+        let map = Lint.Suppression(entries: [Lint.Suppression.Entry(line: 5, rule: "rule one", reason: nil)])
         #expect(map.suppresses(line: 5, rule: "rule one"))
         #expect(!map.suppresses(line: 5, rule: "rule two"))
         #expect(!map.suppresses(line: 6, rule: "rule one"))
@@ -175,17 +176,19 @@ internal final class LintSuppressionFixtureVisitor: SyntaxVisitor {
     override func visit(_ node: TokenSyntax) -> SyntaxVisitorContinueKind {
         guard node.text == "targetCall" else { return .visitChildren }
         let location = converter.location(for: node.positionAfterSkippingLeadingTrivia)
-        matches.append(Diagnostic.Record(
-            location: Source.Location(
-                fileID: source.fileID,
-                filePath: source.filePath,
-                line: location.line,
-                column: location.column
-            ),
-            severity: severity,
-            identifier: "suppression fixture",
-            message: "fixture rule fired"
-        ))
+        matches.append(
+            Diagnostic.Record(
+                location: Source.Location(
+                    fileID: source.fileID,
+                    filePath: source.filePath,
+                    line: location.line,
+                    column: location.column
+                ),
+                severity: severity,
+                identifier: "suppression fixture",
+                message: "fixture rule fired"
+            )
+        )
         return .visitChildren
     }
 }
@@ -205,19 +208,24 @@ extension Lint.Suppression.Test.EngineIntegration {
     private static func writeFixture(content: Swift.String) -> File.Path {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("lint-suppression-fixture-\(UUID().uuidString)")
         let sources = directory.appendingPathComponent("Sources")
+        // swift-format-ignore: NeverUseForceTry
         try! FileManager.default.createDirectory(at: sources, withIntermediateDirectories: true)
         let file = sources.appendingPathComponent("x.swift")
+        // swift-format-ignore: NeverUseForceTry, NeverForceUnwrap
         try! content.data(using: .utf8)!.write(to: file)
+        // swift-format-ignore: NeverUseForceTry
         return try! File.Path(directory.path)
     }
 
     @Test
     func `without directive, the fixture rule fires`() throws(Lint.Run.Error) {
         // Two-line source, `targetCall` on line 1 — fires once.
-        let root = Self.writeFixture(content: """
-        targetCall()
-        let _ = 0
-        """)
+        let root = Self.writeFixture(
+            content: """
+                targetCall()
+                let _ = 0
+                """
+        )
         let configuration = Lint.Configuration {
             .enable(.`suppression fixture`)
         }
@@ -228,10 +236,12 @@ extension Lint.Suppression.Test.EngineIntegration {
     @Test
     func `disable next elides the next-line finding`() throws(Lint.Run.Error) {
         // Directive on line 1, `targetCall` on line 2 — finding elided.
-        let root = Self.writeFixture(content: """
-        // swift-linter:disable:next suppression fixture
-        targetCall()
-        """)
+        let root = Self.writeFixture(
+            content: """
+                // swift-linter:disable:next suppression fixture
+                targetCall()
+                """
+        )
         let configuration = Lint.Configuration {
             .enable(.`suppression fixture`)
         }
@@ -243,9 +253,11 @@ extension Lint.Suppression.Test.EngineIntegration {
     @Test
     func `disable line elides the same-line finding`() throws(Lint.Run.Error) {
         // `targetCall` on line 1, with the disable directive as trailing trivia.
-        let root = Self.writeFixture(content: """
-        targetCall() // swift-linter:disable:line suppression fixture
-        """)
+        let root = Self.writeFixture(
+            content: """
+                targetCall() // swift-linter:disable:line suppression fixture
+                """
+        )
         let configuration = Lint.Configuration {
             .enable(.`suppression fixture`)
         }
@@ -257,10 +269,12 @@ extension Lint.Suppression.Test.EngineIntegration {
     @Test
     func `disable next with mismatched rule ID does not elide finding`() throws(Lint.Run.Error) {
         // Directive names a different rule — fixture rule still fires.
-        let root = Self.writeFixture(content: """
-        // swift-linter:disable:next other rule
-        targetCall()
-        """)
+        let root = Self.writeFixture(
+            content: """
+                // swift-linter:disable:next other rule
+                targetCall()
+                """
+        )
         let configuration = Lint.Configuration {
             .enable(.`suppression fixture`)
         }
@@ -272,10 +286,12 @@ extension Lint.Suppression.Test.EngineIntegration {
     func `Configuration rules disabled elides all findings for that rule`() throws(Lint.Run.Error) {
         // Two calls fire the fixture rule; configuration disables it
         // wholesale via rules.disabled — both elided.
-        let root = Self.writeFixture(content: """
-        targetCall()
-        targetCall()
-        """)
+        let root = Self.writeFixture(
+            content: """
+                targetCall()
+                targetCall()
+                """
+        )
         let configuration = Lint.Configuration(
             disabled: ["suppression fixture"]
         ) {
@@ -304,11 +320,13 @@ extension Lint.Suppression.Test.EngineIntegration {
         // `.private`. The engine computes this post-rule via
         // `Lint.Source.Parsed.visibility(at:)` and pairs it into the
         // emitted `Lint.Finding`.
-        let root = Self.writeFixture(content: """
-        private struct Outer {
-            func body() { targetCall() }
-        }
-        """)
+        let root = Self.writeFixture(
+            content: """
+                private struct Outer {
+                    func body() { targetCall() }
+                }
+                """
+        )
         let configuration = Lint.Configuration {
             .enable(.`suppression fixture`)
         }
@@ -322,9 +340,11 @@ extension Lint.Suppression.Test.EngineIntegration {
         // `targetCall` is at file scope — no enclosing decl carries a
         // modifier, so the effective visibility is `internal` (Swift's
         // file-scope default).
-        let root = Self.writeFixture(content: """
-        targetCall()
-        """)
+        let root = Self.writeFixture(
+            content: """
+                targetCall()
+                """
+        )
         let configuration = Lint.Configuration {
             .enable(.`suppression fixture`)
         }
@@ -333,4 +353,3 @@ extension Lint.Suppression.Test.EngineIntegration {
         #expect(findings.first?.visibility == .internal)
     }
 }
-

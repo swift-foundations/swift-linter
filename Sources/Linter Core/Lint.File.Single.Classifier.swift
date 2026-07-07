@@ -30,7 +30,9 @@ extension Lint.File.Single {
 }
 
 extension Lint.File.Single.Classifier {
-    /// The single bundle expression the standard runner bakes. A
+    /// The single bundle expression the standard runner bakes.
+    ///
+    /// A
     /// fast-path consumer's rule closure must be exactly this member
     /// access, with nothing applied to it and no sibling statements.
     fileprivate static let bakedBundleExpression: Swift.String = "Lint.Rule.Bundle.primitives"
@@ -65,7 +67,9 @@ extension Lint.File.Single.Classifier {
     /// Classify a consumer's `Lint.swift` from a PRE-PARSED tree, so the
     /// dispatch pipeline can parse `Lint.swift` exactly ONCE and thread the
     /// same `parsed` tree to both this classifier and the dependency
-    /// ``Extractor``. `source` is still required for the byte-level
+    /// ``Extractor``.
+    ///
+    /// `source` is still required for the byte-level
     /// `// parent:` directive scan. The public ``classify(source:)`` is a thin
     /// wrapper that parses, for callers (and tests) that hold only the text.
     internal static func classify(
@@ -92,14 +96,15 @@ extension Lint.File.Single.Classifier {
         }
         let statements: CodeBlockItemListSyntax = closure.statements
         guard statements.count == 1,
-              let only: CodeBlockItemSyntax = statements.first,
-              let expression: ExprSyntax = only.item.as(ExprSyntax.self)
+            let only: CodeBlockItemSyntax = statements.first,
+            let expression: ExprSyntax = only.item.as(ExprSyntax.self)
         else {
             return .evalFallback(reason: "rule closure is not a single expression")
         }
         // (2a) Exactly the bare baked bundle.
         if expression.as(MemberAccessExprSyntax.self) != nil,
-           expression.trimmedDescription == Self.bakedBundleExpression {
+            expression.trimmedDescription == Self.bakedBundleExpression
+        {
             return .fastPathStandardBundle
         }
         // (2b) The baked bundle minus per-package exclusions:
@@ -124,21 +129,21 @@ extension Lint.File.Single.Classifier {
         _ expression: ExprSyntax
     ) -> Swift.Set<Lint.Rule.ID>? {
         guard let call: FunctionCallExprSyntax = expression.as(FunctionCallExprSyntax.self),
-              let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self),
-              member.declName.baseName.text == "excluding",
-              let base: ExprSyntax = member.base,
-              base.trimmedDescription == Self.bakedBundleExpression
+            let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self),
+            member.declName.baseName.text == "excluding",
+            let base: ExprSyntax = member.base,
+            base.trimmedDescription == Self.bakedBundleExpression
         else {
             return nil
         }
         // Exactly one argument, labeled `rules:`, an array literal — no
         // trailing closure, no extra args.
         guard call.trailingClosure == nil,
-              call.additionalTrailingClosures.isEmpty,
-              call.arguments.count == 1,
-              let argument: LabeledExprSyntax = call.arguments.first,
-              argument.label?.text == "rules",
-              let array: ArrayExprSyntax = argument.expression.as(ArrayExprSyntax.self)
+            call.additionalTrailingClosures.isEmpty,
+            call.arguments.count == 1,
+            let argument: LabeledExprSyntax = call.arguments.first,
+            argument.label?.text == "rules",
+            let array: ArrayExprSyntax = argument.expression.as(ArrayExprSyntax.self)
         else {
             return nil
         }
@@ -165,15 +170,16 @@ extension Lint.File.Single.Classifier {
         // Form A: string literal.
         if let literal: StringLiteralExprSyntax = expression.as(StringLiteralExprSyntax.self) {
             guard literal.segments.count == 1,
-                  let segment: StringSegmentSyntax = literal.segments.first?.as(StringSegmentSyntax.self)
+                let segment: StringSegmentSyntax = literal.segments.first?.as(StringSegmentSyntax.self)
             else { return nil }
             return Lint.Rule.ID(segment.content.text)
         }
         // Form B: `<...>.`name`.id` accessor — the component immediately before
         // `.id` is the rule name.
         if let outer: MemberAccessExprSyntax = expression.as(MemberAccessExprSyntax.self),
-           outer.declName.baseName.text == "id",
-           let inner: MemberAccessExprSyntax = outer.base?.as(MemberAccessExprSyntax.self) {
+            outer.declName.baseName.text == "id",
+            let inner: MemberAccessExprSyntax = outer.base?.as(MemberAccessExprSyntax.self)
+        {
             let name: Swift.String = Self.unbacktick(inner.declName.baseName.text)
             return name.isEmpty ? nil : Lint.Rule.ID(name)
         }

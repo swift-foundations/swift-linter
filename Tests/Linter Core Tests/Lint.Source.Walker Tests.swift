@@ -9,9 +9,10 @@
 //
 // ===----------------------------------------------------------------------===//
 
-import Testing
 import File_System
 import Linter_Primitives
+import Testing
+
 @testable import Linter_Core
 
 extension Lint.Source.Walker {
@@ -34,17 +35,19 @@ extension Lint.Rule {
         id: "test fixture",
         default: .warning,
         findings: { source, severity in
-            [Diagnostic.Record(
-                location: Source.Location(
-                    fileID: source.file.fileID,
-                    filePath: source.file.filePath,
-                    line: 1,
-                    column: 1
-                ),
-                severity: severity,
-                identifier: "test fixture",
-                message: "fixture rule fired"
-            )]
+            [
+                Diagnostic.Record(
+                    location: Source.Location(
+                        fileID: source.file.fileID,
+                        filePath: source.file.filePath,
+                        line: 1,
+                        column: 1
+                    ),
+                    severity: severity,
+                    identifier: "test fixture",
+                    message: "fixture rule fired"
+                )
+            ]
         }
     )
 }
@@ -73,11 +76,12 @@ extension Lint.Source.Walker.Test {
     /// Compute the absolute path to the fixture root:
     /// `<swift-linter>/Tests/Fixtures/nested-package-fixture`.
     fileprivate static func fixtureRoot(testFile: Swift.String = #filePath) throws(Paths.Path.Error) -> File.Path {
-        var components: [Swift.String] = testFile
+        var components: [Swift.String] =
+            testFile
             .split(separator: "/", omittingEmptySubsequences: false)
             .map(Swift.String.init)
-        _ = components.popLast() // "Lint.Source.Walker Tests.swift"
-        _ = components.popLast() // "Linter Core Tests"
+        _ = components.popLast()  // "Lint.Source.Walker Tests.swift"
+        _ = components.popLast()  // "Linter Core Tests"
         components.append("Fixtures")
         components.append("nested-package-fixture")
         return try File.Path(components.joined(separator: "/"))
@@ -92,10 +96,12 @@ extension Lint.Source.Walker.Test.Unit {
         // is justified per [API-ERR-001]'s precondition exception.
         let root = try! Lint.Source.Walker.Test.fixtureRoot()
         let paths = Lint.Source.Walker.paths(under: root).map(\.underlying)
-        #expect(paths == [
-            "Package.swift",
-            "Sources/Outer/x.swift",
-        ])
+        #expect(
+            paths == [
+                "Package.swift",
+                "Sources/Outer/x.swift",
+            ]
+        )
     }
 }
 

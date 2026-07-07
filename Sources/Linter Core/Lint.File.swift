@@ -20,5 +20,6 @@
 /// `[API-NAME-001]` Nest.Name. The Thread-E-catalog Row 24 disposition
 /// target is `Lint.File.Single`.
 extension Lint {
+    /// Namespace for single-file consumer manifest detection and dispatch.
     public enum File: Swift.Sendable {}
 }

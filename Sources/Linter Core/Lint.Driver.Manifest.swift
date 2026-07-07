@@ -14,6 +14,7 @@ public import File_System
 // Lint.Driver.Manifest — the driver's manifest-detection namespace, distinct
 // from the serializable `Lint.Manifest` value type.
 extension Lint.Driver {
+    /// Namespace for consumer `Lint.swift` manifest-file detection.
     public enum Manifest {}
 }
 

@@ -17,11 +17,14 @@ extension Lint.Manifest {
         /// Rule IDs to activate at this manifest's layer.
         public let enabled: Set<Lint.Rule.ID>
 
-        /// Rule IDs to deactivate at this manifest's layer. Layered
+        /// Rule IDs to deactivate at this manifest's layer.
+        ///
+        /// Layered
         /// with parent inheritance per the Configuration's
         /// ``Lint/Configuration/Rules/effective`` override semantics.
         public let disabled: Set<Lint.Rule.ID>
 
+        /// Creates a rule set from its enabled and disabled ID sets.
         public init(
             enabled: Set<Lint.Rule.ID> = [],
             disabled: Set<Lint.Rule.ID> = []

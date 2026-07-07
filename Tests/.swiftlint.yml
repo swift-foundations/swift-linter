@@ -1,0 +1,7 @@
+disabled_rules:
+  # force_try: test fixture setup deliberately uses `try!` — a broken temp
+  # environment (File_System temp APIs, Foundation-free per [PRIM-FOUND-001])
+  # is a broken test, not a runtime fault to recover from. See the rationale
+  # comment at the top of "Linter Core Tests/Lint.File.Single.Channel Tests.swift".
+  # Scoped to Tests/ only — Sources/ still enforces force_try.
+  - force_try

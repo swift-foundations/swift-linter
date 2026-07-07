@@ -22,6 +22,8 @@ public import Linter_Primitives
 /// `*.docc/**` (entire DocC catalog tree), `.swiftpm/`, `.benchmarks/`,
 /// `DerivedData/`.
 extension Lint.Source {
+    /// Enumerates the Swift source files under a search root, applying the
+    /// standard include/exclude glob patterns.
     public enum Walker {}
 }
 
@@ -29,9 +31,7 @@ extension Lint.Source.Walker {
     /// Patterns matched against entries in the search root.
     ///
     /// Include: every Swift file at any depth.
-    public static let included: [Glob.Pattern] = [
-        "**/*.swift",
-    ]
+    public static let included: [Glob.Pattern] = ["**/*.swift"]
 
     /// Patterns excluded from the include set.
     ///
@@ -95,8 +95,8 @@ extension Lint.Source.Walker {
         var nestedPackageRoots: [File.Path] = []
         for file in files {
             guard file.path.components.last?.string == "Package.swift",
-                  let parent = file.path.parent,
-                  parent != root
+                let parent = file.path.parent,
+                parent != root
             else { continue }
             nestedPackageRoots.append(parent)
         }

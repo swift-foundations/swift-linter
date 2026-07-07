@@ -13,7 +13,6 @@ public import Paths
 public import SPM_Standard
 public import URI_Standard
 public import URI_Standard_Library_Integration
-
 // Re-export the `Version.Semantic: ExpressibleByStringLiteral` conformance to
 // the consumer's `Lint.swift` scope. Under SE-0444 `MemberImportVisibility`,
 // the eval-project target sees only the members of modules it imports
@@ -79,7 +78,9 @@ extension Package.Dependency {
     // MARK: - URL form (positional range requirement)
 
     /// `.package(url:_:products:)` factory — git-URL dependency with a
-    /// half-open version range. The middle argument is a
+    /// half-open version range.
+    ///
+    /// The middle argument is a
     /// `Swift.Range<Version.Semantic>`, matching the OLD
     /// `Lint.Dependency.package(url:_:products:)` interface exactly
     /// so consumer call sites of the form
@@ -114,7 +115,9 @@ extension Package.Dependency {
     // MARK: - URL form (`from:` lower-bound requirement)
 
     /// `.package(url:from:products:)` factory — git-URL dependency with
-    /// an open-ended `from:` lower bound. The `Version.Semantic` lifts
+    /// an open-ended `from:` lower bound.
+    ///
+    /// The `Version.Semantic` lifts
     /// from a string literal via swift-version-primitives's
     /// `ExpressibleByStringLiteral` conformance.
     @inlinable
@@ -137,7 +140,9 @@ extension Package.Dependency {
     // MARK: - URL form (`branch:` requirement)
 
     /// `.package(url:branch:products:)` factory — git-URL dependency
-    /// pinned to a branch. For untagged intra-Institute deps resolved off
+    /// pinned to a branch.
+    ///
+    /// For untagged intra-Institute deps resolved off
     /// `main` during active development (the ecosystem default while
     /// packages remain unversioned). Mirrors the single-file extractor's
     /// `branch:` form at `Lint.File.Single.Extractor`.

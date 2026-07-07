@@ -12,10 +12,15 @@
 public import Linter_Primitives
 public import Terminal_Primitives
 
+// REASON: Phase 2 Stream C (OQ-T2 closed) — Reporter writes directly via the L2 terminal
+// syscall extension per platform; the OS-conditional import is the deliberate unification
+// boundary chosen when the Phase 1.5 closure stand-in was retired, not undifferentiated L1
+// primitive code.
+// swiftlint:disable:next l1_no_platform_conditionals
 #if !os(Windows)
-public import ISO_9945_Kernel_Terminal
+    public import ISO_9945_Kernel_Terminal
 #else
-public import Windows_32_Kernel_Terminal
+    public import Windows_32_Kernel_Terminal
 #endif
 
 /// Default text-format reporter — one `file:line:col: severity: identifier:
@@ -29,6 +34,7 @@ public import Windows_32_Kernel_Terminal
 /// `swift-windows-32`). The earlier closure stand-in (Phase 1.5) was
 /// removed once OQ-T2 closed.
 extension Lint.Reporter {
+    /// Default text-format reporter namespace — SwiftLint-compatible textual lines.
     public enum Text {}
 }
 
@@ -56,7 +62,9 @@ extension Lint.Reporter.Text {
     }
 
     /// Emit the always-on one-line run summary to `write` (the engine passes
-    /// **stderr** — stdout stays the pure diagnostic stream). Emitted on EVERY
+    /// **stderr** — stdout stays the pure diagnostic stream).
+    ///
+    /// Emitted on EVERY
     /// run, including a 0-violation one, so a clean run is self-evidently a real
     /// run rather than a silent no-op.
     ///

@@ -13,6 +13,7 @@ public import File_System
 internal import Manifest_Resolver
 
 extension Lint.Driver {
+    /// Namespace for nested `Lint/` SwiftPM package detection and dispatch.
     public enum Dispatch {}
 }
 
@@ -39,7 +40,7 @@ extension Lint.Driver.Dispatch {
     /// non-zero exit.
     ///
     /// - Parameters:
-    ///   - at: Filesystem path to the consumer's package root (the
+    ///   - consumerPackageRoot: Filesystem path to the consumer's package root (the
     ///     directory containing the consumer's `Package.swift`).
     ///   - arguments: Arguments forwarded to the dispatched `Lint`
     ///     executable.

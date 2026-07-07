@@ -22,7 +22,9 @@ internal import URI_Standard_Library_Integration
 extension Lint.File.Single {
     /// The eval fallback: materialize a temporary SwiftPM project around the
     /// consumer's `Lint.swift`, compile it (engine + declared rule packs), and
-    /// spawn it. Taken whenever the prebuilt runner cannot faithfully reproduce
+    /// spawn it.
+    ///
+    /// Taken whenever the prebuilt runner cannot faithfully reproduce
     /// the consumer's result — inline/custom rules, a non-`primitives` bundle,
     /// a `// parent:` chain, an unprovisioned runner, or a non-standard output
     /// request. The compiled executable IS the linter binary for the consumer;
@@ -159,8 +161,10 @@ extension Lint.File.Single.Eval {
             switch error {
             case .readFailed(let path, let description):
                 throw .readFailed(path: path, description: description)
+
             case .materializationFailed(let reason):
                 throw .materializationFailed(reason: reason)
+
             case .spawnFailed(let consumerPackageRoot, let description):
                 throw .spawnFailed(consumerPackageRoot: consumerPackageRoot, description: description)
             }
@@ -168,7 +172,9 @@ extension Lint.File.Single.Eval {
     }
 
     /// Build the branch-pinned URL engine dependency (override the branch via
-    /// `SWIFT_LINTER_BRANCH`). Tag-free; tracks ``engineDependencyBranch``.
+    /// `SWIFT_LINTER_BRANCH`).
+    ///
+    /// Tag-free; tracks ``engineDependencyBranch``.
     private static func publishedEngineDependency() -> Package.Dependency {
         let branch: Swift.String =
             Environment.read("SWIFT_LINTER_BRANCH") ?? Self.engineDependencyBranch
@@ -180,7 +186,9 @@ extension Lint.File.Single.Eval {
     }
 
     /// Walk the `// parent:` chain in `consumerSource` and write the folded
-    /// `Lint.Manifest` via the parent ``Channel``. Returns the path when a chain
+    /// `Lint.Manifest` via the parent ``Channel``.
+    ///
+    /// Returns the path when a chain
     /// is present, `nil` when no parent directive is found.
     ///
     /// Parent eval uses the same dependency set as
@@ -223,7 +231,7 @@ extension Lint.File.Single.Eval {
                 name: "swift-linter",
                 product: "Linter",
                 imports: ["Linter"]
-            )
+            ),
         ]
         let parentChain: [Lint.Manifest]
         do throws(Manifest.Resolver<Lint.Manifest, Lint.Manifest>.Error) {
@@ -254,7 +262,9 @@ extension Lint.File.Single.Eval {
     }
 
     /// Fold a parent-first chain of `Lint.Manifest` values into a single
-    /// effective Manifest. Order is preserved (root-most first, closest-to-
+    /// effective Manifest.
+    ///
+    /// Order is preserved (root-most first, closest-to-
     /// consumer last); the consumer's ``Lint/Configuration/Rules/effective``
     /// handles dedup and override semantics (later wins per rule ID).
     private static func foldParents(_ chain: [Lint.Manifest]) -> Lint.Manifest {
