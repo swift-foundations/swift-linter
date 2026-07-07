@@ -18,6 +18,74 @@ extension Lint.Run {
     @Suite
     struct Test {
         @Suite struct Integration {}
+        @Suite struct `Brand Pre-Pass` {}
+    }
+}
+
+// Engine-level brand pre-pass coverage (§A brand-owner recognizer). A
+// synthetic rule fires once per visited file UNLESS the run's own sources
+// declare `Cardinal` — reading the run-level `declaredTypeNames` the engine's
+// pre-pass stamps on every `Lint.Source.Parsed`. The point is to prove the
+// engine computes the run-level union ACROSS files and threads it through:
+// the brand is declared in `Cardinal.swift`, but the rule must self-suppress
+// even when visiting the sibling `Boundary.swift`.
+extension Lint.Rule {
+    fileprivate static let `brand aware fixture` = Lint.Rule(
+        id: "brand aware fixture",
+        default: .warning,
+        findings: { source, severity in
+            if Lint.Brand.owned(["Cardinal"], in: source) { return [] }
+            return [Diagnostic.Record(
+                location: Source.Location(
+                    fileID: source.file.fileID,
+                    filePath: source.file.filePath,
+                    line: 1,
+                    column: 1
+                ),
+                severity: severity,
+                identifier: "brand aware fixture",
+                message: "brand aware fixture rule fired"
+            )]
+        }
+    )
+}
+
+extension Lint.Run.Test.`Brand Pre-Pass` {
+    private static func fixtureRoot(
+        _ name: Swift.String,
+        testFile: Swift.String = #filePath
+    ) throws(Paths.Path.Error) -> File.Path {
+        var components: [Swift.String] = testFile
+            .split(separator: "/", omittingEmptySubsequences: false)
+            .map(Swift.String.init)
+        _ = components.popLast() // "Lint.Run Tests.swift"
+        _ = components.popLast() // "Linter Core Tests"
+        components.append("Fixtures")
+        components.append(name)
+        return try File.Path(components.joined(separator: "/"))
+    }
+
+    @Test
+    func `brand owner run self-suppresses across files`() throws(Lint.Run.Error) {
+        // Two files: Cardinal.swift declares the brand, Boundary.swift does
+        // not. Both invocations must self-suppress via the run-level set.
+        let root = try! Self.fixtureRoot("brand-prepass-fixture")
+        let configuration = Lint.Configuration {
+            .enable(.`brand aware fixture`)
+        }
+        let findings = try Lint.Run.run(paths: [root], configuration: configuration)
+        #expect(findings.count == 0)
+    }
+
+    @Test
+    func `consumer run without the brand still fires`() throws(Lint.Run.Error) {
+        // No file in the run declares Cardinal — the rule fires (one file).
+        let root = try! Self.fixtureRoot("brand-consumer-fixture")
+        let configuration = Lint.Configuration {
+            .enable(.`brand aware fixture`)
+        }
+        let findings = try Lint.Run.run(paths: [root], configuration: configuration)
+        #expect(findings.count == 1)
     }
 }
 

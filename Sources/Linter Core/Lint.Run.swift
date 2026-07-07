@@ -111,10 +111,26 @@ extension Lint.Run {
         var findings: [Lint.Finding] = []
         var suppressed: [Lint.Finding] = []
         var filesLinted = 0
+        // Brand pre-pass (§A brand-owner recognizer): collect the union of
+        // every source's namespace-root type names ACROSS THE WHOLE RUN, so
+        // a brand-boundary rule can self-suppress at a brand owner's own
+        // surface via `Lint.Brand.owned(_:in:)`. The run-level set must be
+        // known before the first rule fires; because `Lint.Source.Parsed` is
+        // `~Copyable` (parsed trees cannot be collected into an array), the
+        // pre-pass reads and parses the tree a second time here rather than
+        // caching. For consumer trees in the typical package range this is a
+        // negligible one-off cost (best-effort — unreadable/non-UTF8 files
+        // are skipped here and surface their error in the main loop below).
+        let declaredTypeNames = Self.runDeclaredTypeNames(under: paths)
         for root in paths {
             let sourcePaths = Lint.Source.Walker.paths(under: root)
             for sourcePath in sourcePaths {
-                let parsed = try parsedSource(root: root, relativePath: sourcePath, manager: &manager)
+                let parsed = try parsedSource(
+                    root: root,
+                    relativePath: sourcePath,
+                    manager: &manager,
+                    declaredTypeNames: declaredTypeNames
+                )
                 filesLinted += 1
                 let suppression = Lint.Suppression.scan(
                     tree: parsed.tree,
@@ -168,7 +184,8 @@ extension Lint.Run {
     fileprivate static func parsedSource(
         root: File.Path,
         relativePath: Lint.Source.Path,
-        manager: inout Source.Manager
+        manager: inout Source.Manager,
+        declaredTypeNames: Swift.Set<Swift.String>
     ) throws(Error) -> Lint.Source.Parsed {
         let absoluteString: Swift.String
         let filePath: File.Path
@@ -219,7 +236,50 @@ extension Lint.Run {
             file: sourceFile,
             path: relativePath,
             tree: tree,
-            converter: converter
+            converter: converter,
+            declaredTypeNames: declaredTypeNames
         )
+    }
+
+    /// Brand pre-pass: the union of every source's namespace-root type names
+    /// across `paths` (§A brand-owner recognizer).
+    ///
+    /// Best-effort by design — a file that fails to read or is not valid
+    /// UTF-8 is skipped here (it cannot contribute a brand declaration), and
+    /// the same file surfaces its typed error when the main run loop reaches
+    /// it. Mirrors the read+parse flow of ``parsedSource(root:relativePath:manager:declaredTypeNames:)``
+    /// without registering into the `Source.Manager` (the pre-pass needs only
+    /// the tree, discarded immediately after the top-level scan).
+    fileprivate static func runDeclaredTypeNames(under paths: [File.Path]) -> Swift.Set<Swift.String> {
+        var names: Swift.Set<Swift.String> = []
+        for root in paths {
+            for sourcePath in Lint.Source.Walker.paths(under: root) {
+                let filePath: File.Path
+                if sourcePath.underlying.isEmpty {
+                    filePath = root
+                } else {
+                    guard let relative = try? File.Path(sourcePath.underlying) else { continue }
+                    filePath = root.appending(relative)
+                }
+                let file = File(filePath)
+                let bytes: [Byte]
+                do throws(File.System.Read.Full.Error) {
+                    bytes = try file.read.full { (span: Swift.Span<Byte>) in
+                        var copy: [Byte] = []
+                        copy.reserveCapacity(span.count)
+                        for i in 0..<span.count {
+                            copy.append(span[i])
+                        }
+                        return copy
+                    }
+                } catch {
+                    continue
+                }
+                guard let text = Swift.String(validating: bytes, as: UTF8.self) else { continue }
+                let tree = Parser.parse(source: text)
+                names.formUnion(Lint.Brand.topLevelTypeNames(in: tree))
+            }
+        }
+        return names
     }
 }
