@@ -39,7 +39,7 @@ let package = Package(
         .package(url: "https://github.com/swift-primitives/swift-terminal-primitives.git", branch: "main"),
         .package(url: "https://github.com/swift-primitives/swift-version-primitives.git", branch: "main"),
         .package(url: "https://github.com/swift-iso/swift-iso-9945.git", branch: "main"),
-        .package(url: "https://github.com/swift-microsoft/swift-windows-standard.git", branch: "main"),
+        .package(url: "https://github.com/swift-microsoft/swift-windows-32.git", branch: "main"),
         .package(url: "https://github.com/swift-standards/swift-spm-standard.git", branch: "main"),
         .package(url: "https://github.com/swift-standards/swift-uri-standard.git", branch: "main"),
         .package(url: "https://github.com/swift-foundations/swift-environment.git", branch: "main"),
@@ -64,7 +64,7 @@ let package = Package(
                 ),
                 .product(
                     name: "Windows 32 Kernel Terminal",
-                    package: "swift-windows-standard",
+                    package: "swift-windows-32",
                     condition: .when(platforms: [.windows])
                 ),
             ]
@@ -83,7 +83,7 @@ let package = Package(
                 ),
                 .product(
                     name: "Windows 32 Kernel Terminal",
-                    package: "swift-windows-standard",
+                    package: "swift-windows-32",
                     condition: .when(platforms: [.windows])
                 ),
             ]
