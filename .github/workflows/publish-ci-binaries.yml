@@ -159,6 +159,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # Container UID differs from the checkout owner; gh shells out to
+          # git, which refuses "dubious ownership" without this exception.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           stage=$(mktemp -d)
           cp /tmp/stage-swift-linter "$stage/swift-linter"
           cp /tmp/stage-swift-linter-runner "$stage/swift-linter-runner"
