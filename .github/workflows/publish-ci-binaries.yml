@@ -23,14 +23,17 @@
 #   in lockstep with the universal reusable's swift-version default.
 #
 # FRESHNESS
-# push-to-main rebuilds always. The hourly cron recomputes the composite
-# digest (engine + standard rule-pack main HEADs — same coordinate the old
-# per-repo cache keyed on) and rebuilds only when it moved (a rule-pack
-# commit without an engine commit). Consumers just take whatever is
-# published; between a rule-pack push and the next cron tick, lint runs on a
-# ≤1h-stale rule set — tightened from 6h for the lint-compliance campaign
-# (2026-07-20): rule tuning and repo fixing interleave, so verdict skew
-# windows must stay short. Digest-gated, so a no-op probe stays cheap.
+# push-to-main rebuilds always. Rule-pack pushes arrive as workflow_dispatch
+# within ~1 min: each of the five rule-pack repos calls
+# swift-institute/.github's notify-linter-republish.yml reusable on push to
+# main, which mints a swift-institute-bot App token (actions:write, this repo
+# only) and runs `gh workflow run` here (2026-07-20, instant-republish
+# handoff). The 6-hourly cron is a safety net for missed dispatches only —
+# it recomputes the composite digest (engine + standard rule-pack main HEADs)
+# and rebuilds only when it moved. It was hourly during the lint-compliance
+# campaign while dispatch didn't exist; with dispatch as the primary
+# freshness path, the wide interval costs nothing. Digest-gated, so no-op
+# probes and duplicate/racing dispatches stay cheap no-ops.
 
 name: publish-ci-binaries
 
@@ -47,7 +50,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '23 * * * *'   # hourly rule-pack freshness probe (rebuild only on digest move)
+    - cron: '23 */6 * * *'   # safety-net freshness probe; dispatch is the primary path (rebuild only on digest move)
   workflow_dispatch:
 
 jobs:
