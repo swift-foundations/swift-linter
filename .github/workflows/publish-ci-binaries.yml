@@ -1,0 +1,181 @@
+# publish-ci-binaries.yml — build + publish the prebuilt linter binaries that
+# the universal swift-ci.yml downloads (R1 follow-up ruling 2026-07-20).
+#
+# WHY
+# The universal CI's swift-linter job previously baked the dispatcher and the
+# "standard runner" per consumer repo via actions/cache. Actions caches are
+# repository-scoped, so ~450 consumer repos each paid their own ~310-560s
+# bake after every engine/rule-pack commit (measured 2026-07-20: 18 of 28
+# runs cold, median job 502s). This workflow builds ONCE, here, and publishes
+# the binaries as assets on the rolling `ci-binaries` release; every consumer
+# downloads warm.
+#
+# RELEASE SHAPE (approved 2026-07-20)
+# - Single fixed tag `ci-binaries`, created once, NEVER moved (no force-push;
+#   the tag's commit is not meaningful). Marked prerelease, never `latest`.
+#   Non-semver → invisible to SwiftPM version resolution and SPI; the package
+#   remains untagged in the release sense.
+# - Assets, replaced in place on every publish: `swift-linter` (dispatcher),
+#   `swift-linter-runner` (standard runner), `SHA256SUMS`, `MANIFEST.txt`
+#   (composite digest + the 5 source HEADs baked into this build).
+# - Binaries are built inside `swift:6.3` — the same container image the
+#   consumer swift-linter job runs in — for ABI/runtime compatibility. Bump
+#   in lockstep with the universal reusable's swift-version default.
+#
+# FRESHNESS
+# push-to-main rebuilds always. The 6-hourly cron recomputes the composite
+# digest (engine + standard rule-pack main HEADs — same coordinate the old
+# per-repo cache keyed on) and rebuilds only when it moved (a rule-pack
+# commit without an engine commit). Consumers just take whatever is
+# published; between a rule-pack push and the next cron tick, lint runs on a
+# ≤6h-stale rule set — accepted trade-off, same class as the old warm cache.
+
+name: publish-ci-binaries
+
+# [CI-090] standalone workflow: deny-all floor; per-job grants below.
+permissions: {}
+
+# [CI-082] pinned digest for the gh CLI apt keyring (same pin as
+# swift-institute/.github's submit-dep-graph-weekly.yml; re-lock on rotation).
+env:
+  GH_KEYRING_SHA256: "6084d5d7bd8e288441e0e94fc6275570895da18e6751f70f057485dc2d1a811b"
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '23 */6 * * *'   # rule-pack freshness probe (rebuild only on digest move)
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    container: swift:6.3
+    timeout-minutes: 45
+    permissions:
+      contents: write   # release asset upload on this repo
+    steps:
+      - name: Harden runner (audit-mode egress logging)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v6
+
+      # [CI-092]: swift:6.3 ships no curl/gh; libuuid needed by the dependency
+      # graph (swift-linux-standard's CLinuxKernelShim).
+      - name: Install system dependencies (curl, gh, uuid-dev)
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -qq -y curl ca-certificates gnupg uuid-dev git
+          mkdir -p -m 755 /etc/apt/keyrings
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /tmp/gh-keyring.gpg
+          echo "${GH_KEYRING_SHA256}  /tmp/gh-keyring.gpg" | sha256sum -c -
+          mv /tmp/gh-keyring.gpg /etc/apt/keyrings/githubcli-archive-keyring.gpg
+          chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list
+          apt-get update -qq
+          apt-get install -qq -y gh
+
+      - name: Configure private-dep access
+        uses: swift-institute/.github/.github/actions/configure-private-repos@main
+        with:
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          app-client-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_CLIENT_ID }}
+          app-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_ID }}
+          app-private-key: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_PRIVATE_KEY }}
+          enabled: true
+
+      # Composite digest: same coordinate the old per-repo cache keyed on —
+      # engine HEAD + the standard rule-pack main HEADs baked into the runner.
+      - name: Compute composite digest
+        id: digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          engine="$GITHUB_SHA"
+          primrules=$(git ls-remote https://github.com/swift-primitives/swift-primitives-linter-rules.git main | cut -f1)
+          instrules=$(git ls-remote https://github.com/swift-foundations/swift-institute-linter-rules.git main | cut -f1)
+          unirules=$(git ls-remote https://github.com/swift-foundations/swift-linter-rules.git main | cut -f1)
+          linterprim=$(git ls-remote https://github.com/swift-primitives/swift-linter-primitives.git main | cut -f1)
+          digest=$(printf '%s\n' "$engine" "$primrules" "$instrules" "$unirules" "$linterprim" | sort | sha256sum | cut -d' ' -f1)
+          {
+            echo "digest=$digest"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "digest=$digest"
+            echo "engine=$engine"
+            echo "swift-primitives-linter-rules=$primrules"
+            echo "swift-institute-linter-rules=$instrules"
+            echo "swift-linter-rules=$unirules"
+            echo "swift-linter-primitives=$linterprim"
+            echo "built-at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "swift-image=swift:6.3"
+          } > /tmp/MANIFEST.txt
+          cat /tmp/MANIFEST.txt
+
+      # Cron freshness probe: skip the rebuild when the published MANIFEST
+      # already carries tonight's digest. push/workflow_dispatch always build.
+      - name: Check published digest (schedule only)
+        id: fresh
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          stale=true
+          if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+            published=$(gh release download ci-binaries --pattern MANIFEST.txt --output - 2>/dev/null | sed -n 's/^digest=//p' || true)
+            if [ "$published" = "${{ steps.digest.outputs.digest }}" ]; then
+              stale=false
+              echo "Published digest is current; skipping rebuild."
+            fi
+          fi
+          echo "stale=$stale" >> "$GITHUB_OUTPUT"
+
+      - name: Build dispatcher
+        if: ${{ steps.fresh.outputs.stale == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift build --product swift-linter
+          install -m 0755 .build/debug/swift-linter /tmp/stage-swift-linter
+
+      - name: Build standard runner
+        if: ${{ steps.fresh.outputs.stale == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift build --package-path Runner --product runner
+          install -m 0755 Runner/.build/debug/runner /tmp/stage-swift-linter-runner
+
+      - name: Publish rolling ci-binaries release
+        if: ${{ steps.fresh.outputs.stale == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          stage=$(mktemp -d)
+          cp /tmp/stage-swift-linter "$stage/swift-linter"
+          cp /tmp/stage-swift-linter-runner "$stage/swift-linter-runner"
+          cp /tmp/MANIFEST.txt "$stage/MANIFEST.txt"
+          (cd "$stage" && sha256sum swift-linter swift-linter-runner MANIFEST.txt > SHA256SUMS)
+          if ! gh release view ci-binaries >/dev/null 2>&1; then
+            # One-time tag+release creation; the tag is never moved afterwards
+            # (provenance lives in MANIFEST.txt, not the tag commit).
+            gh release create ci-binaries \
+              --prerelease --latest=false \
+              --title "CI binaries (rolling)" \
+              --notes "Rolling prebuilt linter binaries for the universal swift-ci.yml. Non-semver tag: not a package release. See MANIFEST.txt for the exact source HEADs of this build." \
+              --target "$GITHUB_SHA"
+          fi
+          gh release upload ci-binaries \
+            "$stage/swift-linter" "$stage/swift-linter-runner" \
+            "$stage/MANIFEST.txt" "$stage/SHA256SUMS" --clobber
+          gh release edit ci-binaries \
+            --notes "Rolling prebuilt linter binaries for the universal swift-ci.yml (updated $(date -u +%Y-%m-%dT%H:%M:%SZ)). Non-semver tag: not a package release. digest=${{ steps.digest.outputs.digest }}"
+          echo "Published digest ${{ steps.digest.outputs.digest }}."
