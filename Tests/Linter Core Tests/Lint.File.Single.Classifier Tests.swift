@@ -22,9 +22,11 @@ extension Lint.File.Single.Classifier {
 // MARK: - classify(source:)
 //
 // Phase-3 fast-path/eval-fallback classifier. A consumer is routed to the
-// prebuilt standard runner ONLY when its active rule set is exactly the bare
-// `Lint.Rule.Bundle.primitives` the runner bakes — guaranteeing the runner
-// reproduces the eval result. Every other shape, and any parse the classifier
+// prebuilt standard runner ONLY when its active rule set is exactly ONE of the
+// baked bundles (`Lint.Rule.Bundle.Baked`: primitives / standards / institute)
+// the runner bakes — guaranteeing the runner reproduces the eval result with
+// the bundle the CONSUMER selected (the A4-gap vocabulary). Every other shape,
+// including a non-baked bundle, and any parse the classifier
 // is unsure about, falls back to the eval path (failure-safe). Fixtures mirror
 // real ecosystem consumers: swift-array-primitives (bare), swift-cardinal-
 // primitives (excludes), swift-carrier-primitives (inline rule + excludes).
@@ -37,12 +39,14 @@ extension Lint.File.Single.Classifier.Test {
         return false
     }
 
-    /// Pattern helper — extract the excluded ID set, or `nil` if the
-    /// classification is not `.fastPathStandardBundleExcluding`.
+    /// Pattern helper — extract the bundle token and excluded ID set, or
+    /// `nil` if the classification is not `.fastPathStandardBundleExcluding`.
     private func excluded(
         _ classification: Lint.File.Single.Classification
-    ) -> Swift.Set<Lint.Rule.ID>? {
-        if case .fastPathStandardBundleExcluding(let disabled) = classification { return disabled }
+    ) -> (bundle: Lint.Rule.Bundle.Baked, disabled: Swift.Set<Lint.Rule.ID>)? {
+        if case .fastPathStandardBundleExcluding(let bundle, let disabled) = classification {
+            return (bundle: bundle, disabled: disabled)
+        }
         return nil
     }
 
@@ -59,7 +63,7 @@ extension Lint.File.Single.Classifier.Test {
                 Lint.Rule.Bundle.primitives
             }
             """
-        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle)
+        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle(bundle: .primitives))
     }
 
     @Test
@@ -75,7 +79,7 @@ extension Lint.File.Single.Classifier.Test {
                 Lint.Rule.Bundle.primitives
             })
             """
-        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle)
+        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle(bundle: .primitives))
     }
 
     @Test
@@ -101,7 +105,7 @@ extension Lint.File.Single.Classifier.Test {
         let expected: Swift.Set<Lint.Rule.ID> = [
             "raw value access", "chained rawvalue access", "int public parameter", "pointer advanced by",
         ]
-        #expect(excluded(Lint.File.Single.Classifier.classify(source: source)) == expected)
+        #expect(excluded(Lint.File.Single.Classifier.classify(source: source))?.disabled == expected)
     }
 
     @Test
@@ -127,7 +131,7 @@ extension Lint.File.Single.Classifier.Test {
         let expected: Swift.Set<Lint.Rule.ID> = [
             "raw value access", "chained rawvalue access", "unchecked call site",
         ]
-        #expect(excluded(Lint.File.Single.Classifier.classify(source: source)) == expected)
+        #expect(excluded(Lint.File.Single.Classifier.classify(source: source))?.disabled == expected)
     }
 
     @Test
@@ -147,7 +151,7 @@ extension Lint.File.Single.Classifier.Test {
             }
             """
         let expected: Swift.Set<Lint.Rule.ID> = ["raw value access", "pointer advanced by"]
-        #expect(excluded(Lint.File.Single.Classifier.classify(source: source)) == expected)
+        #expect(excluded(Lint.File.Single.Classifier.classify(source: source))?.disabled == expected)
     }
 
     @Test
@@ -216,10 +220,26 @@ extension Lint.File.Single.Classifier.Test {
     }
 
     @Test
-    func `Non-primitives bundle falls back to eval`() {
-        // A bare `institute` bundle is a different rule set than the runner
-        // bakes — the primitives runner would over-report (primitives ⊇
-        // institute), so it must take the eval fallback.
+    func `Bare standards bundle is the fast path with the standards token`() {
+        // swift-uri-standard shape (A4-gap closure): the runner bakes
+        // `Bundle.standards` too, so a bare standards consumer routes to it
+        // with the `standards` token — never the primitives set.
+        let source = """
+            // swift-linter-tools-version: 0.1
+            import Linter
+            import Linter_Standards_Rules
+
+            Lint.run(dependencies: [
+                .package(url: "https://github.com/swift-standards/swift-standards-linter-rules.git", branch: "main", products: ["Linter Standards Rules"])
+            ]) {
+                Lint.Rule.Bundle.standards
+            }
+            """
+        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle(bundle: .standards))
+    }
+
+    @Test
+    func `Bare institute bundle is the fast path with the institute token`() {
         let source = """
             // swift-linter-tools-version: 0.1
             import Linter
@@ -229,6 +249,82 @@ extension Lint.File.Single.Classifier.Test {
                 .package(path: "../../swift-foundations/swift-institute-linter-rules", products: ["Linter Institute Rules"])
             ]) {
                 Lint.Rule.Bundle.institute
+            }
+            """
+        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle(bundle: .institute))
+    }
+
+    @Test
+    func `Standards bundle with exclusions carries the standards token`() {
+        let source = """
+            // swift-linter-tools-version: 0.1
+            import Linter
+            import Linter_Standards_Rules
+
+            Lint.run(dependencies: [
+                .package(url: "https://github.com/swift-standards/swift-standards-linter-rules.git", branch: "main", products: ["Linter Standards Rules"])
+            ]) {
+                Lint.Rule.Bundle.standards.excluding(rules: [
+                    "raw value access",
+                ])
+            }
+            """
+        let result = excluded(Lint.File.Single.Classifier.classify(source: source))
+        #expect(result?.bundle == .standards)
+        #expect(result?.disabled == ["raw value access"])
+    }
+
+    @Test
+    func `Institute bundle with exclusions carries the institute token`() {
+        let source = """
+            // swift-linter-tools-version: 0.1
+            import Linter
+            import Linter_Institute_Rules
+
+            Lint.run(dependencies: [
+                .package(path: "../../swift-foundations/swift-institute-linter-rules", products: ["Linter Institute Rules"])
+            ]) {
+                Lint.Rule.Bundle.institute.excluding(rules: [
+                    Lint.Rule.`raw value access`.id,
+                ])
+            }
+            """
+        let result = excluded(Lint.File.Single.Classifier.classify(source: source))
+        #expect(result?.bundle == .institute)
+        #expect(result?.disabled == ["raw value access"])
+    }
+
+    @Test
+    func `Non-baked bundle falls back to eval`() {
+        // A bare `universal` bundle is outside the baked vocabulary (its sole
+        // consumer is the universal pack's own self-lint) — the runner would
+        // have to substitute a different rule set, so it must take the eval
+        // fallback.
+        let source = """
+            // swift-linter-tools-version: 0.1
+            import Linter
+            import Linter_Rules
+
+            Lint.run(dependencies: [
+                .package(path: ".", products: ["Linter Rules"])
+            ]) {
+                Lint.Rule.Bundle.universal
+            }
+            """
+        #expect(isEvalFallback(Lint.File.Single.Classifier.classify(source: source)))
+    }
+
+    @Test
+    func `Non-baked bundle with exclusions falls back to eval`() {
+        let source = """
+            // swift-linter-tools-version: 0.1
+            import Linter
+            import Linter_Rules
+
+            Lint.run(dependencies: [
+                .package(path: ".", products: ["Linter Rules"])
+            ]) {
+                Lint.Rule.Bundle.universal.excluding(rules: ["raw value access"])
             }
             """
         #expect(isEvalFallback(Lint.File.Single.Classifier.classify(source: source)))
@@ -272,7 +368,7 @@ extension Lint.File.Single.Classifier.Test {
                 Lint.Rule.Bundle.primitives  // not a // parent: directive, just prose
             }
             """
-        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle)
+        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle(bundle: .primitives))
     }
 
     @Test

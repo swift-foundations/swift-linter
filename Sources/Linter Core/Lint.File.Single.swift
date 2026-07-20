@@ -181,14 +181,17 @@ extension Lint.File.Single {
         // (Research/near-instant-lint-with-external-rule-loading.md): when a
         // prebuilt "standard runner" is provisioned — its binary named by the
         // `SWIFT_LINTER_RUNNER` environment variable — AND the consumer's
-        // active rule set is exactly the standard `Lint.Rule.Bundle.primitives`
-        // that runner bakes, lint via the runner. This skips the per-run eval
+        // active rule set is exactly one of the baked standard bundles
+        // (`Lint.Rule.Bundle.Baked`: primitives / standards / institute)
+        // that runner bakes, lint via the runner. The recognized bundle token
+        // rides the `Lint.Rule.Bundle.Baked.Channel` environment variable so
+        // the runner selects the consumer's bundle. This skips the per-run eval
         // materialize-compile (the ~155s SwiftSyntax-from-source floor that
         // dominates a cold eval) and lints warm in ~0.65s.
         //
         // Failure-safe and additive: an unset `SWIFT_LINTER_RUNNER` (the local
         // and pre-rollout default) OR any non-`fastPathStandardBundle`
-        // classification (inline/custom rules, non-`primitives` bundle,
+        // classification (inline/custom rules, non-baked bundle,
         // per-consumer excludes/enables, a `// parent:` chain) falls through to
         // the eval pipeline below. External, consumer-declared rule loading is
         // preserved on BOTH paths: the runner bundles the published standard
@@ -213,26 +216,28 @@ extension Lint.File.Single {
                 output: output,
                 classification: Self.Classifier.classify(source: source, parsed: parsed)
             ) {
-            case .fastPathStandardBundle:
+            case .fastPathStandardBundle(let bundle):
                 return try Runner.run(
                     binary: runnerBinary,
                     consumerPackageRoot: consumerPackageRoot,
                     arguments: arguments,
                     selection: nil,
+                    bundle: bundle,
                     nonce: nonce
                 )
 
-            case .fastPathStandardBundleExcluding(let disabled):
-                // The consumer activates Bundle.primitives minus `disabled`.
+            case .fastPathStandardBundleExcluding(let bundle, let disabled):
+                // The consumer activates `bundle` minus `disabled`.
                 // Pass that selection to the runner as a Lint.Manifest; the
                 // runner overlays it on its baked registry so it lints exactly
-                // the consumer's reduced rule set (Bundle.primitives MINUS the
+                // the consumer's reduced rule set (the baked bundle MINUS the
                 // exclusions) — no per-run recompile.
                 return try Runner.run(
                     binary: runnerBinary,
                     consumerPackageRoot: consumerPackageRoot,
                     arguments: arguments,
                     selection: Lint.Manifest(disabled: disabled),
+                    bundle: bundle,
                     nonce: nonce
                 )
 

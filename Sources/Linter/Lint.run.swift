@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 internal import File_System
+public import Linter_Core
 public import Linter_Primitives
 internal import Process
 public import SPM_Standard
@@ -119,6 +120,47 @@ extension Lint {
             inheriting: base
         )
         run(configuration: overlaid)
+    }
+
+    /// Run the prebuilt standard runner with its full baked-bundle catalogue,
+    /// selecting the bundle named on the ``Lint/Rule/Bundle/Baked/Channel``.
+    ///
+    /// The A4-gap runner entry point: the runner's `main.swift` bakes EVERY
+    /// published standard bundle and passes them keyed by their
+    /// ``Lint/Rule/Bundle/Baked`` token:
+    ///
+    /// ```swift
+    /// Lint.run(bundles: [
+    ///     .primitives: Lint.Rule.Bundle.primitives,
+    ///     .standards: Lint.Rule.Bundle.standards,
+    ///     .institute: Lint.Rule.Bundle.institute,
+    /// ])
+    /// ```
+    ///
+    /// The dispatcher exports the consumer's classifier-recognized bundle
+    /// token on the channel before spawning; this method reads it and runs
+    /// ``run(bundle:)`` with the matching baked set. Unset ⇒ `.primitives`
+    /// (the sole bundle a pre-A4 dispatcher ever routed, so old dispatchers
+    /// keep their exact behavior). Fail-loud on a SET-but-invalid token AND
+    /// on a valid token absent from `bundles`: silently substituting a
+    /// different bundle than the consumer selected would be a
+    /// wrong-result-that-exits-0 hazard (mirrors the selection / parent /
+    /// exit-policy channel discipline).
+    public static func run(bundles: [Lint.Rule.Bundle.Baked: [Lint.Rule.Configuration]]) {
+        let requested: Lint.Rule.Bundle.Baked
+        do throws(Lint.Rule.Bundle.Baked.Channel.Error) {
+            requested = try Lint.Rule.Bundle.Baked.Channel.read() ?? .primitives
+        } catch {
+            failLoud("bundle channel: \(error)")
+        }
+        guard let bundle: [Lint.Rule.Configuration] = bundles[requested] else {
+            // swift-linter:disable:next raw value access
+            // REASON: `Lint.Rule.Bundle.Baked` is a `String`-backed enum whose
+            // raw value IS the channel's wire vocabulary; the diagnostic names
+            // the wire token the dispatcher sent, not a Tagged payload.
+            failLoud("bundle channel: this runner does not bake bundle '\(requested.rawValue)'")
+        }
+        run(bundle: bundle)
     }
 
     /// Emit `message` to stderr and terminate the process with a non-zero exit.

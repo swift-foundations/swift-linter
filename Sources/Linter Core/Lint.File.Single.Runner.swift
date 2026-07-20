@@ -47,16 +47,31 @@ extension Lint.File.Single.Runner {
     /// per-run-unique file under `<consumerRoot>/.swift-lint/`) and the path is
     /// passed to the runner in the channel's environment variable; the runner's
     /// `Lint.run(bundle:)` reads it via ``Channel/read()`` and overlays it on
-    /// its baked registry so it lints `Bundle.primitives` minus the consumer's
+    /// its baked registry so it lints the selected bundle minus the consumer's
     /// exclusions. `nil` runs the full baked bundle (bare-bundle consumer).
+    ///
+    /// `bundle` is the classifier-recognized baked-bundle token — the bundle
+    /// the CONSUMER selected. It is exported on the
+    /// ``Lint/Rule/Bundle/Baked/Channel`` environment variable before exec so
+    /// the runner's `Lint.run(bundles:)` selects exactly that baked rule set
+    /// (never a substituted one). The export is unconditional, even for
+    /// `.primitives`: the runner's unset-default exists only for pre-A4
+    /// dispatchers, and an explicit token keeps the dispatcher/runner
+    /// contract observable per spawn.
     internal static func run(
         binary: Swift.String,
         consumerPackageRoot: File.Path,
         arguments: [Swift.String],
         selection: Lint.Manifest?,
+        bundle: Lint.Rule.Bundle.Baked,
         nonce: Swift.String
     ) throws(Lint.File.Single.Error) -> Swift.Int32 {
-        let environment: [Swift.String: Swift.String]?
+        var snapshot: Environment.Snapshot = Environment.Snapshot.current()
+        // swift-linter:disable:next raw value access
+        // REASON: `Lint.Rule.Bundle.Baked` is a `String`-backed enum whose raw
+        // value IS the channel's wire vocabulary (see `Baked.Channel`), not a
+        // Tagged newtype; `.rawValue` is the intended env-var encoding here.
+        snapshot.values[Lint.Rule.Bundle.Baked.Channel.variable] = bundle.rawValue
         if let selection {
             let manifestPath: File.Path
             do throws(Lint.File.Single.Channel.Error) {
@@ -68,12 +83,9 @@ extension Lint.File.Single.Runner {
             } catch {
                 throw .materializationFailed(reason: "write selection manifest: \(error)")
             }
-            var snapshot: Environment.Snapshot = Environment.Snapshot.current()
             snapshot.values[Lint.File.Single.Channel.selection.variable] = manifestPath.string
-            environment = snapshot.values
-        } else {
-            environment = nil  // inherit the parent environment
         }
+        let environment: [Swift.String: Swift.String]? = snapshot.values
         let invocation: [Swift.String] = Self.invocation(binary: binary, arguments: arguments)
         let spawnConfiguration = Process.Spawn.Configuration(
             executable: "/usr/bin/env",

@@ -30,12 +30,18 @@ extension Lint.File.Single {
 }
 
 extension Lint.File.Single.Classifier {
-    /// The single bundle expression the standard runner bakes.
+    /// The baked-bundle vocabulary: exact expression text → bundle token.
     ///
-    /// A
-    /// fast-path consumer's rule closure must be exactly this member
-    /// access, with nothing applied to it and no sibling statements.
-    fileprivate static let bakedBundleExpression: Swift.String = "Lint.Rule.Bundle.primitives"
+    /// A fast-path consumer's rule closure must be exactly one of these
+    /// member accesses (with nothing applied to it and no sibling
+    /// statements), or `.excluding(rules:)` over one. Derived from
+    /// ``Lint/Rule/Bundle/Baked`` so the classifier's vocabulary and the
+    /// runner's bake list share a single source of truth.
+    fileprivate static func bakedBundle(matching expression: ExprSyntax) -> Lint.Rule.Bundle.Baked? {
+        guard expression.as(MemberAccessExprSyntax.self) != nil else { return nil }
+        let text: Swift.String = expression.trimmedDescription
+        return Lint.Rule.Bundle.Baked.allCases.first { $0.expression == text }
+    }
 
     /// Classify a consumer's `Lint.swift` `source` for fast-path
     /// routing.
@@ -46,12 +52,15 @@ extension Lint.File.Single.Classifier {
     ///    `Lint.run(bundle:)` entry point folds no parent manifest, so a
     ///    parent chain could add or remove rules the runner does not
     ///    reflect.
-    /// 2. Its `Lint.run(...)` rule closure is exactly the single
-    ///    expression `Lint.Rule.Bundle.primitives` — no `.excluding`,
-    ///    `.enable`, `.disable`, `.override`, and no sibling statements.
+    /// 2. Its `Lint.run(...)` rule closure is exactly one single baked-bundle
+    ///    expression from the ``Lint/Rule/Bundle/Baked`` vocabulary (e.g.
+    ///    `Lint.Rule.Bundle.primitives`, `Lint.Rule.Bundle.standards`) — no
+    ///    `.enable`, `.disable`, `.override`, and no sibling statements
+    ///    (`.excluding(rules:)` over a baked bundle is the one recognized
+    ///    application; see (2b)).
     ///
     /// Condition 2 is the load-bearing invariant: activating any inline
-    /// rule, custom-pack rule, non-`primitives` bundle, or per-consumer
+    /// rule, custom-pack rule, non-baked bundle, or per-consumer
     /// enable/disable/exclude requires the closure to be something other
     /// than that single bare member access. So a match guarantees the
     /// consumer's *active* rule set is byte-for-byte the set the runner
@@ -101,38 +110,39 @@ extension Lint.File.Single.Classifier {
         else {
             return .evalFallback(reason: "rule closure is not a single expression")
         }
-        // (2a) Exactly the bare baked bundle.
-        if expression.as(MemberAccessExprSyntax.self) != nil,
-            expression.trimmedDescription == Self.bakedBundleExpression
-        {
-            return .fastPathStandardBundle
+        // (2a) Exactly a bare baked bundle.
+        if let bundle: Lint.Rule.Bundle.Baked = Self.bakedBundle(matching: expression) {
+            return .fastPathStandardBundle(bundle: bundle)
         }
-        // (2b) The baked bundle minus per-package exclusions:
-        //      Lint.Rule.Bundle.primitives.excluding(rules: [ <ids> ]).
-        if let disabled: Swift.Set<Lint.Rule.ID> = Self.bakedBundleExclusions(expression) {
-            return .fastPathStandardBundleExcluding(disabled: disabled)
+        // (2b) A baked bundle minus per-package exclusions:
+        //      <baked bundle>.excluding(rules: [ <ids> ]).
+        if let (bundle, disabled): (Lint.Rule.Bundle.Baked, Swift.Set<Lint.Rule.ID>) =
+            Self.bakedBundleExclusions(expression)
+        {
+            return .fastPathStandardBundleExcluding(bundle: bundle, disabled: disabled)
         }
         return .evalFallback(
-            reason: "rule closure is not `\(Self.bakedBundleExpression)` nor `.excluding(rules:)` over it"
+            reason: "rule closure is not a baked standard bundle nor `.excluding(rules:)` over one"
         )
     }
 
     /// If `expression` is exactly
-    /// `Lint.Rule.Bundle.primitives.excluding(rules: [<ids>])` where every
-    /// array element is an exactly-extractable rule ID, return the excluded ID
-    /// set; otherwise `nil`.
+    /// `<baked bundle>.excluding(rules: [<ids>])` where the base is one of the
+    /// ``Lint/Rule/Bundle/Baked`` vocabulary expressions and every
+    /// array element is an exactly-extractable rule ID, return the bundle
+    /// token with the excluded ID set; otherwise `nil`.
     ///
     /// `nil` routes the consumer to the eval fallback — **never a guess**. A
     /// single unreadable element fails the whole extraction (a dropped
     /// exclusion would silently fire a rule the consumer excluded).
     fileprivate static func bakedBundleExclusions(
         _ expression: ExprSyntax
-    ) -> Swift.Set<Lint.Rule.ID>? {
+    ) -> (bundle: Lint.Rule.Bundle.Baked, disabled: Swift.Set<Lint.Rule.ID>)? {
         guard let call: FunctionCallExprSyntax = expression.as(FunctionCallExprSyntax.self),
             let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self),
             member.declName.baseName.text == "excluding",
             let base: ExprSyntax = member.base,
-            base.trimmedDescription == Self.bakedBundleExpression
+            let bundle: Lint.Rule.Bundle.Baked = Self.bakedBundle(matching: base)
         else {
             return nil
         }
@@ -154,7 +164,7 @@ extension Lint.File.Single.Classifier {
             }
             ids.insert(id)
         }
-        return ids.isEmpty ? nil : ids
+        return ids.isEmpty ? nil : (bundle: bundle, disabled: ids)
     }
 
     /// Extract a rule ID from one `.excluding(rules:)` array element. Two exact

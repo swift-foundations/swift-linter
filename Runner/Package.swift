@@ -37,16 +37,22 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/swift-foundations/swift-linter.git", branch: "main"),
         .package(url: "https://github.com/swift-primitives/swift-primitives-linter-rules.git", branch: "main"),
+        .package(url: "https://github.com/swift-standards/swift-standards-linter-rules.git", branch: "main"),
+        .package(url: "https://github.com/swift-foundations/swift-institute-linter-rules.git", branch: "main"),
     ],
     targets: [
         .executableTarget(
             name: "runner",
             dependencies: [
                 .product(name: "Linter", package: "swift-linter"),
-                // The aggregate `Linter Primitives Rules` product transitively
-                // re-exports the institute + universal tiers, so this single
-                // product delivers the whole `Lint.Rule.Bundle.primitives` set.
+                // Each aggregate product delivers one baked bundle
+                // (transitively re-exporting its upstream tiers):
+                // `Bundle.primitives`, `Bundle.standards`, `Bundle.institute`.
+                // The dispatcher selects among them per spawn via the
+                // SWIFT_LINTER_BUNDLE channel (A4-gap closure).
                 .product(name: "Linter Primitives Rules", package: "swift-primitives-linter-rules"),
+                .product(name: "Linter Standards Rules", package: "swift-standards-linter-rules"),
+                .product(name: "Linter Institute Rules", package: "swift-institute-linter-rules"),
             ]
         ),
     ],

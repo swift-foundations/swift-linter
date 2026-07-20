@@ -9,16 +9,26 @@
 //
 // ===----------------------------------------------------------------------===//
 
-// Phase-3 standard runner body. The engine + SwiftSyntax + the standard
-// primitives rule packs are baked into this executable; `Lint.run(bundle:)`
-// reads the target directory from argv and lints it warm — no per-run eval
-// recompile. It bakes the BARE standard `Lint.Rule.Bundle.primitives` (the
-// canonical pure-bundle selection the swift-linter CLI fast path routes here),
-// so a bare-bundle consumer gets exactly the rule set its eval would resolve.
-// Per-consumer excludes/enables are NOT baked — they are a runtime-selection
-// concern and such consumers take the eval fallback today (see the research
-// doc's Phase-3 §, "runtime-selection overlay").
+// Phase-3 standard runner body. The engine + SwiftSyntax + EVERY published
+// standard rule-pack bundle are baked into this executable;
+// `Lint.run(bundles:)` reads the dispatcher-exported SWIFT_LINTER_BUNDLE
+// channel to select WHICH baked bundle this spawn lints with, then reads the
+// target directory from argv and lints it warm — no per-run eval recompile.
+// The swift-linter CLI fast path routes a pure-bundle consumer here only when
+// its active rule set is provably exactly one of these bundles (or a bundle
+// minus exactly-extracted exclusions), so the runner never lints a different
+// rule set than the consumer selected (A4-gap closure). An unset channel
+// defaults to `.primitives` — the sole bundle a pre-A4 dispatcher ever
+// routed. A token this catalogue does not carry fails loud (dispatcher/runner
+// version skew). Per-consumer excludes are NOT baked — they ride the
+// selection-manifest channel as a runtime overlay, exactly as before.
 import Linter
+import Linter_Institute_Rules
 import Linter_Primitives_Rules
+import Linter_Standards_Rules
 
-Lint.run(bundle: Lint.Rule.Bundle.primitives)
+Lint.run(bundles: [
+    .primitives: Lint.Rule.Bundle.primitives,
+    .standards: Lint.Rule.Bundle.standards,
+    .institute: Lint.Rule.Bundle.institute,
+])

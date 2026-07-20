@@ -80,15 +80,15 @@ extension Lint.File.Single.Test.Runner {
     @Test
     func `Standard output preserves a bare-bundle fast-path classification`() {
         #expect(
-            Lint.File.Single.route(output: .standard, classification: .fastPathStandardBundle)
-                == .fastPathStandardBundle
+            Lint.File.Single.route(output: .standard, classification: .fastPathStandardBundle(bundle: .primitives))
+                == .fastPathStandardBundle(bundle: .primitives)
         )
     }
 
     @Test
     func `Standard output preserves an excluding fast-path classification`() {
         let excluding: Lint.File.Single.Classification =
-            .fastPathStandardBundleExcluding(disabled: ["raw value access"])
+            .fastPathStandardBundleExcluding(bundle: .primitives, disabled: ["raw value access"])
         #expect(Lint.File.Single.route(output: .standard, classification: excluding) == excluding)
     }
 
@@ -110,7 +110,7 @@ extension Lint.File.Single.Test.Runner {
         // the requested shape, so route to eval despite a fast-path source.
         #expect(
             isEvalFallback(
-                Lint.File.Single.route(output: .nonStandard, classification: .fastPathStandardBundle)
+                Lint.File.Single.route(output: .nonStandard, classification: .fastPathStandardBundle(bundle: .primitives))
             )
         )
     }
@@ -121,7 +121,7 @@ extension Lint.File.Single.Test.Runner {
             isEvalFallback(
                 Lint.File.Single.route(
                     output: .nonStandard,
-                    classification: .fastPathStandardBundleExcluding(disabled: ["int public parameter"])
+                    classification: .fastPathStandardBundleExcluding(bundle: .primitives, disabled: ["int public parameter"])
                 )
             )
         )

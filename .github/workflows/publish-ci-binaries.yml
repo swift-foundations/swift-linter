@@ -17,18 +17,20 @@
 #   remains untagged in the release sense.
 # - Assets, replaced in place on every publish: `swift-linter` (dispatcher),
 #   `swift-linter-runner` (standard runner), `SHA256SUMS`, `MANIFEST.txt`
-#   (composite digest + the 5 source HEADs baked into this build).
+#   (composite digest + the 6 source HEADs baked into this build).
 # - Binaries are built inside `swift:6.3` — the same container image the
 #   consumer swift-linter job runs in — for ABI/runtime compatibility. Bump
 #   in lockstep with the universal reusable's swift-version default.
 #
 # FRESHNESS
-# push-to-main rebuilds always. The 6-hourly cron recomputes the composite
+# push-to-main rebuilds always. The hourly cron recomputes the composite
 # digest (engine + standard rule-pack main HEADs — same coordinate the old
 # per-repo cache keyed on) and rebuilds only when it moved (a rule-pack
 # commit without an engine commit). Consumers just take whatever is
 # published; between a rule-pack push and the next cron tick, lint runs on a
-# ≤6h-stale rule set — accepted trade-off, same class as the old warm cache.
+# ≤1h-stale rule set — tightened from 6h for the lint-compliance campaign
+# (2026-07-20): rule tuning and repo fixing interleave, so verdict skew
+# windows must stay short. Digest-gated, so a no-op probe stays cheap.
 
 name: publish-ci-binaries
 
@@ -45,7 +47,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '23 */6 * * *'   # rule-pack freshness probe (rebuild only on digest move)
+    - cron: '23 * * * *'   # hourly rule-pack freshness probe (rebuild only on digest move)
   workflow_dispatch:
 
 jobs:
@@ -98,10 +100,11 @@ jobs:
           set -euo pipefail
           engine="$GITHUB_SHA"
           primrules=$(git ls-remote https://github.com/swift-primitives/swift-primitives-linter-rules.git main | cut -f1)
+          stdrules=$(git ls-remote https://github.com/swift-standards/swift-standards-linter-rules.git main | cut -f1)
           instrules=$(git ls-remote https://github.com/swift-foundations/swift-institute-linter-rules.git main | cut -f1)
           unirules=$(git ls-remote https://github.com/swift-foundations/swift-linter-rules.git main | cut -f1)
           linterprim=$(git ls-remote https://github.com/swift-primitives/swift-linter-primitives.git main | cut -f1)
-          digest=$(printf '%s\n' "$engine" "$primrules" "$instrules" "$unirules" "$linterprim" | sort | sha256sum | cut -d' ' -f1)
+          digest=$(printf '%s\n' "$engine" "$primrules" "$stdrules" "$instrules" "$unirules" "$linterprim" | sort | sha256sum | cut -d' ' -f1)
           {
             echo "digest=$digest"
           } >> "$GITHUB_OUTPUT"
@@ -109,6 +112,7 @@ jobs:
             echo "digest=$digest"
             echo "engine=$engine"
             echo "swift-primitives-linter-rules=$primrules"
+            echo "swift-standards-linter-rules=$stdrules"
             echo "swift-institute-linter-rules=$instrules"
             echo "swift-linter-rules=$unirules"
             echo "swift-linter-primitives=$linterprim"
