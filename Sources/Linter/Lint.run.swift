@@ -176,6 +176,27 @@ extension Lint {
                 violations: outcome.findings.count,
                 to: Terminal.Stream.stderr.write
             )
+            // Exit-policy channel (`SWIFT_LINTER_EXIT_POLICY`, exported by the
+            // swift-linter CLI before dispatch): this is the shared terminal
+            // BOTH the prebuilt standard runner (`run(bundle:)`) and the
+            // eval-compiled executable (`run(dependencies:rules:)`) funnel
+            // through, so one check gives both dispatch paths strict-exit
+            // parity with the CLI's in-process fallback. Unset ⇒ advisory
+            // (local-run default, exit 0). SET-but-invalid fails loud — a
+            // silently-weakened exit policy would be a wrong-result-that-
+            // exits-0 hazard (same discipline as the selection / parent
+            // channels).
+            let policy: Lint.Run.Policy?
+            do throws(Lint.Run.Policy.Channel.Error) {
+                policy = try Lint.Run.Policy.Channel.read()
+            } catch {
+                failLoud("exit-policy channel: \(error)")
+            }
+            if policy == .strict,
+                outcome.findings.contains(where: { $0.record.severity == .error })
+            {
+                Process.exit(1)
+            }
         } catch {
             print("[Lint] error: \(error)")
         }

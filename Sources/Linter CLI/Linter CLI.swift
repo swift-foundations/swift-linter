@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 public import ArgumentParser
+import Environment
 import File_System
 public import File_System_Core
 import Kernel
@@ -140,14 +141,26 @@ extension Lint.CLI {
         // `swift run --package-path <eval> Lint <args>`. The dispatched
         // executable IS the linter binary for the consumer.
         if Lint.File.Single.Detection.detect(at: consumerRoot) != nil {
+            // Export the exit policy on the environment channel BOTH
+            // dispatched executables honor (`Lint.run(configuration:)` reads
+            // it at the shared terminal): the prebuilt standard runner and
+            // the eval-compiled consumer executable each inherit the process
+            // environment at spawn, so one export here covers both paths.
+            // Exported only when non-advisory — unset IS the advisory
+            // default, and local direct runs of a consumer's Lint executable
+            // stay bit-identical.
+            if policy != .advisory {
+                try Environment.write(Lint.Run.Policy.Channel.variable, to: policy.rawValue)
+            }
             // The prebuilt-runner fast path can only reproduce the runner's
-            // baked output shape (text format, advisory exit). Tell dispatch
-            // whether the requested output is that shape; any other request
-            // (`--format sarif`, `--exit-policy strict`) routes to the eval
-            // fallback so the runner is never entered for output it cannot
-            // produce.
+            // baked TEXT output; `--format sarif` still routes to the eval
+            // fallback. The exit policy no longer gates the fast path: since
+            // the exit-policy channel above, the runner escalates strict
+            // exits exactly like the eval executable (both funnel through
+            // `Lint.run(configuration:)`), so `--exit-policy strict` may take
+            // the fast path.
             let output: Lint.File.Single.Output =
-                (format == .text && policy == .advisory) ? .standard : .nonStandard
+                (format == .text) ? .standard : .nonStandard
             // Per-run nonce (2f): woven into the selection / parent channel
             // temp-file names so concurrent `swift-linter` runs on the same
             // consumer root never clobber a FIXED path. A 64-bit random hex

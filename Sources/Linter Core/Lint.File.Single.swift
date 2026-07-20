@@ -134,10 +134,11 @@ extension Lint.File.Single {
     /// (the consumer's `Lint.swift` as compiled in the eval project).
     ///
     /// `output` is the CLI's requested output shape. When it is
-    /// ``Output/nonStandard`` (`--format` other than text, or a non-advisory
-    /// `--exit-policy`) the prebuilt-runner fast path is bypassed via
-    /// ``route(output:classification:)`` — the runner bakes text + advisory
-    /// and cannot reshape its output. Defaults to ``Output/standard``.
+    /// ``Output/nonStandard`` (`--format` other than text) the prebuilt-runner
+    /// fast path is bypassed via ``route(output:classification:)`` — the
+    /// runner bakes text output and cannot reshape it. The exit policy rides
+    /// the ``Lint/Run/Policy/Channel`` environment variable instead and gates
+    /// nothing here. Defaults to ``Output/standard``.
     ///
     /// `nonce` is a per-run-unique token (the CLI supplies a random one) woven
     /// into the selection / parent ``Channel`` temp-file names so concurrent
@@ -195,10 +196,12 @@ extension Lint.File.Single {
         // packs (including inline rules) exactly as before.
         //
         // `output` gates the fast path too: a non-`.standard` request
-        // (`--format sarif`, non-advisory `--exit-policy`) routes to eval via
-        // ``route(output:classification:)`` — the runner bakes text + advisory
-        // and cannot reshape its output, so it must never be entered for a
-        // shape it cannot produce.
+        // (`--format sarif`) routes to eval via
+        // ``route(output:classification:)`` — the runner bakes text output
+        // and cannot reshape it, so it must never be entered for a shape it
+        // cannot produce. The exit policy does NOT gate routing: both
+        // dispatch targets honor the CLI-exported exit-policy channel at the
+        // shared `Lint.run(configuration:)` terminal.
         //
         // Classify-before-extract: the fast path needs NO dependency extraction
         // (the runner bakes its own packs), so classification runs FIRST. A
@@ -259,10 +262,11 @@ extension Lint.File.Single {
     /// `.standard` output defers entirely to the classifier (the source
     /// decides). Any ``Output/nonStandard`` request forces
     /// ``Lint/File/Single/Classification/evalFallback(reason:)`` REGARDLESS of
-    /// the source — the prebuilt runner bakes text + advisory output and
-    /// cannot reproduce a SARIF format or a strict exit policy, so it must
-    /// never be taken for such a request. Pure + `internal` so the gate is
-    /// unit-testable without a real ``Process/Spawn``.
+    /// the source — the prebuilt runner bakes text output and cannot
+    /// reproduce a SARIF format, so it must never be taken for such a
+    /// request. (Exit policy is channel-borne and does not gate routing.)
+    /// Pure + `internal` so the gate is unit-testable without a real
+    /// ``Process/Spawn``.
     internal static func route(
         output: Output,
         classification: Lint.File.Single.Classification
@@ -274,7 +278,7 @@ extension Lint.File.Single {
         case .nonStandard:
             return .evalFallback(
                 reason: "consumer requested an output shape the standard runner cannot produce "
-                    + "(non-text `--format` or non-advisory `--exit-policy`)"
+                    + "(non-text `--format`)"
             )
         }
     }

@@ -132,6 +132,7 @@ let package = Package(
             dependencies: [
                 "Linter",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "Environment", package: "swift-environment"),
                 .product(name: "Kernel", package: "swift-kernel"),
             ]
         ),
@@ -141,6 +142,7 @@ let package = Package(
                 "Linter Core",
                 "Linter Reporter Text",
                 "Linter Reporter SARIF",
+                .product(name: "Environment", package: "swift-environment"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "URI Standard", package: "swift-uri-standard"),
