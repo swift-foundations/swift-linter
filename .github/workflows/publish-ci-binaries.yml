@@ -189,3 +189,132 @@ jobs:
           gh release edit ci-binaries \
             --notes "Rolling prebuilt linter binaries for the universal swift-ci.yml (updated $(date -u +%Y-%m-%dT%H:%M:%SZ)). Non-semver tag: not a package release. digest=${{ steps.digest.outputs.digest }}"
           echo "Published digest ${{ steps.digest.outputs.digest }}."
+
+  # macos-arm64 leg (task #17, 2026-07-23): same rolling release, suffixed
+  # assets (`swift-linter-macos-arm64`, `swift-linter-runner-macos-arm64`) with
+  # their own MANIFEST-macos-arm64.txt + SHA256SUMS-macos-arm64 so the Linux
+  # assets and their consumer download step stay byte-for-byte untouched.
+  # Consumer: the LOCAL coordinator's download-first path (swift-build lint,
+  # [PKG-BUILD-025]) — when local mirror HEADs equal this manifest's HEADs it
+  # downloads instead of baking (~33 min saved per digest move per machine).
+  # Debug, not release, matching the Linux leg (swiftlang/swift#89617 is
+  # release-only). windows-x64 was evaluated and SKIPPED: the universal's
+  # swift-linter job is ubuntu-only and no CI leg lints on Windows, so a
+  # Windows asset would have zero consumers (negative recorded 2026-07-23).
+  publish-macos-arm64:
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: write   # release asset upload on this repo
+    env:
+      XCODE_VERSION: "26.6"   # lockstep with the universal swift-ci.yml env
+    steps:
+      - name: Harden runner (audit-mode egress logging)
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v6
+
+      - name: Configure private-dep access
+        uses: swift-institute/.github/.github/actions/configure-private-repos@main
+        with:
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          app-client-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_CLIENT_ID }}
+          app-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_ID }}
+          app-private-key: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_PRIVATE_KEY }}
+          enabled: true
+
+      - name: Select Xcode ${{ env.XCODE_VERSION }}
+        run: sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+
+      - name: Compute composite digest
+        id: digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          engine="$GITHUB_SHA"
+          primrules=$(git ls-remote https://github.com/swift-primitives/swift-primitives-linter-rules.git main | cut -f1)
+          stdrules=$(git ls-remote https://github.com/swift-standards/swift-standards-linter-rules.git main | cut -f1)
+          instrules=$(git ls-remote https://github.com/swift-foundations/swift-institute-linter-rules.git main | cut -f1)
+          unirules=$(git ls-remote https://github.com/swift-foundations/swift-linter-rules.git main | cut -f1)
+          linterprim=$(git ls-remote https://github.com/swift-primitives/swift-linter-primitives.git main | cut -f1)
+          digest=$(printf '%s\n' "$engine" "$primrules" "$stdrules" "$instrules" "$unirules" "$linterprim" | sort | shasum -a 256 | cut -d' ' -f1)
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          {
+            echo "digest=$digest"
+            echo "engine=$engine"
+            echo "swift-primitives-linter-rules=$primrules"
+            echo "swift-standards-linter-rules=$stdrules"
+            echo "swift-institute-linter-rules=$instrules"
+            echo "swift-linter-rules=$unirules"
+            echo "swift-linter-primitives=$linterprim"
+            echo "built-at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "platform=macos-arm64"
+            echo "xcode=${XCODE_VERSION}"
+          } > /tmp/MANIFEST-macos-arm64.txt
+          cat /tmp/MANIFEST-macos-arm64.txt
+
+      # Cron freshness probe: skip the rebuild when the published macOS
+      # manifest already carries this digest. push/workflow_dispatch always
+      # build (mirrors the Linux job's gate).
+      - name: Check published digest (schedule only)
+        id: fresh
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          stale=true
+          if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+            published=$(gh release download ci-binaries --pattern MANIFEST-macos-arm64.txt --output - 2>/dev/null | sed -n 's/^digest=//p' || true)
+            if [ "$published" = "${{ steps.digest.outputs.digest }}" ]; then
+              stale=false
+              echo "Published macos-arm64 digest is current; skipping rebuild."
+            fi
+          fi
+          echo "stale=$stale" >> "$GITHUB_OUTPUT"
+
+      - name: Build dispatcher
+        if: ${{ steps.fresh.outputs.stale == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift build --product swift-linter
+          install -m 0755 .build/debug/swift-linter /tmp/stage-swift-linter-macos-arm64
+
+      - name: Build standard runner
+        if: ${{ steps.fresh.outputs.stale == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift build --package-path Runner --product runner
+          install -m 0755 Runner/.build/debug/runner /tmp/stage-swift-linter-runner-macos-arm64
+
+      - name: Publish macos-arm64 assets
+        if: ${{ steps.fresh.outputs.stale == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          stage=$(mktemp -d)
+          cp /tmp/stage-swift-linter-macos-arm64 "$stage/swift-linter-macos-arm64"
+          cp /tmp/stage-swift-linter-runner-macos-arm64 "$stage/swift-linter-runner-macos-arm64"
+          cp /tmp/MANIFEST-macos-arm64.txt "$stage/MANIFEST-macos-arm64.txt"
+          (cd "$stage" && shasum -a 256 swift-linter-macos-arm64 swift-linter-runner-macos-arm64 MANIFEST-macos-arm64.txt > SHA256SUMS-macos-arm64)
+          # The Linux job owns release creation; wait for it to exist rather
+          # than racing a duplicate create on a first-ever run.
+          attempt=0
+          until gh release view ci-binaries >/dev/null 2>&1; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -gt 30 ]; then
+              echo "ci-binaries release never appeared" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          gh release upload ci-binaries \
+            "$stage/swift-linter-macos-arm64" "$stage/swift-linter-runner-macos-arm64" \
+            "$stage/MANIFEST-macos-arm64.txt" "$stage/SHA256SUMS-macos-arm64" --clobber
+          echo "Published macos-arm64 digest ${{ steps.digest.outputs.digest }}."
