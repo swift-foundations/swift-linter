@@ -105,16 +105,15 @@ extension Lint.File.Single.Eval {
         //       engine source tree) can dispatch the eval.
         let linterDependency: Package.Dependency
         if let rawPath: Swift.String = Environment.read("SWIFT_LINTER_PATH") {
-            let linterPathTyped: Paths.Path
             do throws(Paths.Path.Error) {
-                linterPathTyped = try Paths.Path(rawPath)
+                _ = try Paths.Path(rawPath)
             } catch {
                 throw .materializationFailed(
                     reason: "SWIFT_LINTER_PATH `\(rawPath)` is not a valid path: \(error)"
                 )
             }
             linterDependency = Package.Dependency(
-                source: .path(linterPathTyped),
+                source: .path(rawPath),
                 name: "swift-linter",
                 products: ["Linter"]
             )

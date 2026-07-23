@@ -258,10 +258,11 @@ extension Lint {
     ///
     /// Carries `Package.Dependency` from swift-spm-standard directly
     /// — the previous `Lint.Dependency` wrapper was retired with the
-    /// v0.4 typed-Source-variants change in swift-spm-standard, which
-    /// promoted `.path(String)` / `.url(String, ...)` to
-    /// `.path(Paths.Path)` / `.url(URI, ...)`. The wrapper carried no
-    /// further value once L2 was typed.
+    /// v0.4 typed-Source-variants change in swift-spm-standard. URL-form
+    /// dependencies carry ``RFC_3986/URI`` while path-form dependencies keep
+    /// SwiftPM's path string; operational path validation and resolution stay
+    /// in the linter foundation. The wrapper carried no further value once the
+    /// source variants themselves became typed.
     public static func run(
         dependencies: [Package.Dependency],
         @Array<Lint.Rule.Configuration>.Builder rules: () -> [Lint.Rule.Configuration]

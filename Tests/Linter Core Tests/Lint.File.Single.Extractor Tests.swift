@@ -10,6 +10,7 @@
 // ===----------------------------------------------------------------------===//
 
 import File_System
+import SPM_Standard
 import Testing
 
 @testable import Linter_Core
@@ -141,5 +142,25 @@ extension Lint.File.Single.Extractor.Test.Name {
             consumerPackageRoot: File.Path(stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives/")
         )
         #expect(name == "swift-cardinal-primitives")
+    }
+}
+
+extension Lint.File.Single.Extractor.Test {
+    @Test
+    func `path dependency preserves SwiftPM path string`() throws(Lint.File.Single.Error) {
+        let dependencies = try Lint.File.Single.Extractor.dependencies(
+            from: """
+                Lint.run(
+                    dependencies: [
+                        .package(path: "../swift-linter-rules", products: ["Linter Rules"]),
+                    ]
+                ) {}
+                """,
+            sourcePath: File.Path(stringLiteral: "/tmp/Lint.swift"),
+            consumerPackageRoot: File.Path(stringLiteral: "/tmp/consumer")
+        )
+
+        #expect(dependencies.count == 1)
+        #expect(dependencies.first?.source == .path("../swift-linter-rules"))
     }
 }

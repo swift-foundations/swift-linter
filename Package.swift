@@ -145,6 +145,7 @@ let package = Package(
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "File System", package: "swift-file-system"),
+                .product(name: "SPM Standard", package: "swift-spm-standard"),
                 .product(name: "URI Standard", package: "swift-uri-standard"),
             ]
         ),

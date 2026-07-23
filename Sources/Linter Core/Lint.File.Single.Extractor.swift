@@ -195,16 +195,15 @@ extension Lint.File.Single.Extractor {
         let source: Package.Dependency.Source
         let derivedName: Swift.String
         if let pathString: Swift.String = pathArg {
-            let path: Paths.Path
             do throws(Paths.Path.Error) {
-                path = try Paths.Path(pathString)
+                _ = try Paths.Path(pathString)
             } catch {
                 throw .malformedPackageCall(
                     path: sourcePath,
                     description: "`.package(path:...)` carries an invalid path `\(pathString)`: \(error)"
                 )
             }
-            source = .path(path)
+            source = .path(pathString)
             derivedName = Self.name(at: pathString, consumerPackageRoot: consumerPackageRoot)
         } else if let urlString: Swift.String = urlArg {
             let url: URI

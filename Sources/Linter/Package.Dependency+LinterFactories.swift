@@ -9,7 +9,6 @@
 //
 // ===----------------------------------------------------------------------===//
 
-public import Paths
 public import SPM_Standard
 public import URI_Standard
 public import URI_Standard_Library_Integration
@@ -35,9 +34,9 @@ public import URI_Standard_Library_Integration
 // The factories are pure construction helpers: they derive a typed
 // `Package.Name` from the path basename or URL last path segment (mirroring
 // the same derivation `Lint.File.Single.Extractor.parsePackageCall(...)`
-// performs at AST extraction time), wrap the typed `Paths.Path` / `URI`
-// inside the appropriate `Package.Dependency.Source` case, and forward
-// the consumer-supplied product list.
+// performs at AST extraction time), preserve SwiftPM's path string or wrap
+// the typed `URI` inside the appropriate `Package.Dependency.Source` case,
+// and forward the consumer-supplied product list.
 //
 // These are NOT appropriate for general `Package.Dependency` construction
 // (which should use the typed `init(source:name:products:)` directly so
@@ -57,11 +56,9 @@ extension Package.Dependency {
     /// extractor's `Self.name(at:consumerPackageRoot:)` derivation at
     /// `Lint.File.Single.Extractor.swift`.
     ///
-    /// Crashes on a malformed path string via the `Paths.Path`
-    /// `ExpressibleByStringLiteral` conformance's trap on validation
-    /// failure (empty, control characters, or interior NUL). At eval-
-    /// project compile-time the same string has already passed
-    /// extraction's typed validation, so the trap is defense-in-depth.
+    /// The SwiftPM path string is preserved exactly. In the ordinary
+    /// single-file flow, ``Lint/File/Single/Extractor`` validates it before
+    /// the generated eval project compiles this factory call.
     @inlinable
     public static func package(
         path: Swift.String,
@@ -69,7 +66,7 @@ extension Package.Dependency {
     ) -> Package.Dependency {
         let basename: Swift.String = path.split(separator: "/").last.map(Swift.String.init) ?? path
         return Package.Dependency(
-            source: .path(Paths.Path(stringLiteral: path)),
+            source: .path(path),
             name: Package.Name(_unchecked: basename),
             products: products
         )
