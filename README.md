@@ -1,6 +1,6 @@
 # swift-linter
 
-![CI](https://github.com/swift-foundations/swift-linter/actions/workflows/lint.yml/badge.svg) ![Development Status](https://img.shields.io/badge/status-active--development-blue.svg)
+![CI](https://github.com/swift-foundations/swift-linter/actions/workflows/ci.yml/badge.svg) ![Development Status](https://img.shields.io/badge/status-active--development-blue.svg)
 
 > **Note**: swift-linter currently depends on a package that has not yet been published; it will become externally buildable when that dependency's repository goes public with the ongoing incremental release.
 
