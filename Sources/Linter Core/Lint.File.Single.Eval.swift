@@ -54,9 +54,10 @@ extension Lint.File.Single.Eval {
     private static let engineDependencyURL: URI =
         "https://github.com/swift-foundations/swift-linter.git"
 
-    /// The git branch the materialized eval tracks for the engine when no
-    /// `SWIFT_LINTER_BRANCH` override is set. `main` matches the ecosystem
-    /// `branch: "main"` dependency convention (active development; no
+    /// The git branch the materialized eval tracks for the engine.
+    ///
+    /// Used when no `SWIFT_LINTER_BRANCH` override is set. `main` matches the
+    /// ecosystem `branch: "main"` dependency convention (active development; no
     /// semver/release tags) — tag-free by design. `private`, as above.
     private static let engineDependencyBranch: Swift.String = "main"
 

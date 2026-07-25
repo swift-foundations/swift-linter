@@ -14,9 +14,11 @@ internal import File_System
 internal import Process
 
 extension Lint.File.Single {
-    /// The fast-path spawn: hand a Shape-γ consumer's lint to the prebuilt
-    /// "standard runner" rather than materializing + compiling a per-run eval
-    /// project. ``dispatch(at:arguments:output:nonce:)`` calls
+    /// The fast-path spawn for a Shape-γ consumer's lint.
+    ///
+    /// Hands the lint to the prebuilt "standard runner" rather than
+    /// materializing + compiling a per-run eval project.
+    /// ``dispatch(at:arguments:output:nonce:)`` calls
     /// ``run(binary:consumerPackageRoot:arguments:selection:nonce:)`` once the
     /// classifier has confirmed the consumer's active rule set is exactly the
     /// set the runner bakes.

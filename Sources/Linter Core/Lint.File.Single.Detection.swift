@@ -13,8 +13,10 @@ public import File_System
 internal import Version_Primitives
 
 extension Lint.File.Single {
-    /// Shape-γ detection: is there a `Lint.swift` at the consumer root carrying
-    /// the `// swift-linter-tools-version:` magic-comment header?
+    /// Shape-γ detection for a consumer-root `Lint.swift`.
+    ///
+    /// Answers whether a `Lint.swift` at the consumer root carries the
+    /// `// swift-linter-tools-version:` magic-comment header.
     ///
     /// Detection is a pure, side-effect-free read used by the CLI to choose the
     /// single-file dispatch path over the nested-package / legacy paths. It is
