@@ -378,6 +378,59 @@ transitively.
 A DocC catalog covering the rule catalog, configuration schema, and CI
 integration recipes is deferred to a separate cycle.
 
+## Error Handling
+
+The public typed-throws surface is the IPC-channel read/write API that carries
+a serialized configuration between the coordinator and a dispatched executable.
+Each channel declares its own `Error` enum; every case fires ONLY on a
+set-but-broken channel — a set environment variable whose payload cannot be
+honored — never as a silent fall-through to the unmodified configuration:
+
+```
+Lint.File.Single.Channel.Error                         // read() / write()
+├── invalidPath(variable:raw:description:)   variable SET, value not a valid path
+├── unreadable(variable:path:description:)   variable SET, file could not be read
+├── unparseable(variable:path:description:)  variable SET, not valid JSON / Manifest
+└── writeFailed(variable:description:)        directory create or atomic write failed
+
+Lint.Rule.Bundle.Baked.Channel.Error                   // read()
+└── invalid(value:)                          SWIFT_LINTER_BUNDLE set to unknown token
+
+Lint.Run.Policy.Channel.Error                          // read()
+└── invalid(value:)                          SWIFT_LINTER_EXIT_POLICY set to unknown token
+```
+
+`read()` returns `nil` when the channel variable is UNSET (a legitimate "no
+overlay"); it throws only when the variable is SET but its payload cannot be
+resolved. Handle the richest surface — `Lint.File.Single.Channel.read()` —
+exhaustively over its typed error:
+
+```swift
+import Linter
+
+do throws(Lint.File.Single.Channel.Error) {
+    // `nil` ⇒ the channel variable is unset (no overlay to apply).
+    let overlay: Lint.Manifest? = try Lint.File.Single.Channel.selection.read()
+    _ = overlay
+} catch .invalidPath(let variable, let raw, _) {
+    // `variable` was set, but `raw` is not a valid filesystem path.
+    _ = (variable, raw)
+} catch .unreadable(let variable, let path, _) {
+    // `variable` was set, but the file at `path` could not be read.
+    _ = (variable, path)
+} catch .unparseable(let variable, let path, _) {
+    // `variable` was set, but the file at `path` is not valid JSON / Manifest.
+    _ = (variable, path)
+} catch .writeFailed(let variable, _) {
+    // The manifest could not be persisted (directory create or atomic write).
+    _ = variable
+}
+```
+
+Manifest decoding delegates JSON parsing to the swift-json dependency, so
+`Lint.Manifest.deserialize(_:)` surfaces `JSON.Error` from that package when a
+set channel payload is malformed JSON.
+
 ## Status & maintainer
 
 This package is public alpha (pre-1.0): interfaces are stabilizing and APIs may change until a first tagged release.
