@@ -97,13 +97,24 @@ extension Lint.File.Single {
         // index walk (`Span` is `~Escapable` and not a `Sequence`, so neither
         // `Array(span)` nor `for byte in span` is available). This is the
         // canonical low-level Span→Array copy, not a reinvention.
-        let bytes: [Byte] = try File(path).read.full { (span: Swift.Span<Byte>) -> [Byte] in
-            var array: [Byte] = []
-            array.reserveCapacity(span.count)
-            for i in 0..<span.count {
-                array.append(span[i])
+        //
+        // `read.full` throws `Either<File.System.Read.Full.Error, E>` since
+        // swift-file-system collapsed its overload pair; a non-throwing closure
+        // infers `E == Never`. Unwrap with `Either.value` here rather than
+        // widening this method's thrown type, so the three callers that already
+        // catch `File.System.Read.Full.Error` stay unchanged.
+        let bytes: [Byte]
+        do throws(Either<File.System.Read.Full.Error, Never>) {
+            bytes = try File(path).read.full { (span: Swift.Span<Byte>) -> [Byte] in
+                var array: [Byte] = []
+                array.reserveCapacity(span.count)
+                for i in 0..<span.count {
+                    array.append(span[i])
+                }
+                return array
             }
-            return array
+        } catch {
+            throw error.value
         }
         return Swift.String(decoding: bytes, as: UTF8.self)
     }
