@@ -133,7 +133,17 @@ extension Lint.File.Single.Eval {
             environment = nil
         }
 
-        let evalRoot: File.Path = consumerPackageRoot / ".swift-lint" / "eval"
+        // Stamp the state directory self-ignoring before the eval project is
+        // materialized into it: `dispatch` creates `evalRoot` on its own, and a
+        // run that never wrote a channel manifest would otherwise leave the
+        // thousands of eval files untracked in the consumer's worktree.
+        let stateRoot: File.Path
+        do throws(Lint.File.Single.State.Error) {
+            stateRoot = try Lint.File.Single.State.create(consumerPackageRoot: consumerPackageRoot)
+        } catch {
+            throw .materializationFailed(reason: "create state directory: \(error)")
+        }
+        let evalRoot: File.Path = stateRoot / "eval"
         let configuration = Manifest.Executable.Configuration(
             consumerPackageRoot: consumerPackageRoot,
             consumerSourcePath: consumerLintSwiftPath,

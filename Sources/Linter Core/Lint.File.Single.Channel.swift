@@ -103,7 +103,7 @@ extension Lint.File.Single.Channel {
         // `File.Path.Temporary.deterministic`. The `/` operator only accepts a
         // compile-time `Path.Component` literal.
         let trailing: File.Path = try File.Path(name)
-        return (consumerPackageRoot / ".swift-lint").appending(trailing)
+        return Lint.File.Single.State.directory(consumerPackageRoot: consumerPackageRoot).appending(trailing)
     }
 
     /// Coordinator side: serialize `manifest` to this channel's per-run file
@@ -117,11 +117,10 @@ extension Lint.File.Single.Channel {
         consumerPackageRoot: File.Path,
         nonce: Swift.String
     ) throws(Error) -> File.Path {
-        let directory: File.Path = consumerPackageRoot / ".swift-lint"
-        do throws(File.System.Create.Directory.Error) {
-            try File.Directory(directory).create.recursive()
+        do throws(Lint.File.Single.State.Error) {
+            _ = try Lint.File.Single.State.create(consumerPackageRoot: consumerPackageRoot)
         } catch {
-            throw .writeFailed(variable: variable, description: "create directory \(directory.string): \(error)")
+            throw .writeFailed(variable: variable, description: "create state directory: \(error)")
         }
         let target: File.Path
         do throws(Paths.Path.Error) {
