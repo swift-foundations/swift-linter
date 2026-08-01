@@ -135,11 +135,11 @@ extension Lint.Reporter.SARIF {
     /// SARIF maps `.remark → "note"` (SARIF's level vocabulary is
     /// `error / warning / note / none`; remark has no SARIF analog).
     ///
-    /// All other tokens defer to `Diagnostic.Severity.wireToken`.
+    /// All other tokens defer to `Diagnostic.Severity.wire.token`.
     static func level(for severity: Diagnostic.Severity) -> Swift.String {
         switch severity {
         case .remark: "note"
-        default: severity.wireToken
+        default: severity.wire.token
         }
     }
 }

@@ -53,6 +53,25 @@ extension Lint {
                 """
         )
         var policy: Lint.Run.Policy = .advisory
+
+        @Flag(
+            name: .long,
+            help: """
+                Apply the canonical fix for every activated rule that declares one, in place. \
+                Only rewriter-backed rules participate; a fix run reports no findings, so it \
+                is never a substitute for a lint run.
+                """
+        )
+        var fix: Swift.Bool = false
+
+        @Flag(
+            name: .long,
+            help: """
+                With --fix, compute the rewrites and print them as unified diffs without \
+                writing anything. Ignored without --fix.
+                """
+        )
+        var dryRun: Swift.Bool = false
     }
 }
 
@@ -128,6 +147,20 @@ extension Lint.CLI {
         // CLI boundary per `[IMPL-010]`. Every engine surface below
         // receives the typed value.
         let consumerRoot: File_System.File.Path = try File_System.File.Path(consumerRootString)
+
+        // Fix mode rides its own environment channel, exported here once,
+        // for the same reason the exit policy does: the dispatched
+        // executables read only lint-target paths from their argument
+        // vector, so a `--fix` on that vector would be read as a path. Both
+        // dispatch targets and the in-process fallback below funnel through
+        // `Lint.run(configuration:)` / `Lint.Fix.apply`, so this single
+        // export reaches all three. Exported only when requested — unset IS
+        // an ordinary lint run, and every pre-existing invocation stays
+        // bit-identical.
+        let fixMode: Lint.Fix.Mode? = fix ? (dryRun ? .dryRun : .apply) : nil
+        if let fixMode {
+            try Environment.write(Lint.Fix.Mode.Channel.variable, to: fixMode.rawValue)
+        }
 
         // Single-file `Lint.swift` (Shape γ) dispatch — research
         // recommendation 2026-05-12-swift-linter-unified-consumer-manifest.md.
@@ -235,6 +268,34 @@ extension Lint.CLI {
         // rethrows it precisely, matching the `run(configuration:)` precedent.
         let typedPaths: [File_System.File.Path] = try paths.map { (raw: Swift.String) throws(Paths.Path.Error) in
             try File_System.File.Path(raw)
+        }
+        if let fixMode {
+            let outcome: Lint.Fix.Outcome = try Lint.Fix.apply(
+                paths: typedPaths,
+                configuration: configuration,
+                mode: fixMode
+            )
+            for change in outcome.changes {
+                Lint.Reporter.Text.emit(text: change.diff, to: Terminal.Stream.stdout.write)
+            }
+            for refusal in outcome.refusals {
+                Lint.Reporter.Text.emit(
+                    error: "fix for rule '\(refusal.rule)' produced unparseable text for "
+                        + "\(refusal.path); the file was left unchanged by that rule",
+                    to: Terminal.Stream.stderr.write
+                )
+            }
+            let verb: Swift.String = (fixMode == .apply) ? "rewrote" : "would rewrite"
+            Lint.Reporter.Text.emit(
+                text: "[swift-linter] fix: \(verb) \(outcome.changes.count) of "
+                    + "\(outcome.filesScanned) files · \(outcome.fixableRules) "
+                    + "fix-capable rules active\n",
+                to: Terminal.Stream.stderr.write
+            )
+            if !outcome.refusals.isEmpty {
+                throw ExitCode.failure
+            }
+            return
         }
         let findings: [Lint.Finding] = try Lint.Run.run(paths: typedPaths, configuration: configuration)
         emit(findings)

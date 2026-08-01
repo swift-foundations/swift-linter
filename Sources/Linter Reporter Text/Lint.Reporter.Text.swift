@@ -101,6 +101,24 @@ extension Lint.Reporter.Text {
         }
     }
 
+    /// Emit `text` verbatim via `write`, adding nothing.
+    ///
+    /// The one emitter here that does not impose a shape, for output whose
+    /// shape is the point: a fix run's unified diffs must survive a round
+    /// trip through `git apply`, and a reporter that prefixed or re-wrapped
+    /// them would break that. Write errors are swallowed best-effort,
+    /// matching the other emitters.
+    public static func emit(
+        text: Swift.String,
+        to write: Terminal.Stream.Write
+    ) {
+        do throws(ISO_9945.Kernel.IO.Write.Error) {
+            _ = try write(text.utf8.lazy.map(Byte.init))
+        } catch {
+            // Best-effort write; broken pipe acceptable.
+        }
+    }
+
     /// Emit a one-line `[Lint] error: <message>` diagnostic via `write` (the
     /// caller passes **stderr** — stdout stays the pure diagnostic stream).
     ///
@@ -149,7 +167,7 @@ extension Lint.Reporter.Text {
         let location = record.location
         let pathOrID = location.filePath ?? location.fileID
         let prefix = "\(pathOrID):\(location.line):\(location.column): "
-        let severity = "\(record.severity.wireToken): "
+        let severity = "\(record.severity.wire.token): "
         let body = "\(record.identifier): \(record.message)"
         let line = prefix + severity + body
         guard let visibility = finding.visibility else { return line }

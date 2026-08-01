@@ -192,6 +192,26 @@ extension Lint {
             print("[Lint] error: invalid path argument: \(error)")
             return
         }
+        // Fix mode (`SWIFT_LINTER_FIX`, exported by the swift-linter CLI's
+        // `--fix` before dispatch) is checked BEFORE the lint run, because
+        // it replaces it rather than modifying it: a fix run applies
+        // rewriters and reports diffs, and reports no findings at all. The
+        // channel is read at this same shared terminal both dispatch paths
+        // funnel through, so one check covers the prebuilt runner and the
+        // eval-compiled executable alike. SET-but-invalid fails loud — see
+        // `Lint.Fix.Mode.Channel`, where the fallback hazards are the worst
+        // on any channel here (silently linting instead of fixing, or
+        // silently writing instead of previewing).
+        let fixMode: Lint.Fix.Mode?
+        do throws(Lint.Fix.Mode.Channel.Error) {
+            fixMode = try Lint.Fix.Mode.Channel.read()
+        } catch {
+            failLoud("fix channel: \(error)")
+        }
+        if let fixMode {
+            runFix(mode: fixMode, paths: consumerPaths, configuration: configuration)
+            return
+        }
         do throws(Self.Run.Error) {
             let outcome: Lint.Run.Outcome = try Self.Run.run(
                 paths: consumerPaths,
@@ -241,6 +261,52 @@ extension Lint {
             }
         } catch {
             print("[Lint] error: \(error)")
+        }
+    }
+
+    /// Applies (or previews) the canonical fixes rules declare, and reports
+    /// what it did.
+    ///
+    /// Diffs go to stdout — they are this mode's diagnostic stream, the way
+    /// findings are a lint run's. The summary and every refusal go to
+    /// stderr, matching the lint run's split, so a caller may pipe the
+    /// diffs into `git apply` or a pager without a summary line landing in
+    /// the middle of them.
+    ///
+    /// A refused rewrite exits non-zero regardless of mode. It means a
+    /// rewriter emitted text the parser rejects, and a fix run that reported
+    /// that on stderr and exited zero would let a broken rewriter keep
+    /// shipping behind a green result.
+    private static func runFix(
+        mode: Lint.Fix.Mode,
+        paths: [File_System.File.Path],
+        configuration: Lint.Configuration
+    ) {
+        let outcome: Lint.Fix.Outcome
+        do throws(Self.Run.Error) {
+            outcome = try Lint.Fix.apply(paths: paths, configuration: configuration, mode: mode)
+        } catch {
+            failLoud("fix: \(error)")
+        }
+        for change in outcome.changes {
+            Self.Reporter.Text.emit(text: change.diff, to: Terminal.Stream.stdout.write)
+        }
+        for refusal in outcome.refusals {
+            Self.Reporter.Text.emit(
+                error: "fix for rule '\(refusal.rule)' produced unparseable text for "
+                    + "\(refusal.path); the file was left unchanged by that rule",
+                to: Terminal.Stream.stderr.write
+            )
+        }
+        let verb: Swift.String = (mode == .apply) ? "rewrote" : "would rewrite"
+        Self.Reporter.Text.emit(
+            text: "[swift-linter] fix: \(verb) \(outcome.changes.count) of "
+                + "\(outcome.filesScanned) files · \(outcome.fixableRules) "
+                + "fix-capable rules active\n",
+            to: Terminal.Stream.stderr.write
+        )
+        if !outcome.refusals.isEmpty {
+            Process.exit(1)
         }
     }
 
