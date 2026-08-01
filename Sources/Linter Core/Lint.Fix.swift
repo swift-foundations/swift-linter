@@ -84,6 +84,15 @@ extension Lint.Fix {
         for root in paths {
             for sourcePath in Lint.Source.Walker.paths(under: root) {
                 let filePath = try Self.resolve(root: root, relativePath: sourcePath)
+                // A fixture file exists to CARRY a violation. Rewriting one
+                // deletes the evidence a rule's own tests depend on, and it
+                // has already happened once: a fleet fix run rewrote this
+                // engine's rules package's wave-1 violation fixture and
+                // broke that package's lint leg. Detection is unchanged —
+                // a fixture tree still LINTS, and must, or a rule could
+                // never assert that its fixture fires. Only application is
+                // scoped out.
+                guard !Self.isFixtureScoped(filePath) else { continue }
                 let original = try Self.read(filePath)
                 filesScanned += 1
                 var current = original
@@ -168,6 +177,32 @@ extension Lint.Fix {
             throw .fileNotReadable(path: root)
         }
         return root.appending(relative)
+    }
+
+    /// Whether `path` lies inside a fixtures tree.
+    ///
+    /// This is a path-scoped exemption, the class of check that goes wrong
+    /// most often and most quietly, so it is spelled to the discipline that
+    /// class requires. The match is on whole directory SEGMENTS: the
+    /// trailing filename is dropped first, and each remaining segment is
+    /// compared for equality. Neither `contains` nor a prefix test is used,
+    /// because both would exempt paths nobody meant to exempt — a file
+    /// named `Fixtures.swift` is a source file like any other, and a
+    /// directory named `FixturesSupport` is not a fixtures tree.
+    ///
+    /// The comparison is case-insensitive on the segment as a whole, so a
+    /// `fixtures` directory is scoped exactly as `Fixtures` is; case is the
+    /// one variation that carries no intent.
+    internal static func isFixtureScoped(_ path: File.Path) -> Swift.Bool {
+        var segments: [Swift.Substring] =
+            path.description
+            .split(separator: "/", omittingEmptySubsequences: true)
+        // The last segment is the file itself, and a FILE named `Fixtures`
+        // is not a fixtures tree. This is the positive control the class
+        // exists for.
+        guard !segments.isEmpty else { return false }
+        segments.removeLast()
+        return segments.contains { $0.lowercased() == "fixtures" }
     }
 
     fileprivate static func read(_ path: File.Path) throws(Lint.Run.Error) -> Swift.String {
