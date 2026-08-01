@@ -62,11 +62,11 @@ jobs:
       contents: write   # release asset upload on this repo
     steps:
       - name: Harden runner (audit-mode egress logging)
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # [CI-092]: swift:6.3 ships no curl/gh; libuuid needed by the dependency
       # graph (swift-linux-standard's CLinuxKernelShim).
@@ -210,11 +210,11 @@ jobs:
       XCODE_VERSION: "26.6"   # lockstep with the universal swift-ci.yml env
     steps:
       - name: Harden runner (audit-mode egress logging)
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Configure private-dep access
         uses: swift-institute/.github/.github/actions/configure-private-repos@main
