@@ -16,7 +16,6 @@ public import Terminal_Primitives
 // syscall extension per platform; the OS-conditional import is the deliberate unification
 // boundary chosen when the Phase 1.5 closure stand-in was retired, not undifferentiated L1
 // primitive code.
-// swiftlint:disable:next l1_no_platform_conditionals
 #if !os(Windows)
     public import ISO_9945_Kernel_Terminal
 #else
