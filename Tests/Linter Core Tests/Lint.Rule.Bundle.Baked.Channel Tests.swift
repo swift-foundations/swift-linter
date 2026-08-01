@@ -51,16 +51,16 @@ extension Lint.Rule.Bundle.Baked.Channel.Test {
         body()
     }
 
-    @Test("unset variable reads nil (primitives default applied by the caller)")
-    func unsetReadsNil() {
+    @Test
+    func `unset reads nil`() {
         withVariable(nil) {
             // swift-format-ignore: NeverUseForceTry
             #expect(try! Lint.Rule.Bundle.Baked.Channel.read() == nil)
         }
     }
 
-    @Test("each baked-bundle raw value round-trips")
-    func vocabularyRoundTrips() {
+    @Test
+    func `vocabulary round trips`() {
         for bundle in Lint.Rule.Bundle.Baked.allCases {
             withVariable(bundle.rawValue) {
                 // swift-format-ignore: NeverUseForceTry
@@ -69,8 +69,8 @@ extension Lint.Rule.Bundle.Baked.Channel.Test {
         }
     }
 
-    @Test("set-but-unrecognized value fails loud")
-    func invalidValueThrows() {
+    @Test
+    func `invalid value throws`() {
         withVariable("universal") {
             #expect(throws: Lint.Rule.Bundle.Baked.Channel.Error.invalid(value: "universal")) {
                 try Lint.Rule.Bundle.Baked.Channel.read()
@@ -78,8 +78,8 @@ extension Lint.Rule.Bundle.Baked.Channel.Test {
         }
     }
 
-    @Test("each token's expression is the consumer-side bundle accessor")
-    func expressionsMatchAccessors() {
+    @Test
+    func `expressions match accessors`() {
         #expect(Lint.Rule.Bundle.Baked.primitives.expression == "Lint.Rule.Bundle.primitives")
         #expect(Lint.Rule.Bundle.Baked.standards.expression == "Lint.Rule.Bundle.standards")
         #expect(Lint.Rule.Bundle.Baked.institute.expression == "Lint.Rule.Bundle.institute")

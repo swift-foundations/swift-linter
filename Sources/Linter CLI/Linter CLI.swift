@@ -112,9 +112,7 @@ extension Lint.CLI {
                     result = try Kernel.Directory.Working.withCurrentBytes { (span: Swift.Span<UInt8>) -> Swift.String in
                         var bytes: [UInt8] = []
                         bytes.reserveCapacity(span.count)
-                        for i in 0..<span.count {
-                            bytes.append(span[i])
-                        }
+                        span.indices.forEach { bytes.append(span[$0]) }
                         return Swift.String(decoding: bytes, as: UTF8.self)
                     }
                 } catch {

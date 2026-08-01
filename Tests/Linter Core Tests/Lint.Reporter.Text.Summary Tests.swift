@@ -23,6 +23,12 @@ import Testing
 
 @Suite
 struct `Run summary line` {
+    @Suite struct Unit {}
+    @Suite struct `Edge Case` {}
+    @Suite struct Integration {}
+}
+
+extension `Run summary line`.Unit {
     @Test
     func `Clean bare run prints package, active rules, files, zero violations`() {
         let line = Lint.Reporter.Text.Summary.line(

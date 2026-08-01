@@ -21,7 +21,7 @@ extension Lint.Source.Walker {
         @Suite struct Unit {}
         @Suite struct `Edge Case` {}
         @Suite struct Integration {}
-        @Suite struct Performance {}
+        @Suite(.serialized) struct Performance {}
     }
 }
 

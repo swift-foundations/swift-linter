@@ -40,28 +40,25 @@ extension Lint.Run.Policy {
     /// and linting with a silently-weakened exit policy would be a
     /// wrong-result-that-exits-0 hazard (mirrors the selection / parent
     /// channel discipline).
-    public enum Channel {
-        /// The environment variable name.
-        public static let variable: Swift.String = "SWIFT_LINTER_EXIT_POLICY"
+    public enum Channel {}
+}
 
-        /// A set-but-unrecognized channel value.
-        public enum Error: Swift.Error, Swift.Equatable {
-            case invalid(value: Swift.String)
-        }
+extension Lint.Run.Policy.Channel {
+    /// The environment variable name.
+    public static let variable: Swift.String = "SWIFT_LINTER_EXIT_POLICY"
 
-        /// Read the exit policy from the process environment.
-        ///
-        /// - Returns: the parsed policy, or `nil` when the variable is unset.
-        /// - Throws: ``Error/invalid(value:)`` when set to a value outside the
-        ///   ``Lint/Run/Policy`` vocabulary.
-        public static func read() throws(Error) -> Lint.Run.Policy? {
-            guard let raw: Swift.String = Environment.read(Self.variable) else {
-                return nil
-            }
-            guard let policy: Lint.Run.Policy = Lint.Run.Policy(rawValue: raw) else {
-                throw .invalid(value: raw)
-            }
-            return policy
+    /// Read the exit policy from the process environment.
+    ///
+    /// - Returns: the parsed policy, or `nil` when the variable is unset.
+    /// - Throws: ``Error/invalid(value:)`` when set to a value outside the
+    ///   ``Lint/Run/Policy`` vocabulary.
+    public static func read() throws(Error) -> Lint.Run.Policy? {
+        guard let raw: Swift.String = Environment.read(Self.variable) else {
+            return nil
         }
+        guard let policy: Lint.Run.Policy = Lint.Run.Policy(rawValue: raw) else {
+            throw .invalid(value: raw)
+        }
+        return policy
     }
 }

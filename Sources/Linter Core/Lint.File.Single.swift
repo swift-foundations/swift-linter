@@ -108,9 +108,7 @@ extension Lint.File.Single {
             bytes = try File(path).read.full { (span: Swift.Span<Byte>) -> [Byte] in
                 var array: [Byte] = []
                 array.reserveCapacity(span.count)
-                for i in 0..<span.count {
-                    array.append(span[i])
-                }
+                span.indices.forEach { array.append(span[$0]) }
                 return array
             }
         } catch {

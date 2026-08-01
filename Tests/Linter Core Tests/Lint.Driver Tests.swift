@@ -18,7 +18,7 @@ import Testing
 extension Lint.Driver {
     @Suite
     struct Test {
-        @Suite struct ConfigurationFromManifest {}
+        @Suite struct `Configuration From Manifest` {}
     }
 }
 
@@ -40,7 +40,7 @@ extension Lint.Driver {
 // `Lint.Configuration` tests, not here, since the Driver no longer
 // registers rules at either layer.
 
-extension Lint.Driver.Test.ConfigurationFromManifest {
+extension Lint.Driver.Test.`Configuration From Manifest` {
     @Test
     func `Empty manifest with nil parent produces empty effective rules`() {
         let manifest = Lint.Manifest()

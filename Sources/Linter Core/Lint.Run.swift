@@ -218,9 +218,7 @@ extension Lint.Run {
             bytes = try file.read.full { (span: Swift.Span<Byte>) in
                 var copy: [Byte] = []
                 copy.reserveCapacity(span.count)
-                for i in 0..<span.count {
-                    copy.append(span[i])
-                }
+                span.indices.forEach { copy.append(span[$0]) }
                 return copy
             }
         } catch {
@@ -273,9 +271,7 @@ extension Lint.Run {
                     bytes = try file.read.full { (span: Swift.Span<Byte>) in
                         var copy: [Byte] = []
                         copy.reserveCapacity(span.count)
-                        for i in 0..<span.count {
-                            copy.append(span[i])
-                        }
+                        span.indices.forEach { copy.append(span[$0]) }
                         return copy
                     }
                 } catch {

@@ -22,7 +22,7 @@ extension Lint.Suppression {
     @Suite
     struct Test {
         @Suite struct Scanner {}
-        @Suite struct EngineIntegration {}
+        @Suite struct `Engine Integration` {}
     }
 }
 
@@ -193,7 +193,7 @@ internal final class LintSuppressionFixtureVisitor: SyntaxVisitor {
     }
 }
 
-extension Lint.Suppression.Test.EngineIntegration {
+extension Lint.Suppression.Test.`Engine Integration` {
     /// Fixture root containing one Swift file `Sources/x.swift` that
     /// carries one `targetCall` identifier surrounded by suppression
     /// directives — the per-test source is composed dynamically via

@@ -50,16 +50,16 @@ extension Lint.Run.Policy.Channel.Test {
         body()
     }
 
-    @Test("unset variable reads nil (advisory default)")
-    func unsetReadsNil() {
+    @Test
+    func `unset reads nil`() {
         withVariable(nil) {
             // swift-format-ignore: NeverUseForceTry
             #expect(try! Lint.Run.Policy.Channel.read() == nil)
         }
     }
 
-    @Test("each policy raw value round-trips")
-    func vocabularyRoundTrips() {
+    @Test
+    func `vocabulary round trips`() {
         for policy in Lint.Run.Policy.allCases {
             withVariable(policy.rawValue) {
                 // swift-format-ignore: NeverUseForceTry
@@ -68,8 +68,8 @@ extension Lint.Run.Policy.Channel.Test {
         }
     }
 
-    @Test("set-but-unrecognized value fails loud")
-    func invalidValueThrows() {
+    @Test
+    func `invalid value throws`() {
         withVariable("warnings-as-errors") {
             #expect(throws: Lint.Run.Policy.Channel.Error.invalid(value: "warnings-as-errors")) {
                 try Lint.Run.Policy.Channel.read()

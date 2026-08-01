@@ -63,10 +63,3 @@ extension Lint.File.Single.State {
         return directory
     }
 }
-
-extension Lint.File.Single.State {
-    /// A failure to materialize the state directory or its self-ignoring stamp.
-    public enum Error: Swift.Error, Equatable, Sendable {
-        case creationFailed(path: File.Path, description: Swift.String)
-    }
-}

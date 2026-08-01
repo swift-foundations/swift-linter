@@ -33,28 +33,25 @@ extension Lint.Rule.Bundle.Baked {
     /// and runner, and linting a SUBSTITUTED bundle would be a
     /// wrong-result-that-exits-0 hazard (mirrors the exit-policy / selection /
     /// parent channel discipline).
-    public enum Channel {
-        /// The environment variable name.
-        public static let variable: Swift.String = "SWIFT_LINTER_BUNDLE"
+    public enum Channel {}
+}
 
-        /// A set-but-unrecognized channel value.
-        public enum Error: Swift.Error, Swift.Equatable {
-            case invalid(value: Swift.String)
-        }
+extension Lint.Rule.Bundle.Baked.Channel {
+    /// The environment variable name.
+    public static let variable: Swift.String = "SWIFT_LINTER_BUNDLE"
 
-        /// Read the baked-bundle selection from the process environment.
-        ///
-        /// - Returns: the parsed token, or `nil` when the variable is unset.
-        /// - Throws: ``Error/invalid(value:)`` when set to a value outside the
-        ///   ``Lint/Rule/Bundle/Baked`` vocabulary.
-        public static func read() throws(Error) -> Lint.Rule.Bundle.Baked? {
-            guard let raw: Swift.String = Environment.read(Self.variable) else {
-                return nil
-            }
-            guard let bundle: Lint.Rule.Bundle.Baked = Lint.Rule.Bundle.Baked(rawValue: raw) else {
-                throw .invalid(value: raw)
-            }
-            return bundle
+    /// Read the baked-bundle selection from the process environment.
+    ///
+    /// - Returns: the parsed token, or `nil` when the variable is unset.
+    /// - Throws: ``Error/invalid(value:)`` when set to a value outside the
+    ///   ``Lint/Rule/Bundle/Baked`` vocabulary.
+    public static func read() throws(Error) -> Lint.Rule.Bundle.Baked? {
+        guard let raw: Swift.String = Environment.read(Self.variable) else {
+            return nil
         }
+        guard let bundle: Lint.Rule.Bundle.Baked = Lint.Rule.Bundle.Baked(rawValue: raw) else {
+            throw .invalid(value: raw)
+        }
+        return bundle
     }
 }
