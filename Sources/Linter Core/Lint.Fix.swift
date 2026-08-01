@@ -93,6 +93,23 @@ extension Lint.Fix {
                         relativePath: sourcePath,
                         manager: &manager
                     )
+                    // A file that has deliberately suppressed this rule
+                    // anywhere is not a file this rule may rewrite. The
+                    // suppression is line-scoped and the rewrite is
+                    // whole-file, so there is no way to honour one inside
+                    // the other — and the direction to be wrong in is
+                    // obvious. Every `swift-linter:disable` in the tree
+                    // carries a REASON stating why the canonical fix is
+                    // wrong THERE, which is precisely the judgment this
+                    // mode must not overrule. The file keeps its other
+                    // rules' fixes; only the suppressed rule steps back.
+                    let suppression = Lint.Suppression.scan(
+                        tree: parsed.tree,
+                        converter: parsed.converter
+                    )
+                    guard !suppression.entries.contains(where: { $0.rule == candidate.id }) else {
+                        continue
+                    }
                     guard let rewritten = candidate.fix(parsed), rewritten != current else {
                         continue
                     }
