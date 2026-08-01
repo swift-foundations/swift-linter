@@ -78,6 +78,12 @@ extension Lint {
             help: "Exact declared target root eligible for --fix. Repeat for each SwiftPM target."
         )
         var targets: [File_System.File.Path] = []
+
+        @Option(
+            name: .customLong("fix-excluding"),
+            help: "Canonical rule ID excluded from --fix application. Repeat for each withheld rule."
+        )
+        var fixExclusions: [Swift.String] = []
     }
 }
 
@@ -177,9 +183,16 @@ extension Lint.CLI {
                 Lint.Fix.Scope.Channel.variable,
                 to: Lint.Fix.Scope.Channel.value(targets)
             )
-        } else if !targets.isEmpty {
+            let exclusions: Set<Lint.Rule.ID> = Set(
+                fixExclusions.map { Lint.Rule.ID(_unchecked: $0) }
+            )
+            try Environment.write(
+                Lint.Fix.Exclusion.Channel.variable,
+                to: Lint.Fix.Exclusion.Channel.value(exclusions)
+            )
+        } else if !targets.isEmpty || !fixExclusions.isEmpty {
             Lint.Reporter.Text.emit(
-                error: "--target-root is valid only with --fix",
+                error: "--target-root and --fix-excluding are valid only with --fix",
                 to: Terminal.Stream.stderr.write
             )
             throw ExitCode.failure
@@ -297,10 +310,26 @@ extension Lint.CLI {
                 paths: typedPaths,
                 targets: targets,
                 configuration: configuration,
+                excluding: Set(fixExclusions.map { Lint.Rule.ID(_unchecked: $0) }),
                 mode: fixMode
             )
             for change in outcome.changes {
                 Lint.Reporter.Text.emit(text: change.diff, to: Terminal.Stream.stdout.write)
+            }
+            for rule in outcome.excludedRules {
+                Lint.Reporter.Text.emit(
+                    text: "[swift-linter] fix: withheld rule '\(rule)'\n",
+                    to: Terminal.Stream.stderr.write
+                )
+            }
+            for rule in outcome.plannedRules {
+                let verb: Swift.String = fixMode == .apply && outcome.refusals.isEmpty
+                    ? "applied"
+                    : "would apply"
+                Lint.Reporter.Text.emit(
+                    text: "[swift-linter] fix: \(verb) rule '\(rule)'\n",
+                    to: Terminal.Stream.stderr.write
+                )
             }
             for refusal in outcome.refusals {
                 Lint.Reporter.Text.emit(

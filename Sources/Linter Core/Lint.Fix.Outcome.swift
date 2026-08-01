@@ -25,6 +25,18 @@ extension Lint.Fix {
         /// One entry per planned whole-file replacement.
         public let changes: [Change]
 
+        /// Fix-capable active rules withheld from this fix invocation.
+        ///
+        /// An excluded rule remains active for ordinary lint detection. It is
+        /// absent here only because its whole-file rewrite was withheld.
+        public let excludedRules: [Lint.Rule.ID]
+
+        /// Rules that contributed a parse-valid rewrite to the planned files.
+        ///
+        /// This reports rule-level participation independently of whether an
+        /// applying run subsequently publishes the plan.
+        public let plannedRules: [Lint.Rule.ID]
+
         /// The exact paths actually replaced by an applying run.
         ///
         /// This is empty for a dry run and when a parse refusal prevents the
@@ -47,12 +59,16 @@ extension Lint.Fix {
         @inlinable
         public init(
             changes: [Change] = [],
+            excludedRules: [Lint.Rule.ID] = [],
+            plannedRules: [Lint.Rule.ID] = [],
             published: [File.Path] = [],
             refusals: [Refusal] = [],
             filesScanned: Swift.Int = 0,
             fixableRules: Swift.Int = 0
         ) {
             self.changes = changes
+            self.excludedRules = excludedRules
+            self.plannedRules = plannedRules
             self.published = published
             self.refusals = refusals
             self.filesScanned = filesScanned

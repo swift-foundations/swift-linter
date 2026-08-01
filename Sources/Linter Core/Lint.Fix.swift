@@ -63,6 +63,8 @@ extension Lint.Fix {
     ///     no fixes.
     ///   - configuration: The same configuration a lint run would use; only
     ///     its effective entries whose rule declares a fix participate.
+    ///   - excluding: Canonical rule IDs withheld from fix application only.
+    ///     They remain active for ordinary lint detection and reporting.
     ///   - mode: Whether to write the rewritten files or only compute them.
     /// - Returns: The authoritative exact-path rewrite plan, the paths an
     ///   applying run published, and the counts needed to report that the run
@@ -75,6 +77,7 @@ extension Lint.Fix {
         paths: [File.Path],
         targets: [File.Path],
         configuration: Lint.Configuration,
+        excluding excludedRules: Set<Lint.Rule.ID> = [],
         mode: Mode
     ) throws(Lint.Run.Error) -> Outcome {
         let fixable: [(id: Lint.Rule.ID, fix: @Sendable (borrowing Lint.Source.Parsed) -> Swift.String?)] =
@@ -82,12 +85,24 @@ extension Lint.Fix {
                 guard let fix = entry.rule.fix else { return nil }
                 return (id: entry.rule.id, fix: fix)
             }
+        let excluded: [Lint.Rule.ID] = fixable
+            .filter { excludedRules.contains($0.id) }
+            .map(\.id)
+        let participating = fixable.filter { !excludedRules.contains($0.id) }
         var manager = Source.Manager()
         var changes: [Change] = []
         var refusals: [Refusal] = []
+        var plannedRules: [Lint.Rule.ID] = []
         var filesScanned = 0
         guard !fixable.isEmpty else {
-            return Outcome(changes: [], refusals: [], filesScanned: 0, fixableRules: 0)
+            return Outcome(
+                changes: [],
+                excludedRules: [],
+                plannedRules: [],
+                refusals: [],
+                filesScanned: 0,
+                fixableRules: 0
+            )
         }
         for root in paths {
             for sourcePath in Lint.Source.Walker.paths(under: root) {
@@ -112,7 +127,7 @@ extension Lint.Fix {
                 let original = try Self.read(filePath)
                 var current = original
                 var applied: [Lint.Rule.ID] = []
-                for candidate in fixable {
+                for candidate in participating {
                     let parsed = Self.parse(
                         text: current,
                         filePath: filePath,
@@ -151,6 +166,9 @@ extension Lint.Fix {
                     }
                     current = rewritten
                     applied.append(candidate.id)
+                    if !plannedRules.contains(candidate.id) {
+                        plannedRules.append(candidate.id)
+                    }
                 }
                 guard current != original else { continue }
                 changes.append(
@@ -171,6 +189,8 @@ extension Lint.Fix {
         }
         return Outcome(
             changes: changes,
+            excludedRules: excluded,
+            plannedRules: plannedRules,
             published: published,
             refusals: refusals,
             filesScanned: filesScanned,

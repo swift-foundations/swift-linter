@@ -22,6 +22,7 @@ extension Lint.Fix {
         @Suite struct `Fixture Scoping` {}
         @Suite struct `Target Scoping` {}
         @Suite struct Application {}
+        @Suite struct Exclusion {}
     }
 }
 
@@ -313,6 +314,140 @@ extension Lint.Rule {
             return source.tree.description + "// rewritten\n"
         }
     )
+
+    fileprivate static let `shadowed standard name` = Lint.Rule(
+        id: "shadowed standard name",
+        default: .warning,
+        findings: { source, severity in
+            [
+                Diagnostic.Record(
+                    location: Source.Location(
+                        fileID: source.file.fileID,
+                        filePath: source.file.filePath,
+                        line: 1,
+                        column: 1
+                    ),
+                    severity: severity,
+                    identifier: "shadowed standard name",
+                    message: "shadow-risk fixture fired"
+                )
+            ]
+        },
+        fix: { source in
+            guard source.tree.description == "struct Original {}\n" else { return nil }
+            return "struct Shadowed {}\n"
+        }
+    )
+
+    fileprivate static let `loop idiom` = Lint.Rule(
+        id: "loop idiom",
+        default: .warning,
+        findings: { source, severity in
+            [
+                Diagnostic.Record(
+                    location: Source.Location(
+                        fileID: source.file.fileID,
+                        filePath: source.file.filePath,
+                        line: 1,
+                        column: 1
+                    ),
+                    severity: severity,
+                    identifier: "loop idiom",
+                    message: "loop-fixer fixture fired"
+                )
+            ]
+        },
+        fix: { source in
+            guard source.tree.description == "struct Original {}\n" else { return nil }
+            return "struct Looped {}\n"
+        }
+    )
+}
+
+extension Lint.Fix.Test.Exclusion {
+    private static func root() throws(Paths.Path.Error) -> File.Path {
+        try File.Path.Temporary.deterministic(
+            prefix: "lint-fix-exclusion-",
+            key: Swift.String(UInt64.random(in: UInt64.min...UInt64.max), radix: 16),
+            suffix: ""
+        )
+    }
+
+    private static func write(_ text: Swift.String, at path: File.Path) throws {
+        if let parent = path.parent {
+            try File.Directory(parent).create.recursive()
+        }
+        try File(path).write.atomic(text)
+    }
+
+    private static func remove(_ path: File.Path) {
+        do throws(File.System.Delete.Error) {
+            try File.System.Delete.delete(at: path, recursive: true)
+        } catch {}
+    }
+
+    private static func configuration() -> Lint.Configuration {
+        Lint.Configuration {
+            Lint.Rule.Configuration.enable(.`shadowed standard name`)
+            Lint.Rule.Configuration.enable(.`loop idiom`)
+        }
+    }
+
+    @Test
+    func `excluding a shadow-risk rule preserves detection and applies the unrelated loop fixer`() throws {
+        let root = try Self.root()
+        defer { Self.remove(root) }
+        let target = root / "Sources" / "Target"
+        let file = target / "Target.swift"
+        try Self.write("struct Original {}\n", at: file)
+        let configuration = Self.configuration()
+
+        let findings = try Lint.Run.run(paths: [root], configuration: configuration)
+        #expect(Set(findings.map(\.record.identifier)) == ["shadowed standard name", "loop idiom"])
+
+        let outcome = try Lint.Fix.apply(
+            paths: [root],
+            targets: [target],
+            configuration: configuration,
+            excluding: ["shadowed standard name"],
+            mode: .apply
+        )
+
+        #expect(outcome.excludedRules == ["shadowed standard name"])
+        #expect(outcome.plannedRules == ["loop idiom"])
+        #expect(outcome.paths == [file])
+        #expect(outcome.published == [file])
+        #expect(try Lint.File.Single.contents(of: file) == "struct Looped {}\n")
+    }
+
+    @Test
+    func `multiple duplicate and unknown exclusions publish no files when no fixer remains`() throws {
+        let root = try Self.root()
+        defer { Self.remove(root) }
+        let target = root / "Sources" / "Target"
+        let file = target / "Target.swift"
+        try Self.write("struct Original {}\n", at: file)
+
+        let exclusions: Set<Lint.Rule.ID> = [
+            "shadowed standard name",
+            "loop idiom",
+            "loop idiom",
+            "not installed here",
+        ]
+        let outcome = try Lint.Fix.apply(
+            paths: [root],
+            targets: [target],
+            configuration: Self.configuration(),
+            excluding: exclusions,
+            mode: .apply
+        )
+
+        #expect(outcome.excludedRules == ["shadowed standard name", "loop idiom"])
+        #expect(outcome.plannedRules.isEmpty)
+        #expect(outcome.paths.isEmpty)
+        #expect(outcome.published.isEmpty)
+        #expect(try Lint.File.Single.contents(of: file) == "struct Original {}\n")
+    }
 }
 
 extension Lint.Fix.Test.`Target Scoping` {

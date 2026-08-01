@@ -220,10 +220,17 @@ extension Lint {
             } catch {
                 failLoud("fix target-root channel: \(error)")
             }
+            let exclusions: Set<Lint.Rule.ID>
+            do throws(Lint.Fix.Exclusion.Channel.Error) {
+                exclusions = try Lint.Fix.Exclusion.Channel.read() ?? []
+            } catch {
+                failLoud("fix exclusion channel: \(error)")
+            }
             runFix(
                 mode: fixMode,
                 paths: consumerPaths,
                 targets: targets,
+                excluding: exclusions,
                 configuration: configuration
             )
             return
@@ -295,6 +302,7 @@ extension Lint {
         mode: Lint.Fix.Mode,
         paths: [File_System.File.Path],
         targets: [File_System.File.Path],
+        excluding exclusions: Set<Lint.Rule.ID>,
         configuration: Lint.Configuration
     ) {
         let outcome: Lint.Fix.Outcome
@@ -303,6 +311,7 @@ extension Lint {
                 paths: paths,
                 targets: targets,
                 configuration: configuration,
+                excluding: exclusions,
                 mode: mode
             )
         } catch {
@@ -310,6 +319,21 @@ extension Lint {
         }
         for change in outcome.changes {
             Self.Reporter.Text.emit(text: change.diff, to: Terminal.Stream.stdout.write)
+        }
+        for rule in outcome.excludedRules {
+            Self.Reporter.Text.emit(
+                text: "[swift-linter] fix: withheld rule '\(rule)'\n",
+                to: Terminal.Stream.stderr.write
+            )
+        }
+        for rule in outcome.plannedRules {
+            let verb: Swift.String = mode == .apply && outcome.refusals.isEmpty
+                ? "applied"
+                : "would apply"
+            Self.Reporter.Text.emit(
+                text: "[swift-linter] fix: \(verb) rule '\(rule)'\n",
+                to: Terminal.Stream.stderr.write
+            )
         }
         for refusal in outcome.refusals {
             Self.Reporter.Text.emit(
