@@ -71,3 +71,25 @@ extension Lint.Run {
         }
     }
 }
+
+extension Lint.Run.Outcome {
+    /// Surfaced findings that require remediation.
+    ///
+    /// Errors and warnings are violations. Notes and remarks remain surfaced
+    /// diagnostic context, but are prompts rather than violations: they do not
+    /// contribute to headline totals. This is the engine's one typed boundary
+    /// between a rule's ``Diagnostic_Primitives/Diagnostic/Severity`` and
+    /// every consumer that aggregates a run.
+    ///
+    /// A rule pack selects this behavior by declaring its rule's existing
+    /// typed default severity as `.note`; no string class or package-local
+    /// counting override is involved.
+    public var violations: [Lint.Finding] {
+        findings.filter { finding in
+            switch finding.record.severity {
+            case .error, .warning: true
+            case .note, .remark: false
+            }
+        }
+    }
+}

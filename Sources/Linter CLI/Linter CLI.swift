@@ -299,7 +299,7 @@ extension Lint.CLI {
         }
         let findings: [Lint.Finding] = try Lint.Run.run(paths: typedPaths, configuration: configuration)
         emit(findings)
-        if policy == .strict && findings.contains(where: { $0.record.severity == .error }) {
+        if policy.fails(for: findings) {
             throw ExitCode.failure
         }
     }

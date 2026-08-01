@@ -235,7 +235,7 @@ extension Lint {
                 activeRules: configuration.rules.effective.entries.count,
                 excludedRules: configuration.rules.effective.disabled.count,
                 filesLinted: outcome.filesLinted,
-                violations: outcome.findings.count,
+                violations: outcome.violations.count,
                 to: Terminal.Stream.stderr.write
             )
             // Exit-policy channel (`SWIFT_LINTER_EXIT_POLICY`, exported by the
@@ -254,9 +254,7 @@ extension Lint {
             } catch {
                 failLoud("exit-policy channel: \(error)")
             }
-            if policy == .strict,
-                outcome.findings.contains(where: { $0.record.severity == .error })
-            {
+            if policy?.fails(for: outcome.findings) == true {
                 Process.exit(1)
             }
         } catch {
