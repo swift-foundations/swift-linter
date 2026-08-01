@@ -62,6 +62,8 @@ extension Lint.Fix {
     ///   - mode: Whether to write the rewritten files or only compute them.
     /// - Returns: One ``Change`` per file the run rewrote, plus the counts
     ///   needed to report that the run measured something.
+    /// - Throws: ``Lint/Run/Error`` when a source file cannot be read, is not
+    ///   valid UTF-8, or — in ``Mode/apply`` — cannot be written back.
     public static func apply(
         paths: [File.Path],
         configuration: Lint.Configuration,

@@ -34,6 +34,8 @@ extension Lint.Fix {
         /// The file's text after every participating fix ran.
         public let fixed: Swift.String
 
+        /// Creates a change from the file, the contributing rules, and the
+        /// text on both sides of the rewrite.
         @inlinable
         public init(
             path: File.Path,
@@ -57,13 +59,17 @@ extension Lint.Fix {
     /// is a defect in that rewriter, and a fix run that hid it would let the
     /// defect persist behind a clean-looking result.
     public struct Refusal: Sendable, Equatable {
-        /// The file whose rewrite was refused. It is left unchanged by the
-        /// refusing rule; other rules' fixes for it still apply.
+        /// The file whose rewrite was refused.
+        ///
+        /// It is left unchanged by the refusing rule; other rules' fixes for
+        /// it still apply.
         public let path: File.Path
 
         /// The rule whose fix produced unparseable text.
         public let rule: Lint.Rule.ID
 
+        /// Creates a refusal from the file and the rule whose fix produced
+        /// unparseable text for it.
         @inlinable
         public init(path: File.Path, rule: Lint.Rule.ID) {
             self.path = path

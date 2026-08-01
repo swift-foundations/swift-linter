@@ -34,6 +34,8 @@ extension Lint.Fix {
         /// Zero means this configuration has no autofix capability at all.
         public let fixableRules: Swift.Int
 
+        /// Creates an outcome from the rewrites, the refusals, and the counts
+        /// that say whether the run could have rewritten anything at all.
         @inlinable
         public init(
             changes: [Change] = [],
