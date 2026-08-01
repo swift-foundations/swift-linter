@@ -64,10 +64,13 @@ extension Lint.Fix {
     ///   - configuration: The same configuration a lint run would use; only
     ///     its effective entries whose rule declares a fix participate.
     ///   - mode: Whether to write the rewritten files or only compute them.
-    /// - Returns: One ``Change`` per file the run rewrote, plus the counts
-    ///   needed to report that the run measured something.
+    /// - Returns: The authoritative exact-path rewrite plan, the paths an
+    ///   applying run published, and the counts needed to report that the run
+    ///   measured something.
     /// - Throws: ``Lint/Run/Error`` when a source file cannot be read, is not
-    ///   valid UTF-8, or — in ``Mode/apply`` — cannot be written back.
+    ///   valid UTF-8, becomes stale, or — in ``Mode/apply`` — cannot be
+    ///   written back. Publication failures carry the complete plan and the
+    ///   exact successfully published prefix.
     public static func apply(
         paths: [File.Path],
         targets: [File.Path],
@@ -150,9 +153,6 @@ extension Lint.Fix {
                     applied.append(candidate.id)
                 }
                 guard current != original else { continue }
-                if mode == .apply {
-                    try Self.write(current, to: filePath)
-                }
                 changes.append(
                     Change(
                         path: filePath,
@@ -163,8 +163,15 @@ extension Lint.Fix {
                 )
             }
         }
+        let published: [File.Path]
+        if mode == .apply, refusals.isEmpty {
+            published = try Lint.Fix.Publisher.apply(changes)
+        } else {
+            published = []
+        }
         return Outcome(
             changes: changes,
+            published: published,
             refusals: refusals,
             filesScanned: filesScanned,
             fixableRules: fixable.count
@@ -217,7 +224,7 @@ extension Lint.Fix {
         return segments.contains { $0.lowercased() == "fixtures" }
     }
 
-    fileprivate static func read(_ path: File.Path) throws(Lint.Run.Error) -> Swift.String {
+    internal static func read(_ path: File.Path) throws(Lint.Run.Error) -> Swift.String {
         let bytes: [Byte]
         do throws(Either<File.System.Read.Full.Error, Never>) {
             bytes = try File(path).read.full { (span: Swift.Span<Byte>) in
@@ -233,18 +240,6 @@ extension Lint.Fix {
             throw .nonUTF8(path: path)
         }
         return text
-    }
-
-    fileprivate static func write(_ text: Swift.String, to path: File.Path) throws(Lint.Run.Error) {
-        do throws(File.System.Write.Atomic.Error) {
-            try File(path).write.atomic(text)
-        } catch {
-            // The typed run error vocabulary has one path-shaped failure
-            // per direction of travel; a write failure surfaces as the
-            // unreadable-file case rather than growing the enum for a
-            // mode that has exactly one write site.
-            throw .fileNotReadable(path: path)
-        }
     }
 
     /// Parses `text` into the bundle rule fixes consume.
@@ -276,7 +271,7 @@ extension Lint.Fix {
     /// SwiftParser always returns a tree — it recovers rather than failing —
     /// so "did it parse" is a question about the presence of error nodes,
     /// not about a thrown error.
-    fileprivate static func parses(_ text: Swift.String) -> Swift.Bool {
+    internal static func parses(_ text: Swift.String) -> Swift.Bool {
         !Parser.parse(source: text).hasError
     }
 }

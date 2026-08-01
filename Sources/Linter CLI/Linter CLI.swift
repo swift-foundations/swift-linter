@@ -305,13 +305,15 @@ extension Lint.CLI {
             for refusal in outcome.refusals {
                 Lint.Reporter.Text.emit(
                     error: "fix for rule '\(refusal.rule)' produced unparseable text for "
-                        + "\(refusal.path); the file was left unchanged by that rule",
+                        + "\(refusal.path); the complete fix plan was not published",
                     to: Terminal.Stream.stderr.write
                 )
             }
             let verb: Swift.String = (fixMode == .apply) ? "rewrote" : "would rewrite"
+            let reportedChanges: Swift.Int =
+                fixMode == .apply ? outcome.published.count : outcome.paths.count
             Lint.Reporter.Text.emit(
-                text: "[swift-linter] fix: \(verb) \(outcome.changes.count) of "
+                text: "[swift-linter] fix: \(verb) \(reportedChanges) of "
                     + "\(outcome.filesScanned) files · \(outcome.fixableRules) "
                     + "fix-capable rules active\n",
                 to: Terminal.Stream.stderr.write

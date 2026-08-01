@@ -21,5 +21,17 @@ extension Lint.Run {
     public enum Error: Swift.Error, Hashable, Sendable {
         case fileNotReadable(path: File.Path)
         case nonUTF8(path: File.Path)
+        /// A planned fix no longer matches the file at publication time.
+        case staleFixOriginal(
+            path: File.Path,
+            planned: [File.Path],
+            published: [File.Path]
+        )
+        /// An atomic replacement failed after zero or more earlier writes.
+        case fixPublicationFailed(
+            path: File.Path,
+            planned: [File.Path],
+            published: [File.Path]
+        )
     }
 }

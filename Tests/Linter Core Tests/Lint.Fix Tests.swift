@@ -21,6 +21,154 @@ extension Lint.Fix {
     struct Test {
         @Suite struct `Fixture Scoping` {}
         @Suite struct `Target Scoping` {}
+        @Suite struct Application {}
+    }
+}
+
+extension Lint.Fix.Test.Application {
+    private static func root() throws(Paths.Path.Error) -> File.Path {
+        try File.Path.Temporary.deterministic(
+            prefix: "lint-fix-application-",
+            key: Swift.String(UInt64.random(in: UInt64.min...UInt64.max), radix: 16),
+            suffix: ""
+        )
+    }
+
+    private static func write(_ text: Swift.String, at path: File.Path) throws {
+        if let parent = path.parent {
+            try File.Directory(parent).create.recursive()
+        }
+        try File(path).write.atomic(text)
+    }
+
+    private static func contents(_ path: File.Path) throws -> Swift.String {
+        try Lint.File.Single.contents(of: path)
+    }
+
+    private static func bytes(_ path: File.Path) throws -> [Byte] {
+        try File(path).read.full { (span: Swift.Span<Byte>) in
+            var copy: [Byte] = []
+            copy.reserveCapacity(span.count)
+            span.indices.forEach { copy.append(span[$0]) }
+            return copy
+        }
+    }
+
+    private static func remove(_ path: File.Path) {
+        do throws(File.System.Delete.Error) {
+            try File.System.Delete.delete(at: path, recursive: true)
+        } catch {}
+    }
+
+    @Test
+    func `a later scan failure leaves an earlier planned fix unapplied`() throws {
+        let root = try Self.root()
+        defer { Self.remove(root) }
+        let target = root / "Sources" / "Target"
+        let first = target / "A.swift"
+        let invalid = target / "Z.swift"
+        try Self.write("struct First {}\n", at: first)
+        try File(invalid).write.atomic(contentsOf: [0xFF] as [Byte])
+        let configuration = Lint.Configuration {
+            .enable(.`always rewrites target`)
+        }
+
+        do throws(Lint.Run.Error) {
+            _ = try Lint.Fix.apply(
+                paths: [root],
+                targets: [target],
+                configuration: configuration,
+                mode: .apply
+            )
+            Issue.record("expected the invalid UTF-8 source to abort the scan")
+        } catch let error {
+            #expect(error == .nonUTF8(path: invalid))
+        }
+
+        #expect(try Self.contents(first) == "struct First {}\n")
+        #expect(try Self.bytes(invalid) == [0xFF] as [Byte])
+    }
+
+    @Test
+    func `a stale original is refused before its publication`() throws {
+        let root = try Self.root()
+        defer { Self.remove(root) }
+        let target = root / "Sources" / "Target"
+        let stale = target / "Stale.swift"
+        try Self.write("struct ConcurrentEdit {}\n", at: stale)
+        let change = Lint.Fix.Change(
+            path: stale,
+            rules: [],
+            original: "struct Original {}\n",
+            fixed: "struct Planned {}\n"
+        )
+
+        do throws(Lint.Run.Error) {
+            _ = try Lint.Fix.Publisher.apply([change])
+            Issue.record("expected the stale content identity to be rejected")
+        } catch let error {
+            #expect(
+                error
+                    == .staleFixOriginal(
+                        path: stale,
+                        planned: [stale],
+                        published: []
+                    )
+            )
+        }
+
+        #expect(try Self.contents(stale) == "struct ConcurrentEdit {}\n")
+    }
+
+    @Test
+    func `the outcome exposes the exact changed path plan`() throws {
+        let root = try Self.root()
+        defer { Self.remove(root) }
+        let target = root / "Sources" / "Target"
+        let first = target / "A.swift"
+        let second = target / "B.swift"
+        try Self.write("struct First {}\n", at: first)
+        try Self.write("struct Second {}\n", at: second)
+        let configuration = Lint.Configuration {
+            .enable(.`always rewrites target`)
+        }
+
+        let outcome = try Lint.Fix.apply(
+            paths: [root],
+            targets: [target],
+            configuration: configuration,
+            mode: .dryRun
+        )
+
+        #expect(outcome.paths == [first, second])
+        #expect(outcome.published.isEmpty)
+    }
+
+    @Test
+    func `a late parse refusal leaves the complete plan unpublished`() throws {
+        let root = try Self.root()
+        defer { Self.remove(root) }
+        let target = root / "Sources" / "Target"
+        let first = target / "A.swift"
+        let invalid = target / "Z.swift"
+        try Self.write("struct First {}\n", at: first)
+        try Self.write("struct Invalid {}\n", at: invalid)
+        let configuration = Lint.Configuration {
+            .enable(.`fails parsing late`)
+        }
+
+        let outcome = try Lint.Fix.apply(
+            paths: [root],
+            targets: [target],
+            configuration: configuration,
+            mode: .apply
+        )
+
+        #expect(outcome.paths == [first])
+        #expect(outcome.published.isEmpty)
+        #expect(outcome.refusals.map(\.path) == [invalid])
+        #expect(try Self.contents(first) == "struct First {}\n")
+        #expect(try Self.contents(invalid) == "struct Invalid {}\n")
     }
 }
 
@@ -143,6 +291,28 @@ extension Lint.Rule {
         },
         fix: { source in source.tree.description + "// rewritten\n" }
     )
+
+    fileprivate static let `rewrites target once` = Lint.Rule(
+        id: "rewrites target once",
+        default: .warning,
+        findings: { _, _ in [] },
+        fix: { source in
+            guard source.tree.description == "struct Original {}\n" else { return nil }
+            return "struct Fixed {}\n"
+        }
+    )
+
+    fileprivate static let `fails parsing late` = Lint.Rule(
+        id: "fails parsing late",
+        default: .warning,
+        findings: { _, _ in [] },
+        fix: { source in
+            if source.tree.description == "struct Invalid {}\n" {
+                return "struct Broken {"
+            }
+            return source.tree.description + "// rewritten\n"
+        }
+    )
 }
 
 extension Lint.Fix.Test.`Target Scoping` {
@@ -207,7 +377,8 @@ extension Lint.Fix.Test.`Target Scoping` {
         )
 
         #expect(outcome.filesScanned == fixture.originals.count)
-        #expect(outcome.changes.map(\.path) == [fixture.target / "Target.swift"])
+        #expect(outcome.paths == [fixture.target / "Target.swift"])
+        #expect(outcome.published == [fixture.target / "Target.swift"])
         for original in fixture.originals {
             let current = try Lint.File.Single.contents(of: original.path)
             if original.path == fixture.target / "Target.swift" {
@@ -234,5 +405,38 @@ extension Lint.Fix.Test.`Target Scoping` {
         for original in fixture.originals {
             #expect(try Lint.File.Single.contents(of: original.path) == original.text)
         }
+    }
+}
+
+extension Lint.Fix.Test.Application {
+    @Test
+    func `applying the same fix again is idempotent`() throws {
+        let root = try Self.root()
+        defer { Self.remove(root) }
+        let target = root / "Sources" / "Target"
+        let file = target / "Target.swift"
+        try Self.write("struct Original {}\n", at: file)
+        let configuration = Lint.Configuration {
+            .enable(.`rewrites target once`)
+        }
+
+        let first = try Lint.Fix.apply(
+            paths: [root],
+            targets: [target],
+            configuration: configuration,
+            mode: .apply
+        )
+        let second = try Lint.Fix.apply(
+            paths: [root],
+            targets: [target],
+            configuration: configuration,
+            mode: .apply
+        )
+
+        #expect(first.paths == [file])
+        #expect(first.published == [file])
+        #expect(second.paths.isEmpty)
+        #expect(second.published.isEmpty)
+        #expect(try Self.contents(file) == "struct Fixed {}\n")
     }
 }

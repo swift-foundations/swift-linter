@@ -13,13 +13,13 @@ public import File_System
 public import Linter_Primitives
 
 extension Lint.Fix {
-    /// One source file the fix run rewrote, with the text on both sides.
+    /// One source file rewrite in the run's exact publication plan.
     ///
     /// Both texts are carried rather than a precomputed diff so that the
     /// reporting shape is the caller's choice and the applying path and the
     /// dry-run path emit from the same value.
     public struct Change: Sendable, Equatable {
-        /// The file that was rewritten.
+        /// The exact path planned for replacement.
         public let path: File.Path
 
         /// The rules whose fixes contributed, in application order.
@@ -52,8 +52,8 @@ extension Lint.Fix {
 }
 
 extension Lint.Fix {
-    /// A rewrite the engine computed and then declined to keep, because the
-    /// rewritten text did not re-parse.
+    /// A rewrite the engine computed and then declined to publish, because
+    /// the rewritten text did not re-parse.
     ///
     /// Reported rather than discarded: a rewriter emitting unparseable text
     /// is a defect in that rewriter, and a fix run that hid it would let the
@@ -61,8 +61,8 @@ extension Lint.Fix {
     public struct Refusal: Sendable, Equatable {
         /// The file whose rewrite was refused.
         ///
-        /// It is left unchanged by the refusing rule; other rules' fixes for
-        /// it still apply.
+        /// A refusal prevents the applying run's complete plan from reaching
+        /// publication, so every source file remains unchanged.
         public let path: File.Path
 
         /// The rule whose fix produced unparseable text.

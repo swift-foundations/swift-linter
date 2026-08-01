@@ -314,7 +314,7 @@ extension Lint {
         for refusal in outcome.refusals {
             Self.Reporter.Text.emit(
                 error: "fix for rule '\(refusal.rule)' produced unparseable text for "
-                    + "\(refusal.path); the file was left unchanged by that rule",
+                    + "\(refusal.path); the complete fix plan was not published",
                 to: Terminal.Stream.stderr.write
             )
         }
@@ -325,18 +325,20 @@ extension Lint {
         // printed no summary would be indistinguishable from one that loaded
         // no rules and silently did nothing. `violations` is the number of
         // files rewritten: in this mode that is what the run found.
+        let reportedChanges: Swift.Int =
+            mode == .apply ? outcome.published.count : outcome.paths.count
         let package: Swift.String = paths.first?.components.last?.string ?? "."
         Self.Reporter.Text.emit(
             summaryFor: package,
             activeRules: configuration.rules.effective.entries.count,
             excludedRules: configuration.rules.effective.disabled.count,
             filesLinted: outcome.filesScanned,
-            violations: outcome.changes.count,
+            violations: reportedChanges,
             to: Terminal.Stream.stderr.write
         )
         let verb: Swift.String = (mode == .apply) ? "rewrote" : "would rewrite"
         Self.Reporter.Text.emit(
-            text: "[swift-linter] fix: \(verb) \(outcome.changes.count) of "
+            text: "[swift-linter] fix: \(verb) \(reportedChanges) of "
                 + "\(outcome.filesScanned) files · \(outcome.fixableRules) "
                 + "fix-capable rules active\n",
             to: Terminal.Stream.stderr.write
