@@ -298,6 +298,22 @@ extension Lint {
                 to: Terminal.Stream.stderr.write
             )
         }
+        // The always-on run summary is emitted for a fix run too, in the
+        // identical shape. A caller adjudicating whether a run measured
+        // anything — Workspace does, for every package in a sweep — must not
+        // have to know which mode produced the line, and a fix run that
+        // printed no summary would be indistinguishable from one that loaded
+        // no rules and silently did nothing. `violations` is the number of
+        // files rewritten: in this mode that is what the run found.
+        let package: Swift.String = paths.first?.components.last?.string ?? "."
+        Self.Reporter.Text.emit(
+            summaryFor: package,
+            activeRules: configuration.rules.effective.entries.count,
+            excludedRules: configuration.rules.effective.disabled.count,
+            filesLinted: outcome.filesScanned,
+            violations: outcome.changes.count,
+            to: Terminal.Stream.stderr.write
+        )
         let verb: Swift.String = (mode == .apply) ? "rewrote" : "would rewrite"
         Self.Reporter.Text.emit(
             text: "[swift-linter] fix: \(verb) \(outcome.changes.count) of "
