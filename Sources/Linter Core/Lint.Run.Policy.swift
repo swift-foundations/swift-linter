@@ -38,6 +38,7 @@ extension Lint.Run.Policy {
     public func fails(for findings: [Lint.Finding]) -> Swift.Bool {
         switch self {
         case .advisory: false
+
         case .strict:
             findings.contains { $0.record.severity == .error }
         }

@@ -25,7 +25,8 @@ extension Lint.Run.Outcome.Test.Integration {
     private static func fixtureRoot(
         testFile: Swift.String = #filePath
     ) throws(Paths.Path.Error) -> File.Path {
-        var components: [Swift.String] = testFile
+        var components: [Swift.String] =
+            testFile
             .split(separator: "/", omittingEmptySubsequences: false)
             .map(Swift.String.init)
         _ = components.popLast()
@@ -61,7 +62,7 @@ extension Lint.Run.Outcome.Test.Integration {
     }
 
     @Test
-    func `errors and warnings count while notes remain rendered prompts`() throws(Lint.Run.Error) {
+    func `errors and warnings count while notes remain rendered prompts`() throws {
         let error = Self.rule(id: "error fixture", severity: .error)
         let warning = Self.rule(id: "warning fixture", severity: .warning)
         let prompt = Self.rule(id: "prompt fixture", severity: .note)
@@ -71,7 +72,7 @@ extension Lint.Run.Outcome.Test.Integration {
             Lint.Rule.Configuration.enable(prompt)
         }
         let outcome = try Lint.Run.run(
-            paths: [try! Self.fixtureRoot()],
+            paths: [try Self.fixtureRoot()],
             capturing: .all,
             configuration: configuration
         )
