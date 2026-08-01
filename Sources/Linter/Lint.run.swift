@@ -209,7 +209,23 @@ extension Lint {
             failLoud("fix channel: \(error)")
         }
         if let fixMode {
-            runFix(mode: fixMode, paths: consumerPaths, configuration: configuration)
+            let targets: [File_System.File.Path]
+            do throws(Lint.Fix.Scope.Channel.Error) {
+                guard let supplied = try Lint.Fix.Scope.Channel.read() else {
+                    failLoud(
+                        "fix target-root channel is unset; target membership must be supplied by the package manifest"
+                    )
+                }
+                targets = supplied
+            } catch {
+                failLoud("fix target-root channel: \(error)")
+            }
+            runFix(
+                mode: fixMode,
+                paths: consumerPaths,
+                targets: targets,
+                configuration: configuration
+            )
             return
         }
         do throws(Self.Run.Error) {
@@ -278,11 +294,17 @@ extension Lint {
     private static func runFix(
         mode: Lint.Fix.Mode,
         paths: [File_System.File.Path],
+        targets: [File_System.File.Path],
         configuration: Lint.Configuration
     ) {
         let outcome: Lint.Fix.Outcome
         do throws(Self.Run.Error) {
-            outcome = try Lint.Fix.apply(paths: paths, configuration: configuration, mode: mode)
+            outcome = try Lint.Fix.apply(
+                paths: paths,
+                targets: targets,
+                configuration: configuration,
+                mode: mode
+            )
         } catch {
             failLoud("fix: \(error)")
         }

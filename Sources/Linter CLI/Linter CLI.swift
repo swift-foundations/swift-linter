@@ -72,6 +72,12 @@ extension Lint {
                 """
         )
         var dryRun: Swift.Bool = false
+
+        @Option(
+            name: .customLong("target-root"),
+            help: "Exact declared target root eligible for --fix. Repeat for each SwiftPM target."
+        )
+        var targets: [File_System.File.Path] = []
     }
 }
 
@@ -159,7 +165,24 @@ extension Lint.CLI {
         // bit-identical.
         let fixMode: Lint.Fix.Mode? = fix ? (dryRun ? .dryRun : .apply) : nil
         if let fixMode {
+            guard !targets.isEmpty else {
+                Lint.Reporter.Text.emit(
+                    error: "--fix requires at least one --target-root; target membership must be supplied from the package manifest",
+                    to: Terminal.Stream.stderr.write
+                )
+                throw ExitCode.failure
+            }
             try Environment.write(Lint.Fix.Mode.Channel.variable, to: fixMode.rawValue)
+            try Environment.write(
+                Lint.Fix.Scope.Channel.variable,
+                to: Lint.Fix.Scope.Channel.value(targets)
+            )
+        } else if !targets.isEmpty {
+            Lint.Reporter.Text.emit(
+                error: "--target-root is valid only with --fix",
+                to: Terminal.Stream.stderr.write
+            )
+            throw ExitCode.failure
         }
 
         // Single-file `Lint.swift` (Shape γ) dispatch — research
@@ -272,6 +295,7 @@ extension Lint.CLI {
         if let fixMode {
             let outcome: Lint.Fix.Outcome = try Lint.Fix.apply(
                 paths: typedPaths,
+                targets: targets,
                 configuration: configuration,
                 mode: fixMode
             )

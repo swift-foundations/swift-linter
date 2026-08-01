@@ -53,10 +53,14 @@ extension Lint {
 }
 
 extension Lint.Fix {
-    /// Applies every participating rule's canonical fix under `paths`.
+    /// Applies every participating rule's canonical fix under `paths`, but
+    /// only to files belonging to a supplied declared target root.
     ///
     /// - Parameters:
     ///   - paths: Run roots, as passed to ``Lint/Run/run(paths:configuration:)``.
+    ///   - targets: Exact SwiftPM target roots supplied by the caller. Target
+    ///     membership is never inferred by the linter. An empty vector applies
+    ///     no fixes.
     ///   - configuration: The same configuration a lint run would use; only
     ///     its effective entries whose rule declares a fix participate.
     ///   - mode: Whether to write the rewritten files or only compute them.
@@ -66,6 +70,7 @@ extension Lint.Fix {
     ///   valid UTF-8, or — in ``Mode/apply`` — cannot be written back.
     public static func apply(
         paths: [File.Path],
+        targets: [File.Path],
         configuration: Lint.Configuration,
         mode: Mode
     ) throws(Lint.Run.Error) -> Outcome {
@@ -84,6 +89,14 @@ extension Lint.Fix {
         for root in paths {
             for sourcePath in Lint.Source.Walker.paths(under: root) {
                 let filePath = try Self.resolve(root: root, relativePath: sourcePath)
+                filesScanned += 1
+                // Target membership is a supplied manifest fact. Component-
+                // level typed-prefix matching admits the target root and its
+                // descendants without admitting a sibling whose name merely
+                // shares the same textual prefix.
+                guard targets.contains(where: { filePath.hasPrefix($0) }) else {
+                    continue
+                }
                 // A fixture file exists to CARRY a violation. Rewriting one
                 // deletes the evidence a rule's own tests depend on, and it
                 // has already happened once: a fleet fix run rewrote this
@@ -94,7 +107,6 @@ extension Lint.Fix {
                 // scoped out.
                 guard !Self.isFixtureScoped(filePath) else { continue }
                 let original = try Self.read(filePath)
-                filesScanned += 1
                 var current = original
                 var applied: [Lint.Rule.ID] = []
                 for candidate in fixable {
