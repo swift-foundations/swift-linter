@@ -137,6 +137,13 @@ let package = Package(
                 .product(name: "Kernel", package: "swift-kernel"),
             ]
         ),
+        .executableTarget(
+            name: "swift-linter-report-fixture",
+            dependencies: [
+                .target(name: "Linter")
+            ],
+            path: "Tests/Support/Report Fixture"
+        ),
         .testTarget(
             name: "Linter Core Tests",
             dependencies: [
@@ -148,6 +155,7 @@ let package = Package(
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "JSON", package: "swift-json"),
+                .product(name: "Process", package: "swift-process"),
                 .product(name: "SPM Standard", package: "swift-spm-standard"),
                 .product(name: "URI Standard", package: "swift-uri-standard"),
             ]
