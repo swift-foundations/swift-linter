@@ -8,7 +8,9 @@
 // ===----------------------------------------------------------------------===//
 
 import File_System
+import JSON
 import Linter_Primitives
+import Linter_Reporter_SARIF
 import Linter_Reporter_Text
 import Testing
 
@@ -90,5 +92,81 @@ extension Lint.Run.Outcome.Test.Integration {
         let nonErrors = outcome.findings.filter { $0.record.severity != Diagnostic.Severity.error }
         #expect(!Lint.Run.Policy.strict.fails(for: nonErrors))
         #expect(!Lint.Run.Policy.advisory.fails(for: outcome.findings))
+    }
+
+    // MARK: - Count contract (swift-foundations/swift-linter#22)
+    //
+    // A mixed-severity package (error + warning + note + remark, one finding
+    // apiece) proving the two observable count surfaces agree with the
+    // engine's own `Outcome` counts: the SARIF result count equals the total
+    // findings count (SARIF never filters by severity), and the violation
+    // count equals the count of SARIF results whose `level` names a
+    // violation severity (error/warning) — a downstream consumer (the
+    // Workspace ledger parity guard, swift-institute/Workspace#104) can
+    // select that subset from SARIF alone, without calling back into the
+    // linter.
+
+    @Test
+    func `SARIF result count and violation-level subset match the engine's dual counts`() throws {
+        let error = Self.rule(id: "count-contract error fixture", severity: .error)
+        let warning = Self.rule(id: "count-contract warning fixture", severity: .warning)
+        let note = Self.rule(id: "count-contract note fixture", severity: .note)
+        let remark = Self.rule(id: "count-contract remark fixture", severity: .remark)
+        let configuration = Lint.Configuration {
+            Lint.Rule.Configuration.enable(error)
+            Lint.Rule.Configuration.enable(warning)
+            Lint.Rule.Configuration.enable(note)
+            Lint.Rule.Configuration.enable(remark)
+        }
+        let outcome = try Lint.Run.run(
+            paths: [try Self.fixtureRoot()],
+            capturing: .all,
+            configuration: configuration
+        )
+
+        // Four rules, one finding apiece against the fixture's single file:
+        // two violations (error + warning) and two non-violation prompts
+        // (note + remark) — the mixed-severity shape the count contract
+        // must reconcile.
+        #expect(outcome.findings.count == 4)
+        #expect(outcome.violations.count == 2)
+
+        let sarif = Lint.Reporter.SARIF.report(for: outcome.findings)
+        let document: JSON
+        do throws(JSON.Error) {
+            document = try JSON.parse(sarif)
+        } catch {
+            Issue.record("SARIF report was not valid JSON: \(error)\n\(sarif)")
+            return
+        }
+        guard let results = document.runs[0].results.array else {
+            Issue.record("SARIF document carried no results array")
+            return
+        }
+
+        // Property 1: summary total findings == SARIF result count.
+        #expect(results.count == outcome.findings.count)
+
+        // Property 2: summary violations == count of SARIF results at
+        // violation levels. Every result carries a `level`
+        // (error/warning/note — `.remark` maps to SARIF's "note", SARIF
+        // having no analog), so the violation subset is selectable by level
+        // alone.
+        let violationLevels: Swift.Set<Swift.String> = ["error", "warning"]
+        let sarifViolations = results.filter { violationLevels.contains(Swift.String($0.level)) }
+        #expect(sarifViolations.count == outcome.violations.count)
+
+        // The run summary's own formatter carries the identical two counts,
+        // independently machine-parseable.
+        let line = Lint.Reporter.Text.Summary.line(
+            package: "count-contract-fixture",
+            activeRules: 4,
+            excludedRules: 0,
+            filesLinted: outcome.filesLinted,
+            violations: outcome.violations.count,
+            findings: outcome.findings.count
+        )
+        #expect(line.contains("2 violations"))
+        #expect(line.contains("4 findings"))
     }
 }

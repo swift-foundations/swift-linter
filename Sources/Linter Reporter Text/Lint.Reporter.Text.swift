@@ -105,12 +105,16 @@ extension Lint.Reporter.Text {
     /// run, including a 0-violation one, so a clean run is self-evidently a real
     /// run rather than a silent no-op.
     ///
-    /// Shape: `<package> · <K> active rules[ (−<M> excluded)] · <F> files linted · <V> violations`.
+    /// Shape: `<package> · <K> active rules[ (−<M> excluded)] · <F> files linted · <V> violations · <N> findings`.
     /// `K` is the *effective* active-rule count (after bundle composition AND
     /// any runtime overlay/exclusions), so it reflects what actually ran; `M`
     /// (the runtime-disabled count) annotates the overlay/exclusion case.
+    /// `violations` keeps its unchanged semantics (excludes `.note`/`.remark`;
+    /// still drives the strict exit policy); `findings` is the total surfaced
+    /// count, exactly the population the SARIF reporter serializes as
+    /// `results` (swift-foundations/swift-linter#22).
     ///
-    /// The four counts are bare `Int` — display-only cardinalities formatted
+    /// The five counts are bare `Int` — display-only cardinalities formatted
     /// into this one line, never indexed or arithmetic-combined. Typing them
     /// (`Count` / `Index<Element>.Count`) would pull a cardinal/collection
     /// dependency tree into the reporter for no semantic gain; leanness wins
@@ -122,6 +126,7 @@ extension Lint.Reporter.Text {
         excludedRules: Swift.Int,
         filesLinted: Swift.Int,
         violations: Swift.Int,
+        findings: Swift.Int,
         to write: Terminal.Stream.Write
     ) {
         let line: Swift.String = Summary.line(
@@ -129,7 +134,8 @@ extension Lint.Reporter.Text {
             activeRules: activeRules,
             excludedRules: excludedRules,
             filesLinted: filesLinted,
-            violations: violations
+            violations: violations,
+            findings: findings
         )
         do throws(Kernel) {
             _ = try write(bytes(of: line + "\n"))
