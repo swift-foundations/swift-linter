@@ -9,13 +9,19 @@
 //
 // ===----------------------------------------------------------------------===//
 
+import Environment
+import Linter
 import Testing
 
 @testable import Linter_Core
 
 extension Lint.File.Single.Test {
     @Suite
-    struct Runner {}
+    struct Runner {
+        @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
+        @Suite struct Integration {}
+    }
 }
 
 // MARK: - Lint.File.Single.Runner.invocation(binary:arguments:)
@@ -29,7 +35,7 @@ extension Lint.File.Single.Test {
 // wrong-result-that-exits-0 fast-path/eval divergence. These tests pin that
 // the invocation forwards `arguments` verbatim.
 
-extension Lint.File.Single.Test.Runner {
+extension Lint.File.Single.Test.Runner.Unit {
     @Test
     func `Multi-path arguments are forwarded verbatim after the binary`() {
         let invocation = Lint.File.Single.Runner.invocation(
@@ -62,68 +68,57 @@ extension Lint.File.Single.Test.Runner {
     }
 }
 
-// MARK: - route(output:classification:)
+// MARK: - environment(inheriting:bundle:selection:)
 //
-// Hole 1c gate. The prebuilt runner bakes a single output shape (text format,
-// advisory exit). It cannot reshape output for `--format sarif` or escalate
-// for `--exit-policy strict`, so a non-standard output request MUST route to
-// the eval fallback regardless of the source classification — the runner must
-// never be entered for output it cannot produce. `.standard` output defers
-// entirely to the source classification.
+// The runner boundary owns only its bundle and selection overlays. It must
+// preserve the coordinator's complete environment so the shared
+// `Lint.run(configuration:)` terminal receives the exact requested report
+// format instead of silently reverting to text.
 
-extension Lint.File.Single.Test.Runner {
-    private func isEvalFallback(_ classification: Lint.File.Single.Classification) -> Swift.Bool {
-        if case .evalFallback = classification { return true }
-        return false
-    }
-
+extension Lint.File.Single.Test.Runner.Unit {
     @Test
-    func `Standard output preserves a bare-bundle fast-path classification`() {
+    func `SARIF selection survives the prebuilt runner environment boundary`() {
+        let environment = Lint.File.Single.Runner.environment(
+            inheriting: Environment.Snapshot([
+                Lint.Reporter.Format.Channel.variable:
+                    Lint.Reporter.Format.Channel.value(.sarif)
+            ]),
+            bundle: .primitives,
+            selection: nil
+        )
         #expect(
-            Lint.File.Single.route(output: .standard, classification: .fastPathStandardBundle(bundle: .primitives))
-                == .fastPathStandardBundle(bundle: .primitives)
+            environment[Lint.Reporter.Format.Channel.variable]
+                == Lint.Reporter.Format.Channel.value(.sarif)
         )
     }
 
     @Test
-    func `Standard output preserves an excluding fast-path classification`() {
-        let excluding: Lint.File.Single.Classification =
-            .fastPathStandardBundleExcluding(bundle: .primitives, disabled: ["raw value access"])
-        #expect(Lint.File.Single.route(output: .standard, classification: excluding) == excluding)
-    }
-
-    @Test
-    func `Standard output preserves an eval-fallback classification`() {
+    func `Runner overlays do not replace an explicitly selected text format`() {
+        let environment = Lint.File.Single.Runner.environment(
+            inheriting: Environment.Snapshot([
+                Lint.Reporter.Format.Channel.variable:
+                    Lint.Reporter.Format.Channel.value(.text)
+            ]),
+            bundle: .standards,
+            selection: nil
+        )
         #expect(
-            isEvalFallback(
-                Lint.File.Single.route(
-                    output: .standard,
-                    classification: .evalFallback(reason: "inline rule")
-                )
-            )
+            environment[Lint.Reporter.Format.Channel.variable]
+                == Lint.Reporter.Format.Channel.value(.text)
         )
     }
 
     @Test
-    func `Non-standard output forces eval even for a bare-bundle fast path`() {
-        // `--format sarif` / `--exit-policy strict` ⇒ the runner can't produce
-        // the requested shape, so route to eval despite a fast-path source.
-        #expect(
-            isEvalFallback(
-                Lint.File.Single.route(output: .nonStandard, classification: .fastPathStandardBundle(bundle: .primitives))
-            )
+    func `Runner adds its bundle without dropping unrelated channels`() {
+        let environment = Lint.File.Single.Runner.environment(
+            inheriting: Environment.Snapshot(["SWIFT_LINTER_TEST_SENTINEL": "preserved"]),
+            bundle: .institute,
+            selection: nil
         )
-    }
-
-    @Test
-    func `Non-standard output forces eval even for an excluding fast path`() {
+        #expect(environment["SWIFT_LINTER_TEST_SENTINEL"] == "preserved")
         #expect(
-            isEvalFallback(
-                Lint.File.Single.route(
-                    output: .nonStandard,
-                    classification: .fastPathStandardBundleExcluding(bundle: .primitives, disabled: ["int public parameter"])
-                )
-            )
+            environment[Lint.Rule.Bundle.Baked.Channel.variable]
+                == Lint.Rule.Bundle.Baked.institute.rawValue
         )
     }
 }

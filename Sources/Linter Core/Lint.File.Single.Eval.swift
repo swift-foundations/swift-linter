@@ -25,10 +25,11 @@ extension Lint.File.Single {
     /// spawn it.
     ///
     /// Taken whenever the prebuilt runner cannot faithfully reproduce
-    /// the consumer's result — inline/custom rules, a non-`primitives` bundle,
-    /// a `// parent:` chain, an unprovisioned runner, or a non-standard output
-    /// request. The compiled executable IS the linter binary for the consumer;
-    /// its stdout is the authoritative diagnostic stream.
+    /// the consumer's rule configuration — inline/custom rules, a non-baked
+    /// bundle, a `// parent:` chain, or an unprovisioned runner. Report format
+    /// is channel-borne and is therefore identical on this path and the
+    /// prebuilt path. The compiled executable IS the linter binary for the
+    /// consumer; its stdout is the authoritative diagnostic stream.
     ///
     /// This is the path that preserves fully-dynamic, consumer-declared rule
     /// loading: the consumer's own `.package(...)` dependencies are extracted
@@ -123,15 +124,13 @@ extension Lint.File.Single.Eval {
         }
         let dependencies: [Package.Dependency] = [linterDependency] + extractedDependencies
 
-        // Build the environment (parent-chain channel variable when present).
-        let environment: [Swift.String: Swift.String]?
-        if let path: File.Path = parentManifestPath {
-            var snapshot: Environment.Snapshot = Environment.Snapshot.current()
-            snapshot.values[Lint.File.Single.Channel.parent.variable] = path.string
-            environment = snapshot.values
-        } else {
-            environment = nil
-        }
+        // Preserve the complete coordinator environment, including output
+        // format, exit policy, and fix channels, then add the eval-specific
+        // parent manifest when present.
+        let environment: [Swift.String: Swift.String] = Self.environment(
+            inheriting: Environment.Snapshot.current(),
+            parent: parentManifestPath
+        )
 
         // Stamp the state directory self-ignoring before the eval project is
         // materialized into it: `dispatch` creates `evalRoot` on its own, and a
@@ -179,6 +178,21 @@ extension Lint.File.Single.Eval {
                 throw .spawnFailed(consumerPackageRoot: consumerPackageRoot, description: description)
             }
         }
+    }
+
+    /// Build the complete environment supplied to the eval executable.
+    ///
+    /// The inherited snapshot carries coordinator-owned channels unchanged;
+    /// this boundary owns only the optional parent-manifest overlay.
+    internal static func environment(
+        inheriting snapshot: Environment.Snapshot,
+        parent manifest: File.Path?
+    ) -> [Swift.String: Swift.String] {
+        var environment = snapshot
+        if let manifest {
+            environment.values[Lint.File.Single.Channel.parent.variable] = manifest.string
+        }
+        return environment.values
     }
 
     /// Build the branch-pinned URL engine dependency (override the branch via
