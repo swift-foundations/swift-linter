@@ -118,6 +118,7 @@ let package = Package(
                 "Linter Core",
                 "Linter Reporter Text",
                 "Linter Reporter SARIF",
+                .product(name: "Environment", package: "swift-environment"),
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "Package Primitives", package: "swift-package-primitives"),
                 .product(name: "Process", package: "swift-process"),
@@ -139,12 +140,14 @@ let package = Package(
         .testTarget(
             name: "Linter Core Tests",
             dependencies: [
+                .target(name: "Linter"),
                 "Linter Core",
                 "Linter Reporter Text",
                 "Linter Reporter SARIF",
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "File System", package: "swift-file-system"),
+                .product(name: "JSON", package: "swift-json"),
                 .product(name: "SPM Standard", package: "swift-spm-standard"),
                 .product(name: "URI Standard", package: "swift-uri-standard"),
             ]

@@ -22,7 +22,12 @@ zero rules fire. To activate a rule set, drop a `Lint/` nested SwiftPM
 package at your package root (see *Adopting the `Lint/` shape* below).
 
 Output is SwiftLint-compatible textual lines by default; `--format sarif`
-emits SARIF 2.1.0 JSON suitable for CI artifact upload.
+emits one SARIF 2.1.0 document suitable for CI artifact upload. The selection
+is preserved for an in-process run, a `Lint.swift` eval executable, a prebuilt
+standard runner, and a nested `Lint/` package. Configured executables that call
+`Lint.run(configuration:)` read the selection from `SWIFT_LINTER_FORMAT`;
+unset preserves text, while an unrecognized set value fails visibly instead of
+falling back to text.
 
 ## Installation
 
@@ -213,30 +218,16 @@ consumer's source tree:
 
 ```swift
 // Lint/Sources/Lint/main.swift
-import File_System
 import Linter
-import Linter_Reporter_Text
 import Linter_Rule_Unchecked
 import Linter_Rule_Cardinal
-import Terminal_Primitives
 
 let configuration = Lint.Configuration {
     Lint.Rule.Configuration.enable(Lint.Rule.Unchecked.self)
     Lint.Rule.Configuration.enable(Lint.Rule.Cardinal.Count.self)
 }
 
-let arguments = Swift.CommandLine.arguments
-let pathStrings: [Swift.String] = arguments.count >= 2
-    ? [Swift.String](arguments.dropFirst())
-    : ["."]
-
-do {
-    let consumerPaths: [File.Path] = try pathStrings.map { try File.Path($0) }
-    let findings = try Lint.Run.run(paths: consumerPaths, configuration: configuration)
-    Lint.Reporter.Text.emit(findings: findings, to: Terminal.Stream.stdout.write)
-} catch {
-    print("[Lint] error: \(error)")
-}
+Lint.run(configuration: configuration)
 ```
 
 Rules are activated by metatype reference (`Lint.Rule.Unchecked.self`),
@@ -251,8 +242,7 @@ contextual type narrows and the leading-dot form works there).
 `swift run swift-linter <package>` detects the consumer's `Lint/`
 nested package, builds it, and dispatches the lint run to the
 consumer's `Lint` executable, which links engine + rule packs and
-runs `Lint.Run.run(paths:configuration:)` against the consumer's
-source tree.
+runs `Lint.run(configuration:)` against the consumer's source tree.
 
 > **Wire format note**: `Lint.Manifest` exists as a separate type for
 > the cross-process JSON wire format used by the single-file
@@ -398,12 +388,16 @@ Lint.Rule.Bundle.Baked.Channel.Error                   // read()
 
 Lint.Run.Policy.Channel.Error                          // read()
 └── invalid(value:)                          SWIFT_LINTER_EXIT_POLICY set to unknown token
+
+Lint.Reporter.Format.Channel.Error                     // read()
+└── invalid(value:)                          SWIFT_LINTER_FORMAT set to unknown token
 ```
 
-`read()` returns `nil` when the channel variable is UNSET (a legitimate "no
-overlay"); it throws only when the variable is SET but its payload cannot be
-resolved. Handle the richest surface — `Lint.File.Single.Channel.read()` —
-exhaustively over its typed error:
+Manifest, bundle, and policy channel reads return `nil` when their variable is
+unset (a legitimate "no overlay/selection"). The format channel instead
+returns `.text`, its compatibility default. Every channel throws when it is
+set but its payload cannot be resolved. Handle the richest surface —
+`Lint.File.Single.Channel.read()` — exhaustively over its typed error:
 
 ```swift
 import Linter

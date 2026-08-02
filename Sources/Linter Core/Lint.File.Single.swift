@@ -142,13 +142,6 @@ extension Lint.File.Single {
     /// `arguments` is forwarded to the dispatched `Lint` executable
     /// (the consumer's `Lint.swift` as compiled in the eval project).
     ///
-    /// `output` is the CLI's requested output shape. When it is
-    /// ``Output/nonStandard`` (`--format` other than text) the prebuilt-runner
-    /// fast path is bypassed via ``route(output:classification:)`` — the
-    /// runner bakes text output and cannot reshape it. The exit policy rides
-    /// the ``Lint/Run/Policy/Channel`` environment variable instead and gates
-    /// nothing here. Defaults to ``Output/standard``.
-    ///
     /// `nonce` is a per-run-unique token (the CLI supplies a random one) woven
     /// into the selection / parent ``Channel`` temp-file names so concurrent
     /// `swift-linter` runs on the same consumer root no longer clobber a FIXED
@@ -162,7 +155,6 @@ extension Lint.File.Single {
     public static func dispatch(
         at consumerPackageRoot: File.Path,
         arguments: [Swift.String],
-        output: Output = .standard,
         nonce: Swift.String = ""
     ) throws(Self.Error) -> Swift.Int32 {
         let consumerLintSwiftPath: File.Path = consumerPackageRoot / "Lint.swift"
@@ -207,13 +199,10 @@ extension Lint.File.Single {
         // rule packs, and the eval fallback compiles the consumer's declared
         // packs (including inline rules) exactly as before.
         //
-        // `output` gates the fast path too: a non-`.standard` request
-        // (`--format sarif`) routes to eval via
-        // ``route(output:classification:)`` — the runner bakes text output
-        // and cannot reshape it, so it must never be entered for a shape it
-        // cannot produce. The exit policy does NOT gate routing: both
-        // dispatch targets honor the CLI-exported exit-policy channel at the
-        // shared `Lint.run(configuration:)` terminal.
+        // Output format and exit policy do not gate routing. Both dispatched
+        // executables inherit their typed environment channels and converge on
+        // the shared `Lint.run(configuration:)` terminal, so the prebuilt
+        // runner can emit the same Text or SARIF report as the eval path.
         //
         // Classify-before-extract: the fast path needs NO dependency extraction
         // (the runner bakes its own packs), so classification runs FIRST. A
@@ -221,10 +210,7 @@ extension Lint.File.Single {
         // fast-path consumer — dependency extraction is deferred to the eval
         // branch, which is the only path that actually consumes the deps.
         if let runnerBinary: Swift.String = Environment.read("SWIFT_LINTER_RUNNER") {
-            switch Self.route(
-                output: output,
-                classification: Self.Classifier.classify(source: source, parsed: parsed)
-            ) {
+            switch Self.Classifier.classify(source: source, parsed: parsed) {
             case .fastPathStandardBundle(let bundle):
                 return try Runner.run(
                     binary: runnerBinary,
@@ -268,33 +254,6 @@ extension Lint.File.Single {
             arguments: arguments,
             nonce: nonce
         )
-    }
-
-    /// The runner-vs-eval routing verdict, combining the requested `output`
-    /// shape with the source `classification`.
-    ///
-    /// `.standard` output defers entirely to the classifier (the source
-    /// decides). Any ``Output/nonStandard`` request forces
-    /// ``Lint/File/Single/Classification/evalFallback(reason:)`` REGARDLESS of
-    /// the source — the prebuilt runner bakes text output and cannot
-    /// reproduce a SARIF format, so it must never be taken for such a
-    /// request. (Exit policy is channel-borne and does not gate routing.)
-    /// Pure + `internal` so the gate is unit-testable without a real
-    /// ``Process/Spawn``.
-    internal static func route(
-        output: Output,
-        classification: Lint.File.Single.Classification
-    ) -> Lint.File.Single.Classification {
-        switch output {
-        case .standard:
-            return classification
-
-        case .nonStandard:
-            return .evalFallback(
-                reason: "consumer requested an output shape the standard runner cannot produce "
-                    + "(non-text `--format`)"
-            )
-        }
     }
 
     /// Dispatched-executable side of the parent-chain mechanism: read the parent

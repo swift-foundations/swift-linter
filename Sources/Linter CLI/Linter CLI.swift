@@ -198,6 +198,18 @@ extension Lint.CLI {
             throw ExitCode.failure
         }
 
+        // Export the typed report selection before choosing an execution
+        // path. Single-file eval, the prebuilt standard runner, and a nested
+        // configured package each inherit the process environment and converge
+        // on `Lint.run(configuration:)`, which reads this channel at their
+        // shared terminal. Writing `.text` too is intentional: the CLI's
+        // selection is authoritative even when its own parent environment
+        // carries a different token.
+        try Environment.write(
+            Lint.Reporter.Format.Channel.variable,
+            to: Lint.Reporter.Format.Channel.value(format)
+        )
+
         // Single-file `Lint.swift` (Shape γ) dispatch — research
         // recommendation 2026-05-12-swift-linter-unified-consumer-manifest.md.
         // When the consumer places a `Lint.swift` at the package root
@@ -219,15 +231,9 @@ extension Lint.CLI {
             if policy != .advisory {
                 try Environment.write(Lint.Run.Policy.Channel.variable, to: policy.rawValue)
             }
-            // The prebuilt-runner fast path can only reproduce the runner's
-            // baked TEXT output; `--format sarif` still routes to the eval
-            // fallback. The exit policy no longer gates the fast path: since
-            // the exit-policy channel above, the runner escalates strict
-            // exits exactly like the eval executable (both funnel through
-            // `Lint.run(configuration:)`), so `--exit-policy strict` may take
-            // the fast path.
-            let output: Lint.File.Single.Output =
-                (format == .text) ? .standard : .nonStandard
+            // Format and exit policy no longer gate the prebuilt fast path:
+            // both are typed channels read by the same
+            // `Lint.run(configuration:)` terminal the eval executable uses.
             // Per-run nonce (2f): woven into the selection / parent channel
             // temp-file names so concurrent `swift-linter` runs on the same
             // consumer root never clobber a FIXED path. A 64-bit random hex
@@ -243,7 +249,6 @@ extension Lint.CLI {
                 dispatchedExitCode = try Lint.File.Single.dispatch(
                     at: consumerRoot,
                     arguments: paths,
-                    output: output,
                     nonce: runNonce
                 )
             } catch {
@@ -323,7 +328,8 @@ extension Lint.CLI {
                 )
             }
             for rule in outcome.plannedRules {
-                let verb: Swift.String = fixMode == .apply && outcome.refusals.isEmpty
+                let verb: Swift.String =
+                    fixMode == .apply && outcome.refusals.isEmpty
                     ? "applied"
                     : "would apply"
                 Lint.Reporter.Text.emit(
@@ -397,12 +403,6 @@ extension Lint.CLI {
         // Phase 2 Stream C: emit directly via Terminal.Stream.Write's
         // L2 syscall extension (POSIX: swift-iso-9945; Windows:
         // swift-windows-32). OQ-T2 from Phase 1.5 is closed.
-        switch format {
-        case .text:
-            Lint.Reporter.Text.emit(findings: findings, to: Terminal.Stream.stdout.write)
-
-        case .sarif:
-            Lint.Reporter.SARIF.emit(findings: findings, to: Terminal.Stream.stdout.write)
-        }
+        format.emit(findings: findings, to: Terminal.Stream.stdout.write)
     }
 }

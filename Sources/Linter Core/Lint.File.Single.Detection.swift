@@ -20,7 +20,7 @@ extension Lint.File.Single {
     ///
     /// Detection is a pure, side-effect-free read used by the CLI to choose the
     /// single-file dispatch path over the nested-package / legacy paths. It is
-    /// the consumer-facing entry that ``dispatch(at:arguments:output:nonce:)``'s
+    /// the consumer-facing entry that ``dispatch(at:arguments:nonce:)``'s
     /// own magic-comment re-check mirrors.
     public enum Detection: Swift.Sendable {}
 }

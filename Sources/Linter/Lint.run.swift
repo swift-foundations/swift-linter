@@ -30,8 +30,9 @@ internal import Terminal_Primitives
 ///
 /// Reads `Swift.CommandLine.arguments` (defaulting to `["."]` when no
 /// paths are passed), maps them to typed ``File/Path`` values, runs
-/// the engine against them, and emits findings via the text reporter
-/// to stdout. Errors are printed and the process exits non-zero.
+/// the engine against them, and emits findings in the report format selected
+/// by ``Lint/Reporter/Format/Channel``. Unset preserves text. Errors are
+/// printed and the process exits non-zero.
 ///
 /// For consumers that need to mix the bundled rules with per-consumer
 /// overrides — additional rules, severity overrides, path filters —
@@ -165,11 +166,11 @@ extension Lint {
 
     /// Emit `message` to stderr and terminate the process with a non-zero exit.
     ///
-    /// The fail-loud sink for a selection / parent ``Lint/File/Single/Channel``
-    /// hard error: a set-but-unreadable manifest is a wrong-result-that-would-
-    /// otherwise-exit-0 hazard, so the dispatched executable exits non-zero —
-    /// the swift-linter CLI propagates that as its own non-zero exit. stdout
-    /// stays the pure diagnostic stream; the error goes to stderr only.
+    /// The fail-loud sink for a dispatched-executable channel hard error. A
+    /// set-but-invalid format, policy, selection, or parent value is a
+    /// wrong-result-that-would-otherwise-exit-0 hazard, so the executable exits
+    /// non-zero and the swift-linter CLI propagates that result. stdout stays
+    /// the pure diagnostic stream; the error goes to stderr only.
     private static func failLoud(_ message: Swift.String) -> Never {
         Self.Reporter.Text.emit(error: message, to: Terminal.Stream.stderr.write)
         Process.exit(1)
@@ -235,13 +236,19 @@ extension Lint {
             )
             return
         }
+        let format: Lint.Reporter.Format
+        do throws(Lint.Reporter.Format.Channel.Error) {
+            format = try Lint.Reporter.Format.Channel.read()
+        } catch {
+            failLoud("output-format channel: \(error)")
+        }
         do throws(Self.Run.Error) {
             let outcome: Lint.Run.Outcome = try Self.Run.run(
                 paths: consumerPaths,
                 capturing: .all,
                 configuration: configuration
             )
-            Self.Reporter.Text.emit(findings: outcome.findings, to: Terminal.Stream.stdout.write)
+            format.emit(findings: outcome.findings, to: Terminal.Stream.stdout.write)
             // Always-on run summary to STDERR — stdout stays the pure diagnostic
             // stream. This is the shared terminal both the prebuilt runner
             // (`run(bundle:)`) and the eval-compiled executable
@@ -327,7 +334,8 @@ extension Lint {
             )
         }
         for rule in outcome.plannedRules {
-            let verb: Swift.String = mode == .apply && outcome.refusals.isEmpty
+            let verb: Swift.String =
+                mode == .apply && outcome.refusals.isEmpty
                 ? "applied"
                 : "would apply"
             Self.Reporter.Text.emit(
