@@ -142,7 +142,7 @@ let package = Package(
             dependencies: [
                 .target(name: "Linter")
             ],
-            path: "Tests/Support/Report Fixture"
+            path: "Tests/Fixtures/report-format-executable"
         ),
         .testTarget(
             name: "Linter Core Tests",

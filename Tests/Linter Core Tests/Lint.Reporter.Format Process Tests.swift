@@ -169,8 +169,14 @@ import Testing
             #expect(!stdout.contains("files linted"))
             #expect(!stdout.contains("violations"))
             #expect(stderr.contains("active rules"))
-            #expect(stderr.contains("files linted"))
-            #expect(stderr.contains("\(expectedViolations) violations"))
+            #expect(stderr.contains("1 file linted"))
+            #expect(
+                stderr.contains(
+                    expectedViolations == 1
+                        ? "1 violation"
+                        : "\(expectedViolations) violations"
+                )
+            )
 
             let document: JSON
             do throws(JSON.Error) {
@@ -377,7 +383,7 @@ import Testing
                 )
             )
             #expect(
-                Lint.Reporter.Format.Test.Executable.stderr(unset).contains("1 violations")
+                Lint.Reporter.Format.Test.Executable.stderr(unset).contains("1 violation")
             )
         }
 
