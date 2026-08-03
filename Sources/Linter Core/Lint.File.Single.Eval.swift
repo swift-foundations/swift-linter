@@ -143,6 +143,27 @@ extension Lint.File.Single.Eval {
             throw .materializationFailed(reason: "create state directory: \(error)")
         }
         let evalRoot: File.Path = stateRoot / "eval"
+
+        // Invalidate any resolution state a PRIOR materialization of this
+        // same eval project left behind. Every dependency below is declared
+        // `branch: "main"` (tag-free by design — see `publishedEngineDependency()`
+        // and `engineDependencyBranch`), but a bare `swift run` does NOT
+        // re-resolve a branch-tracked dependency once a lockfile already
+        // pins it: SwiftPM only advances that pin on an explicit
+        // `swift package update` or when no lockfile is present. Because
+        // `.swift-lint/eval/` is long-lived scratch state — materialized
+        // once per consumer, then reused indefinitely by every later
+        // dispatch (`Lint.File.Single.State`) — a consumer whose eval
+        // project predates an engine improvement (a new reporter format, a
+        // rule-pack update, a bug fix) keeps silently compiling and running
+        // that STALE engine on every subsequent run, even though the
+        // swift-linter CLI doing the dispatching is fully current. Deleting
+        // the resolution state before each dispatch costs one fresh
+        // resolution — negligible next to the compile this path already
+        // pays on every call (documented elsewhere as the eval fallback's
+        // ~155s cold floor) — and guarantees the eval always builds against
+        // the CURRENT `main` its dependencies declare.
+        try Self.invalidateStaleResolution(evalRoot: evalRoot)
         let configuration = Manifest.Executable.Configuration(
             consumerPackageRoot: consumerPackageRoot,
             consumerSourcePath: consumerLintSwiftPath,
@@ -176,6 +197,54 @@ extension Lint.File.Single.Eval {
 
             case .spawnFailed(let consumerPackageRoot, let description):
                 throw .spawnFailed(consumerPackageRoot: consumerPackageRoot, description: description)
+            }
+        }
+    }
+
+    /// Remove a prior materialization's resolution state from `evalRoot`, if
+    /// any exists: `Package.resolved` AND SwiftPM's own
+    /// `.build/workspace-state.json`.
+    ///
+    /// `.swift-lint/eval/` is reused across every dispatch for a given
+    /// consumer (`Lint.File.Single.State`); SwiftPM only advances a
+    /// `branch:`-tracked dependency's pin when no lockfile is present or on
+    /// an explicit `swift package update` — a bare `swift run` against an
+    /// existing lockfile keeps the ORIGINAL resolution forever. Every
+    /// dependency this eval declares (the engine itself, chief among them —
+    /// see ``publishedEngineDependency()``) is branch-tracked and tag-free
+    /// by design specifically so the eval always reflects `main`; without
+    /// this call, a consumer's eval project silently freezes at whatever
+    /// commit was current the first time it was ever materialized,
+    /// including engine fixes and reporter capabilities that landed after
+    /// that point.
+    ///
+    /// Deleting `Package.resolved` alone is NOT sufficient: SwiftPM's build
+    /// system separately caches the resolved dependency graph in
+    /// `.build/workspace-state.json`, and restores `Package.resolved` from
+    /// that cache rather than re-resolving when the lockfile alone is
+    /// missing. Both must go for a dispatch to see a genuinely fresh
+    /// resolution. The rest of `.build` (compiled object files, module
+    /// caches) is left untouched — SwiftPM's incremental build correctly
+    /// recompiles only what a newly-fetched checkout actually changed, so
+    /// this keeps most of the eval path's compile-cache benefit while still
+    /// guaranteeing the dependency graph itself is never stale.
+    ///
+    /// Best-effort and idempotent: absence of either file (first-ever
+    /// materialization) is the common case, not a failure.
+    internal static func invalidateStaleResolution(
+        evalRoot: File.Path
+    ) throws(Lint.File.Single.Error) {
+        let staleStatePaths: [File.Path] = [
+            evalRoot / "Package.resolved",
+            evalRoot / ".build" / "workspace-state.json",
+        ]
+        for path in staleStatePaths {
+            do throws(File.System.Delete.Error) {
+                try File(path).delete.ifExists()
+            } catch {
+                throw .materializationFailed(
+                    reason: "invalidate stale eval resolution at \(path): \(error)"
+                )
             }
         }
     }
