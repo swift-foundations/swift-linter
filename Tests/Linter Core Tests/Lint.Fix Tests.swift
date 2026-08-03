@@ -23,6 +23,7 @@ extension Lint.Fix {
         @Suite struct `Target Scoping` {}
         @Suite struct Application {}
         @Suite struct Exclusion {}
+        @Suite struct `Manifest Scope` {}
     }
 }
 
@@ -573,5 +574,192 @@ extension Lint.Fix.Test.Application {
         #expect(second.paths.isEmpty)
         #expect(second.published.isEmpty)
         #expect(try Self.contents(file) == "struct Fixed {}\n")
+    }
+}
+
+// MARK: - Manifest Scope (swift-foundations/swift-linter#32)
+//
+// A single source of truth for the fixture manifest text, shared between
+// what a test writes to disk and what each fileprivate rule below compares
+// against, so the two can never drift out of byte-for-byte agreement — the
+// same discipline the file's other synthetic rules already rely on
+// (`"struct Original {}\n"` compared verbatim). Both spawn a REAL
+// `swift package dump-package` subprocess via
+// `Lint.Fix.Scope.Manifest.evaluates(_:)`, precedented by this same test
+// target's `Lint.File.Single.Runner Tests.swift`, which already spawns a
+// real prebuilt-runner process.
+
+fileprivate let manifestScopeOriginal = """
+// swift-tools-version: 6.3
+import PackageDescription
+
+let package = Package(
+    name: "Original"
+)
+
+"""
+
+fileprivate let manifestScopeRewritten = """
+// swift-tools-version: 6.3
+import PackageDescription
+
+let package = Package(
+    name: "Rewritten"
+)
+
+"""
+
+// Re-parses cleanly (a bare identifier is syntactically a valid
+// expression) but fails SwiftPM's manifest evaluation: `swiftc` cannot
+// resolve `undefinedIdentifierReference`, so `dump-package` exits
+// non-zero. Verified against the installed toolchain before being chosen
+// as the fixture — the concrete class re-parse structurally cannot catch.
+fileprivate let manifestScopeCorrupted = """
+// swift-tools-version: 6.3
+import PackageDescription
+
+let package = Package(
+    name: undefinedIdentifierReference
+)
+
+"""
+
+extension Lint.Rule {
+    fileprivate static let `rewrites manifest name` = Lint.Rule(
+        id: "rewrites manifest name",
+        default: .warning,
+        findings: { _, _ in [] },
+        fix: { source in
+            guard source.tree.description == manifestScopeOriginal else { return nil }
+            return manifestScopeRewritten
+        }
+    )
+
+    fileprivate static let `corrupts manifest name` = Lint.Rule(
+        id: "corrupts manifest name",
+        default: .warning,
+        findings: { _, _ in [] },
+        fix: { source in
+            guard source.tree.description == manifestScopeOriginal else { return nil }
+            return manifestScopeCorrupted
+        }
+    )
+}
+
+extension Lint.Fix.Test.`Manifest Scope` {
+    private static func root() throws(Paths.Path.Error) -> File.Path {
+        try File.Path.Temporary.deterministic(
+            prefix: "lint-fix-manifest-scope-",
+            key: Swift.String(UInt64.random(in: UInt64.min...UInt64.max), radix: 16),
+            suffix: ""
+        )
+    }
+
+    private static func write(_ text: Swift.String, at path: File.Path) throws {
+        if let parent = path.parent {
+            try File.Directory(parent).create.recursive()
+        }
+        try File(path).write.atomic(text)
+    }
+
+    private static func contents(_ path: File.Path) throws -> Swift.String {
+        try Lint.File.Single.contents(of: path)
+    }
+
+    private static func remove(_ path: File.Path) {
+        do throws(File.System.Delete.Error) {
+            try File.System.Delete.delete(at: path, recursive: true)
+        } catch {}
+    }
+}
+
+extension Lint.Fix.Test.`Manifest Scope` {
+    // Fixture required by #32: a manifest finding whose fix applies end to
+    // end. `manifest:` admits the exact `Package.swift` path even though it
+    // sits outside every declared target root; the rewrite re-parses AND
+    // evaluates, so it publishes exactly like an ordinary target-scoped fix.
+    @Test
+    func `a manifest fix applies end to end`() throws {
+        let root = try Self.root()
+        defer { Self.remove(root) }
+        let manifest = root / "Package.swift"
+        try Self.write(manifestScopeOriginal, at: manifest)
+        let configuration = Lint.Configuration {
+            .enable(.`rewrites manifest name`)
+        }
+
+        let outcome = try Lint.Fix.apply(
+            paths: [root],
+            targets: [],
+            configuration: configuration,
+            mode: .apply,
+            manifest: manifest
+        )
+
+        #expect(outcome.paths == [manifest])
+        #expect(outcome.published == [manifest])
+        #expect(outcome.refusals.isEmpty)
+        #expect(try Self.contents(manifest) == manifestScopeRewritten)
+    }
+
+    // Fixture required by #32: a corrupted-rewrite fixture that must refuse
+    // rather than write. The rewrite re-parses (SwiftParser has no semantic
+    // phase) but fails `swift package dump-package` evaluation, so the
+    // manifest-scope guard — strictly stronger than the ordinary re-parse
+    // guard — refuses it. The refusal blocks the WHOLE plan, the same
+    // discipline an ordinary unparseable-rewrite refusal already has: an
+    // otherwise-valid, co-planned change to an unrelated target file in the
+    // SAME run is also left unpublished.
+    @Test
+    func `a manifest rewrite that fails evaluation is refused rather than written`() throws {
+        let root = try Self.root()
+        defer { Self.remove(root) }
+        let manifest = root / "Package.swift"
+        try Self.write(manifestScopeOriginal, at: manifest)
+        let target = root / "Sources" / "Target"
+        let sibling = target / "Sibling.swift"
+        try Self.write("struct First {}\n", at: sibling)
+        let configuration = Lint.Configuration {
+            Lint.Rule.Configuration.enable(.`corrupts manifest name`)
+            Lint.Rule.Configuration.enable(.`always rewrites target`)
+        }
+
+        let outcome = try Lint.Fix.apply(
+            paths: [root],
+            targets: [target],
+            configuration: configuration,
+            mode: .apply,
+            manifest: manifest
+        )
+
+        #expect(outcome.published.isEmpty)
+        #expect(outcome.refusals.map(\.path) == [manifest])
+        #expect(outcome.refusals.map(\.reason) == [.manifestEvaluationFailed])
+        #expect(try Self.contents(manifest) == manifestScopeOriginal)
+        #expect(try Self.contents(sibling) == "struct First {}\n")
+    }
+
+    // A manifest path that is never supplied as `manifest:` stays excluded
+    // exactly as it always has (the pre-#32, `targets`-only behavior) — the
+    // positive control this whole scope exists to extend, not replace.
+    @Test
+    func `an unsupplied manifest scope leaves Package_swift untouched`() throws {
+        let root = try Self.root()
+        defer { Self.remove(root) }
+        let manifest = root / "Package.swift"
+        try Self.write(manifestScopeOriginal, at: manifest)
+        let configuration = Lint.Configuration {
+            .enable(.`rewrites manifest name`)
+        }
+
+        let outcome = try Lint.Fix.apply(
+            paths: [root],
+            targets: [],
+            configuration: configuration,
+            mode: .apply
+        )
+
+        #expect(outcome.changes.isEmpty)
+        #expect(try Self.contents(manifest) == manifestScopeOriginal)
     }
 }

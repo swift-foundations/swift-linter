@@ -53,11 +53,12 @@ extension Lint.Fix {
 
 extension Lint.Fix {
     /// A rewrite the engine computed and then declined to publish, because
-    /// the rewritten text did not re-parse.
+    /// the rewritten text failed the guard for its scope — see ``Reason``.
     ///
-    /// Reported rather than discarded: a rewriter emitting unparseable text
-    /// is a defect in that rewriter, and a fix run that hid it would let the
-    /// defect persist behind a clean-looking result.
+    /// Reported rather than discarded: a rewriter emitting a rewrite its
+    /// scope's guard rejects is a defect in that rewriter, and a fix run
+    /// that hid it would let the defect persist behind a clean-looking
+    /// result.
     public struct Refusal: Sendable, Equatable {
         /// The file whose rewrite was refused.
         ///
@@ -65,15 +66,23 @@ extension Lint.Fix {
         /// publication, so every source file remains unchanged.
         public let path: File.Path
 
-        /// The rule whose fix produced unparseable text.
+        /// The rule whose fix produced the refused rewrite.
         public let rule: Lint.Rule.ID
 
-        /// Creates a refusal from the file and the rule whose fix produced
-        /// unparseable text for it.
+        /// Why the rewrite was refused.
+        public let reason: Reason
+
+        /// Creates a refusal from the file, the rule whose fix produced the
+        /// refused rewrite, and why it was refused.
+        ///
+        /// `reason` defaults to ``Reason/unparseable`` — every ordinary
+        /// file's only possible refusal — so every pre-existing call site
+        /// is unaffected.
         @inlinable
-        public init(path: File.Path, rule: Lint.Rule.ID) {
+        public init(path: File.Path, rule: Lint.Rule.ID, reason: Reason = .unparseable) {
             self.path = path
             self.rule = rule
+            self.reason = reason
         }
     }
 }

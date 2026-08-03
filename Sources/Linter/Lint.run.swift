@@ -227,12 +227,19 @@ extension Lint {
             } catch {
                 failLoud("fix exclusion channel: \(error)")
             }
+            let manifest: File_System.File.Path?
+            do throws(Lint.Fix.Scope.Manifest.Channel.Error) {
+                manifest = try Lint.Fix.Scope.Manifest.Channel.read()
+            } catch {
+                failLoud("fix manifest channel: \(error)")
+            }
             runFix(
                 mode: fixMode,
                 paths: consumerPaths,
                 targets: targets,
                 excluding: exclusions,
-                configuration: configuration
+                configuration: configuration,
+                manifest: manifest
             )
             return
         }
@@ -310,7 +317,8 @@ extension Lint {
         paths: [File_System.File.Path],
         targets: [File_System.File.Path],
         excluding exclusions: Set<Lint.Rule.ID>,
-        configuration: Lint.Configuration
+        configuration: Lint.Configuration,
+        manifest: File_System.File.Path? = nil
     ) {
         let outcome: Lint.Fix.Outcome
         do throws(Self.Run.Error) {
@@ -319,7 +327,8 @@ extension Lint {
                 targets: targets,
                 configuration: configuration,
                 excluding: exclusions,
-                mode: mode
+                mode: mode,
+                manifest: manifest
             )
         } catch {
             failLoud("fix: \(error)")
@@ -345,7 +354,7 @@ extension Lint {
         }
         for refusal in outcome.refusals {
             Self.Reporter.Text.emit(
-                error: "fix for rule '\(refusal.rule)' produced unparseable text for "
+                error: "fix for rule '\(refusal.rule)' \(refusal.reason.summary) for "
                     + "\(refusal.path); the complete fix plan was not published",
                 to: Terminal.Stream.stderr.write
             )
