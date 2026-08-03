@@ -161,8 +161,20 @@ import Testing
         fileprivate static func expectSARIF(
             _ output: Process.Output,
             results expectedResults: Swift.Int,
-            violations expectedViolations: Swift.Int
+            violations expectedViolations: Swift.Int,
+            findings expectedFindings: Swift.Int? = nil
         ) {
+            // Every fixture driven through this helper enables only the
+            // shared `report format fixture` rule (severity `.error`), so
+            // absent an explicit override the total findings count and the
+            // SARIF result count coincide with the result count itself —
+            // there are no note/remark findings in this population. The
+            // dedicated mixed-severity coverage
+            // (`Lint.Run.Outcome.Test.Integration`) is what proves findings
+            // and violations diverge; this helper only pins that the CLI
+            // wires the (possibly-equal) `findings` count through to both
+            // surfaces unchanged.
+            let expectedFindings = expectedFindings ?? expectedResults
             let stdout = Self.stdout(output)
             let stderr = Self.stderr(output)
             #expect(!stdout.isEmpty)
@@ -178,6 +190,13 @@ import Testing
                         : "\(expectedViolations) violations"
                 )
             )
+            #expect(
+                stderr.contains(
+                    expectedFindings == 1
+                        ? "1 finding"
+                        : "\(expectedFindings) findings"
+                )
+            )
 
             let document: JSON
             do throws(JSON.Error) {
@@ -189,6 +208,7 @@ import Testing
             let results = document.runs[0].results.array
             #expect(Swift.String(document.version) == "2.1.0")
             #expect(results?.count == expectedResults)
+            #expect(results?.count == expectedFindings)
             if expectedResults == 1 {
                 #expect(Swift.String(results?[0].ruleId) == "report format fixture")
                 #expect(Swift.String(results?[0].level) == "error")
