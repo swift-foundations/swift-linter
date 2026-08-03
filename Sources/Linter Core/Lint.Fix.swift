@@ -66,6 +66,16 @@ extension Lint.Fix {
     ///   - excludedRules: Canonical rule IDs withheld from fix application
     ///     only. They remain active for ordinary lint detection and reporting.
     ///   - mode: Whether to write the rewritten files or only compute them.
+    ///   - manifest: The exact declared package-manifest path (`Package.swift`)
+    ///     eligible for fix application, or `nil` for no manifest scope — the
+    ///     default, and the behavior of every caller written before this
+    ///     parameter existed. Additive to `targets`: it admits exactly one
+    ///     file by exact path, never a prefix, and never widens `targets`'
+    ///     own semantics. A rewrite planned for this exact path carries an
+    ///     additional post-condition beyond re-parse — see
+    ///     ``Scope/Manifest/evaluates(_:)`` — because `Package.swift` is the
+    ///     one file whose corruption stops a package from resolving at all
+    ///     (swift-foundations/swift-linter#32).
     /// - Returns: The authoritative exact-path rewrite plan, the paths an
     ///   applying run published, and the counts needed to report that the run
     ///   measured something.
@@ -78,7 +88,8 @@ extension Lint.Fix {
         targets: [File.Path],
         configuration: Lint.Configuration,
         excluding excludedRules: Set<Lint.Rule.ID> = [],
-        mode: Mode
+        mode: Mode,
+        manifest: File.Path? = nil
     ) throws(Lint.Run.Error) -> Outcome {
         let fixable: [(id: Lint.Rule.ID, fix: @Sendable (borrowing Lint.Source.Parsed) -> Swift.String?)] =
             configuration.rules.effective.entries.compactMap { entry in
@@ -113,7 +124,15 @@ extension Lint.Fix {
                 // level typed-prefix matching admits the target root and its
                 // descendants without admitting a sibling whose name merely
                 // shares the same textual prefix.
-                guard targets.contains(where: { filePath.hasPrefix($0) }) else {
+                //
+                // The manifest scope is admitted separately and by EXACT
+                // path, never a prefix: `Package.swift` is one declared
+                // file, not a subtree, and admitting it via `hasPrefix`
+                // would risk sweeping in a nested manifest (e.g. a
+                // `Tests/Package.swift` third-party-test manifest) that the
+                // caller never declared eligible.
+                let isManifest = manifest == filePath
+                guard targets.contains(where: { filePath.hasPrefix($0) }) || isManifest else {
                     continue
                 }
                 // A fixture file exists to CARRY a violation. Rewriting one
@@ -161,7 +180,20 @@ extension Lint.Fix {
                     // reason a tree stops building.
                     guard Self.parses(rewritten) else {
                         refusals.append(
-                            Refusal(path: filePath, rule: candidate.id)
+                            Refusal(path: filePath, rule: candidate.id, reason: .unparseable)
+                        )
+                        continue
+                    }
+                    // The manifest scope's stronger post-condition (#32):
+                    // re-parsing proves only valid Swift syntax, and
+                    // `Package.swift` is the one file whose corruption stops
+                    // the package from resolving at all. A rewrite reaching
+                    // here for the exact `manifest` path must additionally
+                    // evaluate under the installed SwiftPM toolchain before
+                    // it may be planned.
+                    guard !isManifest || Scope.Manifest.evaluates(rewritten) else {
+                        refusals.append(
+                            Refusal(path: filePath, rule: candidate.id, reason: .manifestEvaluationFailed)
                         )
                         continue
                     }

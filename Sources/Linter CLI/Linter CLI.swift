@@ -84,6 +84,17 @@ extension Lint {
             help: "Canonical rule ID excluded from --fix application. Repeat for each withheld rule."
         )
         var fixExclusions: [Swift.String] = []
+
+        @Option(
+            name: .customLong("fix-manifest"),
+            help: """
+                Exact declared package-manifest path (Package.swift) eligible for --fix. A fix \
+                planned for this exact file additionally must evaluate under the installed \
+                SwiftPM toolchain (swift package dump-package) before it is applied — a \
+                stronger guard than the re-parse check every other file gets.
+                """
+        )
+        var manifest: File_System.File.Path?
     }
 }
 
@@ -190,9 +201,15 @@ extension Lint.CLI {
                 Lint.Fix.Exclusion.Channel.variable,
                 to: Lint.Fix.Exclusion.Channel.value(exclusions)
             )
-        } else if !targets.isEmpty || !fixExclusions.isEmpty {
+            if let manifest {
+                try Environment.write(
+                    Lint.Fix.Scope.Manifest.Channel.variable,
+                    to: Lint.Fix.Scope.Manifest.Channel.value(manifest)
+                )
+            }
+        } else if !targets.isEmpty || !fixExclusions.isEmpty || manifest != nil {
             Lint.Reporter.Text.emit(
-                error: "--target-root and --fix-excluding are valid only with --fix",
+                error: "--target-root, --fix-excluding, and --fix-manifest are valid only with --fix",
                 to: Terminal.Stream.stderr.write
             )
             throw ExitCode.failure
@@ -313,7 +330,8 @@ extension Lint.CLI {
                 targets: targets,
                 configuration: configuration,
                 excluding: Set(fixExclusions.map { Lint.Rule.ID(_unchecked: $0) }),
-                mode: fixMode
+                mode: fixMode,
+                manifest: manifest
             )
             for change in outcome.changes {
                 Lint.Reporter.Text.emit(text: change.diff, to: Terminal.Stream.stdout.write)
@@ -336,7 +354,7 @@ extension Lint.CLI {
             }
             for refusal in outcome.refusals {
                 Lint.Reporter.Text.emit(
-                    error: "fix for rule '\(refusal.rule)' produced unparseable text for "
+                    error: "fix for rule '\(refusal.rule)' \(refusal.reason.summary) for "
                         + "\(refusal.path); the complete fix plan was not published",
                     to: Terminal.Stream.stderr.write
                 )
