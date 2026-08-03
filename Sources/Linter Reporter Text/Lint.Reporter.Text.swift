@@ -38,6 +38,21 @@ extension Lint.Reporter {
 }
 
 extension Lint.Reporter.Text {
+    /// The kernel write-syscall error thrown by `Terminal.Stream.Write` on
+    /// this platform, resolved the same way as the OS-conditional import
+    /// above: POSIX -> `ISO_9945.Kernel.IO.Write.Error` (`write(2)`);
+    /// Windows -> `Windows.`32`.Kernel.IO.Write.Error` (`WriteFile`). Both
+    /// modules are already brought into scope transitively (each
+    /// `@_exported import`s its Kernel Core) by the conditional import
+    /// above. Mirrors `Process.Error.Kernel`'s per-platform typealias shape.
+    #if !os(Windows)
+        fileprivate typealias Kernel = ISO_9945.Kernel.IO.Write.Error
+    #else
+        fileprivate typealias Kernel = Windows.`32`.Kernel.IO.Write.Error
+    #endif
+}
+
+extension Lint.Reporter.Text {
     /// Emit findings as text lines via the given write surface.
     ///
     /// One line per finding, each terminated with a single `\n`. Errors
@@ -50,7 +65,7 @@ extension Lint.Reporter.Text {
         to write: Terminal.Stream.Write
     ) {
         for finding in findings {
-            do throws(ISO_9945.Kernel.IO.Write.Error) {
+            do throws(Kernel) {
                 _ = try write((line(for: finding) + "\n").utf8.lazy.map(Byte.init))
             } catch {
                 // Best-effort stdout write; broken pipe is acceptable for
@@ -93,7 +108,7 @@ extension Lint.Reporter.Text {
             filesLinted: filesLinted,
             violations: violations
         )
-        do throws(ISO_9945.Kernel.IO.Write.Error) {
+        do throws(Kernel) {
             _ = try write((line + "\n").utf8.lazy.map(Byte.init))
         } catch {
             // Best-effort stderr write; broken pipe acceptable.
@@ -111,7 +126,7 @@ extension Lint.Reporter.Text {
         text: Swift.String,
         to write: Terminal.Stream.Write
     ) {
-        do throws(ISO_9945.Kernel.IO.Write.Error) {
+        do throws(Kernel) {
             _ = try write(text.utf8.lazy.map(Byte.init))
         } catch {
             // Best-effort write; broken pipe acceptable.
@@ -131,7 +146,7 @@ extension Lint.Reporter.Text {
         error message: Swift.String,
         to write: Terminal.Stream.Write
     ) {
-        do throws(ISO_9945.Kernel.IO.Write.Error) {
+        do throws(Kernel) {
             _ = try write(("[Lint] error: " + message + "\n").utf8.lazy.map(Byte.init))
         } catch {
             // Best-effort stderr write; broken pipe acceptable.
