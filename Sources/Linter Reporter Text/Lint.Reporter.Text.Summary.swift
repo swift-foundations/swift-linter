@@ -26,12 +26,22 @@ extension Lint.Reporter.Text.Summary {
     /// Split
     /// out so the field composition is unit-testable without a write surface.
     ///
-    /// Shape: `<package> · <K> active rules[ (−<M> excluded)] · <F> files linted · <V> violations`.
+    /// Shape: `<package> · <K> active rules[ (−<M> excluded)] · <F> files linted · <V> violations · <N> findings`.
     /// `K` is the *effective* active-rule count (after bundle composition AND
     /// any runtime overlay/exclusions), so it reflects what actually ran; `M`
     /// (the runtime-disabled count) annotates the overlay/exclusion case.
     ///
-    /// The four counts are bare `Int`: display-only cardinalities formatted
+    /// `violations` and `findings` are deliberately two distinct counts, not
+    /// one relabeled: `violations` excludes `.note`/`.remark` severities (the
+    /// count driving the strict exit policy, unchanged), while `findings` is
+    /// the total surfaced-finding count — the same population the SARIF
+    /// reporter serializes as `results`, one entry per finding regardless of
+    /// severity. A consumer that needs an exact like-for-like comparison
+    /// against SARIF's result count reads `findings`, never `violations`
+    /// (swift-foundations/swift-linter#22; consumed by the Workspace ledger
+    /// parity guard).
+    ///
+    /// The five counts are bare `Int`: display-only cardinalities formatted
     /// into this one line, never indexed or arithmetic-combined. Typing them
     /// (`Count`/`Index<Element>.Count`) would pull a cardinal/collection
     /// dependency tree into the reporter for no semantic gain — leanness wins
@@ -42,7 +52,8 @@ extension Lint.Reporter.Text.Summary {
         activeRules: Swift.Int,
         excludedRules: Swift.Int,
         filesLinted: Swift.Int,
-        violations: Swift.Int
+        violations: Swift.Int,
+        findings: Swift.Int
     ) -> Swift.String {
         let ruleSet: Swift.String =
             excludedRules > 0
@@ -50,6 +61,8 @@ extension Lint.Reporter.Text.Summary {
             : "\(activeRules) active rules"
         let fileWord: Swift.String = filesLinted == 1 ? "file" : "files"
         let violationWord: Swift.String = violations == 1 ? "violation" : "violations"
-        return "\(package) · \(ruleSet) · \(filesLinted) \(fileWord) linted · \(violations) \(violationWord)"
+        let findingWord: Swift.String = findings == 1 ? "finding" : "findings"
+        return "\(package) · \(ruleSet) · \(filesLinted) \(fileWord) linted · "
+            + "\(violations) \(violationWord) · \(findings) \(findingWord)"
     }
 }

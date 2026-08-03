@@ -385,6 +385,7 @@ extension Lint.CLI {
             excludedRules: configuration.rules.effective.disabled.count,
             filesLinted: outcome.filesLinted,
             violations: outcome.violations.count,
+            findings: outcome.findings.count,
             to: Terminal.Stream.stderr.write
         )
         if policy.fails(for: outcome.findings) {

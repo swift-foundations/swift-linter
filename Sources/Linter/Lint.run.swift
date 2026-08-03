@@ -273,6 +273,7 @@ extension Lint {
                 excludedRules: configuration.rules.effective.disabled.count,
                 filesLinted: outcome.filesLinted,
                 violations: outcome.violations.count,
+                findings: outcome.findings.count,
                 to: Terminal.Stream.stderr.write
             )
             // Exit-policy channel (`SWIFT_LINTER_EXIT_POLICY`, exported by the
@@ -365,7 +366,12 @@ extension Lint {
         // have to know which mode produced the line, and a fix run that
         // printed no summary would be indistinguishable from one that loaded
         // no rules and silently did nothing. `violations` is the number of
-        // files rewritten: in this mode that is what the run found.
+        // files rewritten: in this mode that is what the run found. A fix
+        // run reports no findings distinct from that count (per
+        // `Lint.run.CLI`'s doc: "a fix run reports no findings"), so
+        // `findings` mirrors `violations` here rather than introducing a
+        // second, disjoint population the count-contract has no use for
+        // outside a lint run.
         let reportedChanges: Swift.Int =
             mode == .apply ? outcome.published.count : outcome.paths.count
         let package: Swift.String = paths.first?.components.last?.string ?? "."
@@ -375,6 +381,7 @@ extension Lint {
             excludedRules: configuration.rules.effective.disabled.count,
             filesLinted: outcome.filesScanned,
             violations: reportedChanges,
+            findings: reportedChanges,
             to: Terminal.Stream.stderr.write
         )
         let verb: Swift.String = (mode == .apply) ? "rewrote" : "would rewrite"
