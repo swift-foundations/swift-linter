@@ -53,6 +53,29 @@ extension Lint.Reporter.Text {
 }
 
 extension Lint.Reporter.Text {
+    /// Adapts a line's UTF-8 bytes to the exact `Sequence` element type this
+    /// platform's `Terminal.Stream.Write.callAsFunction` parameter requires.
+    ///
+    /// The two L2 syscall extensions are not parameter-symmetric today:
+    /// POSIX (`swift-iso-9945`) takes `some Sequence<Byte>`; Windows
+    /// (`swift-windows-32`) takes `some Sequence<UInt8>` (its L2 write
+    /// surface predates the Byte-typed POSIX one — see the "future Windows"
+    /// note on `Terminal.Stream.Write` in swift-terminal-primitives). `Byte`
+    /// is a distinct wrapper struct, not a `UInt8` typealias, so the two
+    /// element types do not unify — this reporter must supply whichever one
+    /// the platform's `write` actually declares.
+    #if !os(Windows)
+        fileprivate static func bytes(of text: Swift.String) -> [Byte] {
+            text.utf8.map(Byte.init)
+        }
+    #else
+        fileprivate static func bytes(of text: Swift.String) -> [Swift.UInt8] {
+            Swift.Array(text.utf8)
+        }
+    #endif
+}
+
+extension Lint.Reporter.Text {
     /// Emit findings as text lines via the given write surface.
     ///
     /// One line per finding, each terminated with a single `\n`. Errors
@@ -66,7 +89,7 @@ extension Lint.Reporter.Text {
     ) {
         for finding in findings {
             do throws(Kernel) {
-                _ = try write((line(for: finding) + "\n").utf8.lazy.map(Byte.init))
+                _ = try write(bytes(of: line(for: finding) + "\n"))
             } catch {
                 // Best-effort stdout write; broken pipe is acceptable for
                 // a textual diagnostic emitter (the conventional behavior
@@ -109,7 +132,7 @@ extension Lint.Reporter.Text {
             violations: violations
         )
         do throws(Kernel) {
-            _ = try write((line + "\n").utf8.lazy.map(Byte.init))
+            _ = try write(bytes(of: line + "\n"))
         } catch {
             // Best-effort stderr write; broken pipe acceptable.
         }
@@ -127,7 +150,7 @@ extension Lint.Reporter.Text {
         to write: Terminal.Stream.Write
     ) {
         do throws(Kernel) {
-            _ = try write(text.utf8.lazy.map(Byte.init))
+            _ = try write(bytes(of: text))
         } catch {
             // Best-effort write; broken pipe acceptable.
         }
@@ -147,7 +170,7 @@ extension Lint.Reporter.Text {
         to write: Terminal.Stream.Write
     ) {
         do throws(Kernel) {
-            _ = try write(("[Lint] error: " + message + "\n").utf8.lazy.map(Byte.init))
+            _ = try write(bytes(of: "[Lint] error: " + message + "\n"))
         } catch {
             // Best-effort stderr write; broken pipe acceptable.
         }
