@@ -63,8 +63,8 @@ extension Lint.Fix {
     ///     no fixes.
     ///   - configuration: The same configuration a lint run would use; only
     ///     its effective entries whose rule declares a fix participate.
-    ///   - excluding: Canonical rule IDs withheld from fix application only.
-    ///     They remain active for ordinary lint detection and reporting.
+    ///   - excludedRules: Canonical rule IDs withheld from fix application
+    ///     only. They remain active for ordinary lint detection and reporting.
     ///   - mode: Whether to write the rewritten files or only compute them.
     /// - Returns: The authoritative exact-path rewrite plan, the paths an
     ///   applying run published, and the counts needed to report that the run
@@ -85,7 +85,8 @@ extension Lint.Fix {
                 guard let fix = entry.rule.fix else { return nil }
                 return (id: entry.rule.id, fix: fix)
             }
-        let excluded: [Lint.Rule.ID] = fixable
+        let excluded: [Lint.Rule.ID] =
+            fixable
             .filter { excludedRules.contains($0.id) }
             .map(\.id)
         let participating = fixable.filter { !excludedRules.contains($0.id) }

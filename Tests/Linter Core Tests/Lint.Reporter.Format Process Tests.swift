@@ -131,7 +131,8 @@ import Testing
         fileprivate static func run(
             _ executable: Swift.String,
             arguments: [Swift.String],
-            environment: [Swift.String: Swift.String]
+            environment: [Swift.String: Swift.String],
+            timeout: Duration = .seconds(600)
         ) -> Process.Output? {
             let configuration = Process.Spawn.Configuration(
                 executable: executable,
@@ -139,7 +140,7 @@ import Testing
                 environment: environment,
                 stdout: .pipe,
                 stderr: .pipe,
-                timeout: .seconds(600)
+                timeout: timeout
             )
             do throws(Process.Error) {
                 return try Process.Spawn.run(configuration)
@@ -296,7 +297,18 @@ import Testing
                     ],
                     environment: Lint.Reporter.Format.Test.Executable.environment(
                         linter: Lint.Reporter.Format.Test.Executable.root()
-                    )
+                    ),
+                    // The eval-fallback path materializes and cold-builds an
+                    // entirely separate SwiftPM package (full resolve +
+                    // debug build of the Linter engine dependency graph),
+                    // comparable in cost to the outer package's own build —
+                    // orders of magnitude heavier than the other spawn-based
+                    // tests in this file, which share the shared 600s
+                    // timeout above. Give this call site its own headroom
+                    // (order of the outer package's full build time plus
+                    // margin) rather than raising the shared constant every
+                    // other test also pays for.
+                    timeout: .seconds(1800)
                 )
             else { return }
             #expect(output.status == .exited(code: 1))

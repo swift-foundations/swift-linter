@@ -38,6 +38,44 @@ extension Lint.Reporter {
 }
 
 extension Lint.Reporter.Text {
+    /// The kernel write-syscall error thrown by `Terminal.Stream.Write` on
+    /// this platform, resolved the same way as the OS-conditional import
+    /// above: POSIX -> `ISO_9945.Kernel.IO.Write.Error` (`write(2)`);
+    /// Windows -> `Windows.`32`.Kernel.IO.Write.Error` (`WriteFile`). Both
+    /// modules are already brought into scope transitively (each
+    /// `@_exported import`s its Kernel Core) by the conditional import
+    /// above. Mirrors `Process.Error.Kernel`'s per-platform typealias shape.
+    #if !os(Windows)
+        fileprivate typealias Kernel = ISO_9945.Kernel.IO.Write.Error
+    #else
+        fileprivate typealias Kernel = Windows.`32`.Kernel.IO.Write.Error
+    #endif
+}
+
+extension Lint.Reporter.Text {
+    /// Adapts a line's UTF-8 bytes to the exact `Sequence` element type this
+    /// platform's `Terminal.Stream.Write.callAsFunction` parameter requires.
+    ///
+    /// The two L2 syscall extensions are not parameter-symmetric today:
+    /// POSIX (`swift-iso-9945`) takes `some Sequence<Byte>`; Windows
+    /// (`swift-windows-32`) takes `some Sequence<UInt8>` (its L2 write
+    /// surface predates the Byte-typed POSIX one — see the "future Windows"
+    /// note on `Terminal.Stream.Write` in swift-terminal-primitives). `Byte`
+    /// is a distinct wrapper struct, not a `UInt8` typealias, so the two
+    /// element types do not unify — this reporter must supply whichever one
+    /// the platform's `write` actually declares.
+    #if !os(Windows)
+        fileprivate static func bytes(of text: Swift.String) -> [Byte] {
+            text.utf8.map(Byte.init)
+        }
+    #else
+        fileprivate static func bytes(of text: Swift.String) -> [Swift.UInt8] {
+            Swift.Array(text.utf8)
+        }
+    #endif
+}
+
+extension Lint.Reporter.Text {
     /// Emit findings as text lines via the given write surface.
     ///
     /// One line per finding, each terminated with a single `\n`. Errors
@@ -50,8 +88,8 @@ extension Lint.Reporter.Text {
         to write: Terminal.Stream.Write
     ) {
         for finding in findings {
-            do throws(ISO_9945.Kernel.IO.Write.Error) {
-                _ = try write((line(for: finding) + "\n").utf8.lazy.map(Byte.init))
+            do throws(Kernel) {
+                _ = try write(bytes(of: line(for: finding) + "\n"))
             } catch {
                 // Best-effort stdout write; broken pipe is acceptable for
                 // a textual diagnostic emitter (the conventional behavior
@@ -93,8 +131,8 @@ extension Lint.Reporter.Text {
             filesLinted: filesLinted,
             violations: violations
         )
-        do throws(ISO_9945.Kernel.IO.Write.Error) {
-            _ = try write((line + "\n").utf8.lazy.map(Byte.init))
+        do throws(Kernel) {
+            _ = try write(bytes(of: line + "\n"))
         } catch {
             // Best-effort stderr write; broken pipe acceptable.
         }
@@ -111,8 +149,8 @@ extension Lint.Reporter.Text {
         text: Swift.String,
         to write: Terminal.Stream.Write
     ) {
-        do throws(ISO_9945.Kernel.IO.Write.Error) {
-            _ = try write(text.utf8.lazy.map(Byte.init))
+        do throws(Kernel) {
+            _ = try write(bytes(of: text))
         } catch {
             // Best-effort write; broken pipe acceptable.
         }
@@ -131,8 +169,8 @@ extension Lint.Reporter.Text {
         error message: Swift.String,
         to write: Terminal.Stream.Write
     ) {
-        do throws(ISO_9945.Kernel.IO.Write.Error) {
-            _ = try write(("[Lint] error: " + message + "\n").utf8.lazy.map(Byte.init))
+        do throws(Kernel) {
+            _ = try write(bytes(of: "[Lint] error: " + message + "\n"))
         } catch {
             // Best-effort stderr write; broken pipe acceptable.
         }
