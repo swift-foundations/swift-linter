@@ -589,40 +589,40 @@ extension Lint.Fix.Test.Application {
 // target's `Lint.File.Single.Runner Tests.swift`, which already spawns a
 // real prebuilt-runner process.
 
-fileprivate let manifestScopeOriginal = """
-// swift-tools-version: 6.3
-import PackageDescription
+private let manifestScopeOriginal = """
+    // swift-tools-version: 6.3
+    import PackageDescription
 
-let package = Package(
-    name: "Original"
-)
+    let package = Package(
+        name: "Original"
+    )
 
-"""
+    """
 
-fileprivate let manifestScopeRewritten = """
-// swift-tools-version: 6.3
-import PackageDescription
+private let manifestScopeRewritten = """
+    // swift-tools-version: 6.3
+    import PackageDescription
 
-let package = Package(
-    name: "Rewritten"
-)
+    let package = Package(
+        name: "Rewritten"
+    )
 
-"""
+    """
 
 // Re-parses cleanly (a bare identifier is syntactically a valid
 // expression) but fails SwiftPM's manifest evaluation: `swiftc` cannot
 // resolve `undefinedIdentifierReference`, so `dump-package` exits
 // non-zero. Verified against the installed toolchain before being chosen
 // as the fixture — the concrete class re-parse structurally cannot catch.
-fileprivate let manifestScopeCorrupted = """
-// swift-tools-version: 6.3
-import PackageDescription
+private let manifestScopeCorrupted = """
+    // swift-tools-version: 6.3
+    import PackageDescription
 
-let package = Package(
-    name: undefinedIdentifierReference
-)
+    let package = Package(
+        name: undefinedIdentifierReference
+    )
 
-"""
+    """
 
 extension Lint.Rule {
     fileprivate static let `rewrites manifest name` = Lint.Rule(
