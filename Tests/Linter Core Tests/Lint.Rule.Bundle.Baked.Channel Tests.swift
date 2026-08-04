@@ -22,9 +22,14 @@ extension Lint.Rule.Bundle.Baked.Channel {
 // MARK: - Lint.Rule.Bundle.Baked.Channel
 //
 // The baked-bundle environment channel mirrors the exit-policy channel
-// contract:
-//   - read() == nil ONLY when the variable is UNSET (the caller applies the
-//     `primitives` default — the sole bundle a pre-A4 dispatcher routed);
+// contract at the bare read() level:
+//   - read() == nil ONLY when the variable is UNSET — a bare presence/
+//     absence read, same as every other channel in this family. Its sole
+//     caller, `Lint.run(bundles:)`, treats that `nil` as a hard error (see
+//     `Lint.Rule.Bundle.Baked.Channel Process Tests.swift` for the
+//     process-level proof): every dispatcher that reaches the prebuilt
+//     runner exports this token unconditionally, so an unset read here is
+//     version skew, not a legitimate caller with nothing to say;
 //   - each vocabulary raw value round-trips;
 //   - HARD-ERROR (throw) when the variable is SET to a value outside the
 //     ``Lint/Rule/Bundle/Baked`` vocabulary — NEVER a silent substitution

@@ -146,6 +146,20 @@ let package = Package(
             ],
             path: "Tests/Fixtures/report-format-executable"
         ),
+        .executableTarget(
+            name: "swift-linter-bundle-fixture",
+            dependencies: [
+                .target(name: "Linter")
+            ],
+            path: "Tests/Fixtures/bundle-channel-executable"
+        ),
+        .executableTarget(
+            name: "swift-linter-bundle-empty-fixture",
+            dependencies: [
+                .target(name: "Linter")
+            ],
+            path: "Tests/Fixtures/bundle-channel-empty-executable"
+        ),
         .testTarget(
             name: "Linter Core Tests",
             dependencies: [

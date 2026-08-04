@@ -140,19 +140,30 @@ extension Lint {
     ///
     /// The dispatcher exports the consumer's classifier-recognized bundle
     /// token on the channel before spawning; this method reads it and runs
-    /// ``run(bundle:)`` with the matching baked set. Unset ⇒ `.primitives`
-    /// (the sole bundle a pre-A4 dispatcher ever routed, so old dispatchers
-    /// keep their exact behavior). Fail-loud on a SET-but-invalid token AND
-    /// on a valid token absent from `bundles`: silently substituting a
-    /// different bundle than the consumer selected would be a
-    /// wrong-result-that-exits-0 hazard (mirrors the selection / parent /
-    /// exit-policy channel discipline).
+    /// ``run(bundle:)`` with the matching baked set. Fail-loud on an UNSET
+    /// channel, a SET-but-invalid token, a valid token absent from
+    /// `bundles`, AND a valid token whose baked set is empty: every
+    /// dispatcher that reaches this runner (``Lint/File/Single/Runner``)
+    /// exports the token unconditionally, so an unset channel here is
+    /// version skew — not a legitimate pre-A4 caller — and defaulting it
+    /// would silently lint a DIFFERENT bundle than nothing-was-requested,
+    /// the exact wrong-result-that-exits-0 hazard this channel exists to
+    /// prevent (mirrors the selection / parent / exit-policy channel
+    /// discipline). An empty baked set is the same hazard one layer in: it
+    /// would report a "clean" zero-finding run that never evaluated a
+    /// single active rule.
     public static func run(bundles: [Lint.Rule.Bundle.Baked: [Lint.Rule.Configuration]]) {
-        let requested: Lint.Rule.Bundle.Baked
+        let read: Lint.Rule.Bundle.Baked?
         do throws(Lint.Rule.Bundle.Baked.Channel.Error) {
-            requested = try Lint.Rule.Bundle.Baked.Channel.read() ?? .primitives
+            read = try Lint.Rule.Bundle.Baked.Channel.read()
         } catch {
             failLoud("bundle channel: \(error)")
+        }
+        guard let requested = read else {
+            failLoud(
+                "bundle channel (\(Lint.Rule.Bundle.Baked.Channel.variable)) is unset; "
+                    + "the dispatcher must select a baked bundle before spawning this runner"
+            )
         }
         guard let bundle: [Lint.Rule.Configuration] = bundles[requested] else {
             // swift-linter:disable:next raw value access
@@ -160,6 +171,14 @@ extension Lint {
             // raw value IS the channel's wire vocabulary; the diagnostic names
             // the wire token the dispatcher sent, not a Tagged payload.
             failLoud("bundle channel: this runner does not bake bundle '\(requested.rawValue)'")
+        }
+        guard !bundle.isEmpty else {
+            // swift-linter:disable:next raw value access
+            // REASON: see above — the wire token, not a Tagged payload.
+            failLoud(
+                "bundle channel: bundle '\(requested.rawValue)' bakes zero rules; "
+                    + "a zero-finding run from an empty rule set is not a clean result"
+            )
         }
         run(bundle: bundle)
     }
