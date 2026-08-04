@@ -25,14 +25,17 @@ extension Lint.Rule.Bundle.Baked {
     /// argv flag) because the dispatcher forwards the consumer's lint-target
     /// argv VERBATIM — a flag would be indistinguishable from a path argument.
     ///
-    /// Unset ⇒ `nil` (caller applies the `primitives` default — the sole
-    /// bundle the pre-A4 dispatcher ever routed, so an OLD dispatcher spawning
-    /// a NEW runner still lints exactly what it always did). SET-but-
-    /// unrecognized fails loud via ``Error/invalid(value:)``: a machine-set
-    /// channel carrying an unknown token is version skew between dispatcher
-    /// and runner, and linting a SUBSTITUTED bundle would be a
-    /// wrong-result-that-exits-0 hazard (mirrors the exit-policy / selection /
-    /// parent channel discipline).
+    /// Unset ⇒ `nil`. The channel itself stays a bare presence/absence read
+    /// — the same shape as every other channel in this family — but its sole
+    /// caller, `Lint.run(bundles:)`, treats an unset read as a hard error
+    /// rather than defaulting it: every dispatcher that reaches the prebuilt
+    /// runner (``Lint/File/Single/Runner``) exports this token unconditionally
+    /// before spawning, so `nil` here is version skew, not a legitimate
+    /// caller with nothing to say. SET-but-unrecognized fails loud via
+    /// ``Error/invalid(value:)``: a machine-set channel carrying an unknown
+    /// token is also version skew between dispatcher and runner, and linting
+    /// a SUBSTITUTED bundle would be a wrong-result-that-exits-0 hazard
+    /// (mirrors the exit-policy / selection / parent channel discipline).
     public enum Channel {}
 }
 

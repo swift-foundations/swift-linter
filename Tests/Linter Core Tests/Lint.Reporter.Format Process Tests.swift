@@ -111,7 +111,8 @@ import Testing
             format: Swift.String? = nil,
             policy: Swift.String? = nil,
             runner: Swift.String? = nil,
-            linter: Swift.String? = nil
+            linter: Swift.String? = nil,
+            bundle: Swift.String? = nil
         ) -> [Swift.String: Swift.String] {
             var values = Environment.Snapshot.current().values
             _ = values.removeValue(forKey: Lint.Reporter.Format.Channel.variable)
@@ -125,6 +126,7 @@ import Testing
             if let policy { values[Lint.Run.Policy.Channel.variable] = policy }
             if let runner { values["SWIFT_LINTER_RUNNER"] = runner }
             if let linter { values["SWIFT_LINTER_PATH"] = linter }
+            if let bundle { values[Lint.Rule.Bundle.Baked.Channel.variable] = bundle }
             return values
         }
 
@@ -391,17 +393,26 @@ import Testing
                 return
             }
             let arguments = [Lint.Reporter.Format.Test.Executable.fixture("report-format-direct")]
+            // The bundle channel is unconditional for every real dispatcher
+            // (see `Lint.File.Single.Runner.run`); a direct spawn of the
+            // prebuilt runner binary — bypassing that dispatcher — must set
+            // it explicitly now that an unset bundle channel is a hard
+            // error. Only the FORMAT channel is exercised unset here.
+            let primitivesBundle = Lint.Rule.Bundle.Baked.primitives.rawValue
             guard
                 let unset = Lint.Reporter.Format.Test.Executable.run(
                     runner,
                     arguments: arguments,
-                    environment: Lint.Reporter.Format.Test.Executable.environment()
+                    environment: Lint.Reporter.Format.Test.Executable.environment(
+                        bundle: primitivesBundle
+                    )
                 ),
                 let text = Lint.Reporter.Format.Test.Executable.run(
                     runner,
                     arguments: arguments,
                     environment: Lint.Reporter.Format.Test.Executable.environment(
-                        format: Lint.Reporter.Format.Channel.value(.text)
+                        format: Lint.Reporter.Format.Channel.value(.text),
+                        bundle: primitivesBundle
                     )
                 )
             else { return }
@@ -442,7 +453,10 @@ import Testing
                     arguments: [
                         Lint.Reporter.Format.Test.Executable.fixture("report-format-direct")
                     ],
-                    environment: Lint.Reporter.Format.Test.Executable.environment(format: "checkstyle")
+                    environment: Lint.Reporter.Format.Test.Executable.environment(
+                        format: "checkstyle",
+                        bundle: Lint.Rule.Bundle.Baked.primitives.rawValue
+                    )
                 )
             else { return }
             #expect(output.status == .exited(code: 1))
