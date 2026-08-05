@@ -66,7 +66,7 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
 
       # [CI-092]: swift:6.3 ships no curl/gh; libuuid needed by the dependency
       # graph (swift-linux-standard's CLinuxKernelShim).
@@ -86,7 +86,7 @@ jobs:
           apt-get install -qq -y gh
 
       - name: Configure private-dep access
-        uses: swift-institute/.github/.github/actions/configure-private-repos@main
+        uses: swift-institute/.github/.github/actions/configure-private-repos@d1af72d05bf8262fb3918a2f1607b82fafcafdf9  # main 2026-08-03, R4b uniform full-SHA pin
         with:
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
           app-client-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_CLIENT_ID }}
@@ -214,10 +214,10 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
 
       - name: Configure private-dep access
-        uses: swift-institute/.github/.github/actions/configure-private-repos@main
+        uses: swift-institute/.github/.github/actions/configure-private-repos@d1af72d05bf8262fb3918a2f1607b82fafcafdf9  # main 2026-08-03, R4b uniform full-SHA pin
         with:
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
           app-client-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_CLIENT_ID }}
