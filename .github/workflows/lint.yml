@@ -98,7 +98,7 @@ jobs:
         with:
           path: consumer
 
-      - uses: swift-institute/.github/.github/actions/configure-private-repos@d1af72d05bf8262fb3918a2f1607b82fafcafdf9  # main 2026-08-03, R4b uniform full-SHA pin
+      - uses: swift-institute/.github/.github/actions/configure-private-repos@7318eccb815ed1a587e82730b12e8b391e425218  # main 2026-08-03, R4b uniform full-SHA pin
         with:
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
           enabled: ${{ inputs.enable-private-repos }}
@@ -133,7 +133,7 @@ jobs:
 
       - name: Upload SARIF
         if: ${{ inputs.emit-sarif && always() }}
-        uses: github/codeql-action/upload-sarif@c4dd10e44af883a891fe31ced449bcb4a6728b9b  # v3
+        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38  # v4.37.4
         with:
           sarif_file: ${{ runner.temp }}/swift-linter.sarif
           category: swift-linter
