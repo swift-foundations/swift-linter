@@ -94,17 +94,17 @@ jobs:
           egress-policy: audit
 
       - name: Checkout consumer
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           path: consumer
 
-      - uses: swift-institute/.github/.github/actions/configure-private-repos@main
+      - uses: swift-institute/.github/.github/actions/configure-private-repos@d1af72d05bf8262fb3918a2f1607b82fafcafdf9  # main 2026-08-03, R4b uniform full-SHA pin
         with:
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
           enabled: ${{ inputs.enable-private-repos }}
 
       - name: Checkout swift-linter (sibling of consumer)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
           repository: swift-foundations/swift-linter
           path: swift-linter
@@ -133,7 +133,7 @@ jobs:
 
       - name: Upload SARIF
         if: ${{ inputs.emit-sarif && always() }}
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@c4dd10e44af883a891fe31ced449bcb4a6728b9b  # v3
         with:
           sarif_file: ${{ runner.temp }}/swift-linter.sarif
           category: swift-linter
