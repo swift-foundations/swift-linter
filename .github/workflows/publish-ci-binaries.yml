@@ -89,8 +89,7 @@ jobs:
         uses: swift-institute/.github/.github/actions/configure-private-repos@d1af72d05bf8262fb3918a2f1607b82fafcafdf9  # main 2026-08-03, R4b uniform full-SHA pin
         with:
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
-          app-client-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_CLIENT_ID }}
-          app-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_ID }}
+          app-client-id: ${{ vars.SWIFT_INSTITUTE_BOT_APP_ID }}
           app-private-key: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_PRIVATE_KEY }}
           enabled: true
 
@@ -220,8 +219,7 @@ jobs:
         uses: swift-institute/.github/.github/actions/configure-private-repos@d1af72d05bf8262fb3918a2f1607b82fafcafdf9  # main 2026-08-03, R4b uniform full-SHA pin
         with:
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
-          app-client-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_CLIENT_ID }}
-          app-id: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_ID }}
+          app-client-id: ${{ vars.SWIFT_INSTITUTE_BOT_APP_ID }}
           app-private-key: ${{ secrets.SWIFT_INSTITUTE_BOT_APP_PRIVATE_KEY }}
           enabled: true
 
