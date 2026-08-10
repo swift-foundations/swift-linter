@@ -58,16 +58,31 @@ extension Lint.Run {
         /// gain — leanness wins for a display value.
         public let filesLinted: Swift.Int
 
-        /// Creates an outcome from its constituent finding streams and file count.
+        // swift-linter:disable:next compound identifier
+        // REASON: a stored scalar count on the public Outcome value type, the same
+        // shape and rationale as `filesLinted` above ([API-NAME-002]).
+        /// The number of source files the walker visited that a centrally
+        /// declared vendored-fork provenance entry exempted from this
+        /// run's input (swift-foundations/swift-linter#45).
+        ///
+        /// Recorded for observability, so a run over a declared fork
+        /// states how much of the walked tree was vendored scope rather
+        /// than silently shrinking `filesLinted`. Zero everywhere except
+        /// a declared fork's own run.
+        public let filesExempted: Swift.Int
+
+        /// Creates an outcome from its constituent finding streams and file counts.
         @inlinable
         public init(
             findings: [Lint.Finding] = [],
             suppressed: [Lint.Finding] = [],
-            filesLinted: Swift.Int = 0
+            filesLinted: Swift.Int = 0,
+            filesExempted: Swift.Int = 0
         ) {
             self.findings = findings
             self.suppressed = suppressed
             self.filesLinted = filesLinted
+            self.filesExempted = filesExempted
         }
     }
 }
