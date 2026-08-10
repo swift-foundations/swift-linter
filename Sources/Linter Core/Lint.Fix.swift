@@ -117,6 +117,12 @@ extension Lint.Fix {
             )
         }
         for root in paths {
+            // A declared fork's vendored files are not the linter's subject
+            // (swift-foundations/swift-linter#45), and rewriting someone
+            // else's Apache-licensed source is strictly worse than linting
+            // it — the same central provenance register that scopes a lint
+            // run's input scopes fix application.
+            let fork = Lint.Provenance.resolve(root: root)
             for sourcePath in Lint.Source.Walker.paths(under: root) {
                 let filePath = try Self.resolve(root: root, relativePath: sourcePath)
                 filesScanned += 1
@@ -144,6 +150,9 @@ extension Lint.Fix {
                 // never assert that its fixture fires. Only application is
                 // scoped out.
                 guard !Self.isFixtureScoped(filePath) else { continue }
+                if let fork, fork.exempts(relativePath: sourcePath, under: root) {
+                    continue
+                }
                 let original = try Self.read(filePath)
                 var current = original
                 var applied: [Lint.Rule.ID] = []

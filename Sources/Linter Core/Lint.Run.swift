@@ -112,6 +112,7 @@ extension Lint.Run {
         var findings: [Lint.Finding] = []
         var suppressed: [Lint.Finding] = []
         var filesLinted = 0
+        var filesExempted = 0
         // Brand pre-pass (§A brand-owner recognizer): collect the union of
         // every source's namespace-root type names ACROSS THE WHOLE RUN, so
         // a brand-boundary rule can self-suppress at a brand owner's own
@@ -125,7 +126,18 @@ extension Lint.Run {
         let declaredTypeNames = Self.runDeclaredTypeNames(under: paths)
         for root in paths {
             let sourcePaths = Lint.Source.Walker.paths(under: root)
+            // Centrally declared vendored-fork provenance scopes the run's
+            // INPUT (swift-foundations/swift-linter#45): a file inside a
+            // declared fork's vendored scope that carries the declared
+            // upstream attribution is not this run's subject at all —
+            // Institute rules govern Institute-authored code. Which rules
+            // run, and what severity fails the run, are untouched.
+            let fork = Lint.Provenance.resolve(root: root)
             for sourcePath in sourcePaths {
+                if let fork, fork.exempts(relativePath: sourcePath, under: root) {
+                    filesExempted += 1
+                    continue
+                }
                 let parsed = try parsedSource(
                     root: root,
                     relativePath: sourcePath,
@@ -167,7 +179,12 @@ extension Lint.Run {
                 }
             }
         }
-        return Outcome(findings: findings, suppressed: suppressed, filesLinted: filesLinted)
+        return Outcome(
+            findings: findings,
+            suppressed: suppressed,
+            filesLinted: filesLinted,
+            filesExempted: filesExempted
+        )
     }
 
     /// Reads, parses, and registers the source file at

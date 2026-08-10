@@ -275,6 +275,19 @@ extension Lint {
                 configuration: configuration
             )
             format.emit(findings: outcome.findings, to: Terminal.Stream.stdout.write)
+            // Provenance observability: a run over a centrally declared
+            // vendored fork states how much of the walked tree its
+            // provenance entry exempted (swift-foundations/swift-linter#45),
+            // so the shrunken `files linted` population is announced rather
+            // than silent. Zero everywhere else, and then nothing is
+            // emitted.
+            if outcome.filesExempted > 0 {
+                Self.Reporter.Text.emit(
+                    text: "[swift-linter] provenance: \(outcome.filesExempted) vendored file(s) "
+                        + "exempt via the central fork register (swift-foundations/swift-linter#45)\n",
+                    to: Terminal.Stream.stderr.write
+                )
+            }
             // Always-on run summary to STDERR — stdout stays the pure diagnostic
             // stream. This is the shared terminal both the prebuilt runner
             // (`run(bundle:)`) and the eval-compiled executable
