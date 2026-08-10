@@ -16,8 +16,9 @@ extension Lint.Provenance.Fork {
     /// vendored source was forked from and the exact commit at the fork
     /// point.
     public struct Upstream: Sendable, Hashable {
-        /// The upstream repository, `owner/name`
-        /// (e.g. `"apple/swift-certificates"`).
+        /// The upstream repository in `owner/name` form.
+        ///
+        /// Example: `"apple/swift-certificates"`.
         public let repository: Swift.String
 
         /// The full 40-hex-digit commit at the fork point.

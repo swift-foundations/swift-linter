@@ -36,16 +36,18 @@ extension Lint.Provenance {
     /// Institute code without the upstream notice re-enters the linted
     /// population automatically.
     public struct Fork: Sendable, Hashable {
-        /// The SwiftPM package name the fork's own `Package.swift`
-        /// declares (e.g. `"swift-certificate-verification"`).
+        /// The SwiftPM package name the fork's own `Package.swift` declares.
+        ///
+        /// Example: `"swift-certificate-verification"`.
         public let package: Swift.String
 
         /// The asserted upstream ancestry.
         public let upstream: Upstream
 
         /// The literal upstream attribution every vendored file must
-        /// carry in its leading bytes (e.g. the upstream copyright
-        /// holder line).
+        /// carry in its leading bytes.
+        ///
+        /// Typically the upstream copyright-holder line.
         public let attribution: Swift.String
 
         /// The explicit run-root-relative vendored scope.

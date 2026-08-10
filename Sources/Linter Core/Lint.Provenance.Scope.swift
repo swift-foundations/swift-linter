@@ -58,6 +58,7 @@ extension Lint.Provenance.Scope {
             let directories = candidate.dropLast()
             guard !scope.isEmpty, directories.count >= scope.count else { return false }
             return directories.prefix(scope.count).elementsEqual(scope)
+
         case .file(let declared):
             let scope: [Swift.Substring] =
                 declared
