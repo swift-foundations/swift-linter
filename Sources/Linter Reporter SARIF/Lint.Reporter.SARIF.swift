@@ -45,13 +45,44 @@ extension Lint.Reporter {
 }
 
 extension Lint.Reporter.SARIF {
+    /// The kernel write-syscall error thrown by `Terminal.Stream.Write` on
+    /// this platform, resolved the same way as the OS-conditional import
+    /// above: POSIX -> `ISO_9945.Kernel.IO.Write.Error` (`write(2)`);
+    /// Windows -> `Windows.`32`.Kernel.IO.Write.Error` (`WriteFile`). Mirrors
+    /// the sibling text reporter's per-platform typealias shape.
+    #if !os(Windows)
+        fileprivate typealias Kernel = ISO_9945.Kernel.IO.Write.Error
+    #else
+        fileprivate typealias Kernel = Windows.`32`.Kernel.IO.Write.Error
+    #endif
+}
+
+extension Lint.Reporter.SARIF {
+    /// Adapts the document's UTF-8 bytes to the exact `Sequence` element type
+    /// this platform's `Terminal.Stream.Write.callAsFunction` parameter
+    /// requires: POSIX takes `some Sequence<Byte>`, Windows takes
+    /// `some Sequence<UInt8>`. `Byte` is a distinct wrapper struct, not a
+    /// `UInt8` typealias, so the two element types do not unify — same
+    /// adaptation as the sibling text reporter.
+    #if !os(Windows)
+        fileprivate static func bytes(of text: Swift.String) -> [Byte] {
+            text.utf8.map(Byte.init)
+        }
+    #else
+        fileprivate static func bytes(of text: Swift.String) -> [Swift.UInt8] {
+            Swift.Array(text.utf8)
+        }
+    #endif
+}
+
+extension Lint.Reporter.SARIF {
     /// Emit a SARIF report via the given write surface.
     public static func emit(
         findings: [Lint.Finding],
         to write: Terminal.Stream.Write
     ) {
-        do throws(ISO_9945.Kernel.IO.Write.Error) {
-            _ = try write((report(for: findings) + "\n").utf8.lazy.map(Byte.init))
+        do throws(Kernel) {
+            _ = try write(bytes(of: report(for: findings) + "\n"))
         } catch {
             // Best-effort stdout write; broken pipe is acceptable for
             // a textual diagnostic emitter (the conventional behavior
