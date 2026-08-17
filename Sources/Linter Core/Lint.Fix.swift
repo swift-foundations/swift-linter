@@ -91,11 +91,12 @@ extension Lint.Fix {
         mode: Mode,
         manifest: File.Path? = nil
     ) throws(Lint.Run.Error) -> Outcome {
-        let fixable: [(id: Lint.Rule.ID, fix: @Sendable (borrowing Lint.Source.Parsed) -> Swift.String?)] =
-            configuration.rules.effective.entries.compactMap { entry in
-                guard let fix = entry.rule.fix else { return nil }
-                return (id: entry.rule.id, fix: fix)
-            }
+        let fixable:
+            [(id: Lint.Rule.ID, fix: @Sendable (borrowing Lint.Source.Parsed) -> Swift.String?)] =
+                configuration.rules.effective.entries.compactMap { entry in
+                    guard let fix = entry.rule.fix else { return nil }
+                    return (id: entry.rule.id, fix: fix)
+                }
         let excluded: [Lint.Rule.ID] =
             fixable
             .filter { excludedRules.contains($0.id) }
@@ -193,7 +194,11 @@ extension Lint.Fix {
                     // it may be planned.
                     guard !isManifest || Scope.Manifest.evaluates(rewritten) else {
                         refusals.append(
-                            Refusal(path: filePath, rule: candidate.id, reason: .manifestEvaluationFailed)
+                            Refusal(
+                                path: filePath,
+                                rule: candidate.id,
+                                reason: .manifestEvaluationFailed
+                            )
                         )
                         continue
                     }

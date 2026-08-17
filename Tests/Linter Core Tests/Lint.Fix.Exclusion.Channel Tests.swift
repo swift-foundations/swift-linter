@@ -19,7 +19,9 @@ extension Lint.Fix.Exclusion.Channel {
 
 extension Lint.Fix.Exclusion.Channel.Test {
     @Test
-    func `canonical rule IDs round trip through the channel`() throws(Lint.Fix.Exclusion.Channel.Error) {
+    func `canonical rule IDs round trip through the channel`() throws(Lint.Fix.Exclusion.Channel
+        .Error)
+    {
         let rules: Set<Lint.Rule.ID> = [
             "shadowed standard name",
             "loop idiom",
@@ -33,7 +35,9 @@ extension Lint.Fix.Exclusion.Channel.Test {
     }
 
     @Test
-    func `duplicate IDs collapse and unknown IDs remain transportable`() throws(Lint.Fix.Exclusion.Channel.Error) {
+    func `duplicate IDs collapse and unknown IDs remain transportable`() throws(Lint.Fix.Exclusion
+        .Channel.Error)
+    {
         let decoded = try Lint.Fix.Exclusion.Channel.resolve(
             "[\"loop idiom\",\"loop idiom\",\"not installed here\"]"
         )

@@ -74,7 +74,8 @@ extension Lint.File.Single.Extractor {
         sourcePath: File.Path,
         consumerPackageRoot: File.Path
     ) throws(Lint.File.Single.Error) -> [Package.Dependency] {
-        guard let runCall: FunctionCallExprSyntax = Lint.File.Single.Invocation.find(in: sourceFile) else {
+        guard let runCall: FunctionCallExprSyntax = Lint.File.Single.Invocation.find(in: sourceFile)
+        else {
             throw .dependenciesNotFound(
                 path: sourcePath,
                 description: "no top-level Lint.run(...) call expression found in source"
@@ -90,18 +91,25 @@ extension Lint.File.Single.Extractor {
                 description: "Lint.run(...) call has no `dependencies:` argument"
             )
         }
-        guard let arrayExpr: ArrayExprSyntax = dependenciesArg.expression.as(ArrayExprSyntax.self) else {
+        guard let arrayExpr: ArrayExprSyntax = dependenciesArg.expression.as(ArrayExprSyntax.self)
+        else {
             throw .dependenciesNotFound(
                 path: sourcePath,
-                description: "Lint.run(...) `dependencies:` argument is not a literal array; got `\(dependenciesArg.expression.description)`"
+                description:
+                    "Lint.run(...) `dependencies:` argument is not a literal array; got `\(dependenciesArg.expression.description)`"
             )
         }
         var deps: [Package.Dependency] = []
         for element in arrayExpr.elements {
-            guard let call: FunctionCallExprSyntax = element.expression.as(FunctionCallExprSyntax.self) else {
+            guard
+                let call: FunctionCallExprSyntax = element.expression.as(
+                    FunctionCallExprSyntax.self
+                )
+            else {
                 throw .malformedPackageCall(
                     path: sourcePath,
-                    description: "dependencies[] element is not a function call: `\(element.expression.description)`"
+                    description:
+                        "dependencies[] element is not a function call: `\(element.expression.description)`"
                 )
             }
             let dep: Package.Dependency = try parsePackageCall(
@@ -124,12 +132,16 @@ extension Lint.File.Single.Extractor {
         sourcePath: File.Path,
         consumerPackageRoot: File.Path
     ) throws(Lint.File.Single.Error) -> Package.Dependency {
-        guard let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self),
+        guard
+            let member: MemberAccessExprSyntax = call.calledExpression.as(
+                MemberAccessExprSyntax.self
+            ),
             member.declName.baseName.text == "package"
         else {
             throw .malformedPackageCall(
                 path: sourcePath,
-                description: "expected `.package(...)` call; got `\(call.calledExpression.description)`"
+                description:
+                    "expected `.package(...)` call; got `\(call.calledExpression.description)`"
             )
         }
 
@@ -169,11 +181,17 @@ extension Lint.File.Single.Extractor {
                 // a `..<` range expression yields both bounds in one
                 // arg; a bare string literal yields one bound (legacy
                 // two-positional form).
-                if let (lower, upper) = try Self.extractRangeBounds(arg.expression, sourcePath: sourcePath) {
+                if let (lower, upper) = try Self.extractRangeBounds(
+                    arg.expression,
+                    sourcePath: sourcePath
+                ) {
                     rangeBounds.append(lower)
                     rangeBounds.append(upper)
                 } else {
-                    let value: Swift.String = try Self.extractStringLiteral(arg.expression, sourcePath: sourcePath)
+                    let value: Swift.String = try Self.extractStringLiteral(
+                        arg.expression,
+                        sourcePath: sourcePath
+                    )
                     rangeBounds.append(value)
                 }
 
@@ -200,7 +218,8 @@ extension Lint.File.Single.Extractor {
             } catch {
                 throw .malformedPackageCall(
                     path: sourcePath,
-                    description: "`.package(path:...)` carries an invalid path `\(pathString)`: \(error)"
+                    description:
+                        "`.package(path:...)` carries an invalid path `\(pathString)`: \(error)"
                 )
             }
             source = .path(pathString)
@@ -212,7 +231,8 @@ extension Lint.File.Single.Extractor {
             } catch {
                 throw .malformedPackageCall(
                     path: sourcePath,
-                    description: "`.package(url:...)` carries an invalid URI `\(urlString)`: \(error)"
+                    description:
+                        "`.package(url:...)` carries an invalid URI `\(urlString)`: \(error)"
                 )
             }
             if let from: Swift.String = fromArg {
@@ -239,7 +259,8 @@ extension Lint.File.Single.Extractor {
             } else {
                 throw .malformedPackageCall(
                     path: sourcePath,
-                    description: "`.package(url:...)` requires `from:`, `branch:`, or two positional version-range arguments; got `\(call.description)`"
+                    description:
+                        "`.package(url:...)` requires `from:`, `branch:`, or two positional version-range arguments; got `\(call.description)`"
                 )
             }
             derivedName = Self.name(at: urlString)
@@ -276,7 +297,8 @@ extension Lint.File.Single.Extractor {
         else {
             throw .malformedPackageCall(
                 path: sourcePath,
-                description: "string literal must be a single segment with no interpolation; got `\(literal.description)`"
+                description:
+                    "string literal must be a single segment with no interpolation; got `\(literal.description)`"
             )
         }
         return segment.content.text
@@ -329,7 +351,10 @@ extension Lint.File.Single.Extractor {
         }
         var result: [Swift.String] = []
         for element in arrayExpr.elements {
-            let value: Swift.String = try Self.extractStringLiteral(element.expression, sourcePath: sourcePath)
+            let value: Swift.String = try Self.extractStringLiteral(
+                element.expression,
+                sourcePath: sourcePath
+            )
             result.append(value)
         }
         return result
@@ -425,7 +450,8 @@ extension Lint.File.Single.Extractor {
         } catch {
             throw .malformedPackageCall(
                 path: sourcePath,
-                description: "`.package(url:..., \(role) \"\(literal)\")` is not valid SemVer 2.0.0: \(error)"
+                description:
+                    "`.package(url:..., \(role) \"\(literal)\")` is not valid SemVer 2.0.0: \(error)"
             )
         }
     }

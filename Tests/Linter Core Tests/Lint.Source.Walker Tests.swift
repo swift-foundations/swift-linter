@@ -75,7 +75,9 @@ extension Lint.Rule {
 extension Lint.Source.Walker.Test {
     /// Compute the absolute path to the fixture root:
     /// `<swift-linter>/Tests/Fixtures/nested-package-fixture`.
-    fileprivate static func fixtureRoot(testFile: Swift.String = #filePath) throws(Paths.Path.Error) -> File.Path {
+    fileprivate static func fixtureRoot(
+        testFile: Swift.String = #filePath
+    ) throws(Paths.Path.Error) -> File.Path {
         var components: [Swift.String] =
             testFile
             .split(separator: "/", omittingEmptySubsequences: false)
@@ -94,6 +96,8 @@ extension Lint.Source.Walker.Test.Unit {
         // `fixtureRoot` validates a path composed from `#filePath`;
         // failure indicates a compile-time invariant break, so `try!`
         // is justified per [API-ERR-001]'s precondition exception.
+        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         let root = try! Lint.Source.Walker.Test.fixtureRoot()
         let paths = Lint.Source.Walker.paths(under: root).map(\.underlying)
         #expect(
@@ -107,7 +111,11 @@ extension Lint.Source.Walker.Test.Unit {
 
 extension Lint.Source.Walker.Test.Integration {
     @Test
-    func `Lint.Run.run does not visit files inside a nested-package subtree`() throws(Lint.Run.Error) {
+    func `Lint.Run.run does not visit files inside a nested-package subtree`() throws(Lint.Run
+        .Error)
+    {
+        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         let root = try! Lint.Source.Walker.Test.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .all)

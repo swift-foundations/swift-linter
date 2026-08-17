@@ -115,12 +115,17 @@ extension Lint.Manifest: JSON.Serializable {
         // format remains bare strings on the JSON side; the typed lift
         // happens immediately at the deserialization boundary so every
         // downstream reference operates on the Set surface.
-        let enabledIDs: [Lint.Rule.ID] = try [Swift.String](json: json["enabled"]).map { Lint.Rule.ID($0) }
-        let disabledIDs: [Lint.Rule.ID] = try [Swift.String](json: json["disabled"]).map { Lint.Rule.ID($0) }
+        let enabledIDs: [Lint.Rule.ID] = try [Swift.String](json: json["enabled"]).map {
+            Lint.Rule.ID($0)
+        }
+        let disabledIDs: [Lint.Rule.ID] = try [Swift.String](json: json["disabled"]).map {
+            Lint.Rule.ID($0)
+        }
         let enabled = Set(enabledIDs)
         let disabled = Set(disabledIDs)
         let excludedRaw = try [Swift.String](json: json["excluded"])
-        let excluded: [File.Path] = try excludedRaw.map { (string: Swift.String) throws(JSON.Error) -> File.Path in
+        let excluded: [File.Path] = try excludedRaw.map {
+            (string: Swift.String) throws(JSON.Error) -> File.Path in
             do throws(Paths.Path.Error) {
                 return try File.Path(string)
             } catch {

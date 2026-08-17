@@ -20,7 +20,9 @@ extension Lint.Fix.Scope.Manifest.Channel {
 
 extension Lint.Fix.Scope.Manifest.Channel.Test {
     @Test
-    func `a manifest path round trips without losing spaces`() throws(Lint.Fix.Scope.Manifest.Channel.Error) {
+    func `a manifest path round trips without losing spaces`() throws(Lint.Fix.Scope.Manifest
+        .Channel.Error)
+    {
         let path = File.Path("/package with spaces/Package.swift")
         let decoded = try Lint.Fix.Scope.Manifest.Channel.resolve(
             Lint.Fix.Scope.Manifest.Channel.value(path)

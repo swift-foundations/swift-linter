@@ -103,7 +103,9 @@ extension Lint.File.Single.Channel {
         // `File.Path.Temporary.deterministic`. The `/` operator only accepts a
         // compile-time `Path.Component` literal.
         let trailing: File.Path = try File.Path(name)
-        return Lint.File.Single.State.directory(consumerPackageRoot: consumerPackageRoot).appending(trailing)
+        return Lint.File.Single.State.directory(consumerPackageRoot: consumerPackageRoot).appending(
+            trailing
+        )
     }
 
     /// Coordinator side: serialize `manifest` to this channel's per-run file

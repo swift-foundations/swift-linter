@@ -47,7 +47,13 @@ extension Lint.File.Single.Test {
 extension Lint.File.Single.Test.Eval.Unit {
     private static func freshEvalRoot(key: Swift.String) -> File.Path {
         // swift-format-ignore: NeverUseForceTry
-        try! File.Path.Temporary.deterministic(prefix: "lint-eval-invalidate-", key: key, suffix: "")
+        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
+        try! File.Path.Temporary.deterministic(
+            prefix: "lint-eval-invalidate-",
+            key: key,
+            suffix: ""
+        )
     }
 
     @Test
@@ -115,7 +121,13 @@ extension Lint.File.Single.Test.Eval.Unit {
 extension Lint.File.Single.Test.Eval.`Edge Case` {
     private static func freshEvalRoot(key: Swift.String) -> File.Path {
         // swift-format-ignore: NeverUseForceTry
-        try! File.Path.Temporary.deterministic(prefix: "lint-eval-invalidate-edge-", key: key, suffix: "")
+        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
+        try! File.Path.Temporary.deterministic(
+            prefix: "lint-eval-invalidate-edge-",
+            key: key,
+            suffix: ""
+        )
     }
 
     @Test

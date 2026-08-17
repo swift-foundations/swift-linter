@@ -63,7 +63,10 @@ extension Lint.File.Single.Classifier.Test {
                 Lint.Rule.Bundle.primitives
             }
             """
-        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle(bundle: .primitives))
+        #expect(
+            Lint.File.Single.Classifier.classify(source: source)
+                == .fastPathStandardBundle(bundle: .primitives)
+        )
     }
 
     @Test
@@ -79,7 +82,10 @@ extension Lint.File.Single.Classifier.Test {
                 Lint.Rule.Bundle.primitives
             })
             """
-        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle(bundle: .primitives))
+        #expect(
+            Lint.File.Single.Classifier.classify(source: source)
+                == .fastPathStandardBundle(bundle: .primitives)
+        )
     }
 
     @Test
@@ -103,9 +109,12 @@ extension Lint.File.Single.Classifier.Test {
             }
             """
         let expected: Swift.Set<Lint.Rule.ID> = [
-            "raw value access", "chained rawvalue access", "int public parameter", "pointer advanced by",
+            "raw value access", "chained rawvalue access", "int public parameter",
+            "pointer advanced by",
         ]
-        #expect(excluded(Lint.File.Single.Classifier.classify(source: source))?.disabled == expected)
+        #expect(
+            excluded(Lint.File.Single.Classifier.classify(source: source))?.disabled == expected
+        )
     }
 
     @Test
@@ -131,7 +140,9 @@ extension Lint.File.Single.Classifier.Test {
         let expected: Swift.Set<Lint.Rule.ID> = [
             "raw value access", "chained rawvalue access", "unchecked call site",
         ]
-        #expect(excluded(Lint.File.Single.Classifier.classify(source: source))?.disabled == expected)
+        #expect(
+            excluded(Lint.File.Single.Classifier.classify(source: source))?.disabled == expected
+        )
     }
 
     @Test
@@ -151,7 +162,9 @@ extension Lint.File.Single.Classifier.Test {
             }
             """
         let expected: Swift.Set<Lint.Rule.ID> = ["raw value access", "pointer advanced by"]
-        #expect(excluded(Lint.File.Single.Classifier.classify(source: source))?.disabled == expected)
+        #expect(
+            excluded(Lint.File.Single.Classifier.classify(source: source))?.disabled == expected
+        )
     }
 
     @Test
@@ -235,7 +248,10 @@ extension Lint.File.Single.Classifier.Test {
                 Lint.Rule.Bundle.standards
             }
             """
-        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle(bundle: .standards))
+        #expect(
+            Lint.File.Single.Classifier.classify(source: source)
+                == .fastPathStandardBundle(bundle: .standards)
+        )
     }
 
     @Test
@@ -251,7 +267,10 @@ extension Lint.File.Single.Classifier.Test {
                 Lint.Rule.Bundle.institute
             }
             """
-        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle(bundle: .institute))
+        #expect(
+            Lint.File.Single.Classifier.classify(source: source)
+                == .fastPathStandardBundle(bundle: .institute)
+        )
     }
 
     @Test
@@ -368,7 +387,10 @@ extension Lint.File.Single.Classifier.Test {
                 Lint.Rule.Bundle.primitives  // not a // parent: directive, just prose
             }
             """
-        #expect(Lint.File.Single.Classifier.classify(source: source) == .fastPathStandardBundle(bundle: .primitives))
+        #expect(
+            Lint.File.Single.Classifier.classify(source: source)
+                == .fastPathStandardBundle(bundle: .primitives)
+        )
     }
 
     @Test

@@ -67,7 +67,10 @@ extension Lint.Fix.Scope.Manifest {
     /// network and lock semantics into every manifest fix would be a
     /// materially heavier cost than this guard exists to pay.
     internal static func evaluates(_ text: Swift.String) -> Swift.Bool {
-        let key = Swift.String(Swift.UInt64.random(in: Swift.UInt64.min...Swift.UInt64.max), radix: 16)
+        let key = Swift.String(
+            Swift.UInt64.random(in: Swift.UInt64.min...Swift.UInt64.max),
+            radix: 16
+        )
         let directory: File.Path
         do throws(File.Path.Error) {
             directory = try File.Path.Temporary.deterministic(

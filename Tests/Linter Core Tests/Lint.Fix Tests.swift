@@ -185,7 +185,8 @@ extension Lint.Fix.Test.`Fixture Scoping` {
     }
 
     @Test
-    func `a file nested deeper under a fixtures directory is scoped out`() throws(Paths.Path.Error) {
+    func `a file nested deeper under a fixtures directory is scoped out`() throws(Paths.Path.Error)
+    {
         #expect(try Self.scoped("/pkg/Tests/Fixtures/path-filter-fixture/Sources/A.swift"))
     }
 
@@ -209,12 +210,16 @@ extension Lint.Fix.Test.`Fixture Scoping` {
     }
 
     @Test
-    func `a directory whose name merely starts with Fixtures is not scoped out`() throws(Paths.Path.Error) {
+    func `a directory whose name merely starts with Fixtures is not scoped out`() throws(Paths.Path
+        .Error)
+    {
         #expect(try !Self.scoped("/pkg/Tests/FixturesSupport/A.swift"))
     }
 
     @Test
-    func `a directory whose name merely contains Fixtures is not scoped out`() throws(Paths.Path.Error) {
+    func `a directory whose name merely contains Fixtures is not scoped out`() throws(Paths.Path
+        .Error)
+    {
         #expect(try !Self.scoped("/pkg/Tests/MyFixtures/A.swift"))
     }
 
@@ -395,7 +400,9 @@ extension Lint.Fix.Test.Exclusion {
     }
 
     @Test
-    func `excluding a shadow-risk rule preserves detection and applies the unrelated loop fixer`() throws {
+    func `excluding a shadow-risk rule preserves detection and applies the unrelated loop fixer`()
+        throws
+    {
         let root = try Self.root()
         defer { Self.remove(root) }
         let target = root / "Sources" / "Target"
@@ -422,7 +429,8 @@ extension Lint.Fix.Test.Exclusion {
     }
 
     @Test
-    func `multiple duplicate and unknown exclusions publish no files when no fixer remains`() throws {
+    func `multiple duplicate and unknown exclusions publish no files when no fixer remains`() throws
+    {
         let root = try Self.root()
         defer { Self.remove(root) }
         let target = root / "Sources" / "Target"

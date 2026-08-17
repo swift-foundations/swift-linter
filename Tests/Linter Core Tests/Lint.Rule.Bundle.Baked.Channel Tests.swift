@@ -44,13 +44,19 @@ extension Lint.Rule.Bundle.Baked.Channel.Test {
     private func withVariable(_ value: Swift.String?, body: () -> Swift.Void) {
         if let value {
             // swift-format-ignore: NeverUseForceTry
+            // REASON: scaffold — a failed environment write is a broken test, not a runtime fault.
+            // swiftlint:disable:next force_try
             try! Environment.write(Lint.Rule.Bundle.Baked.Channel.variable, to: value)
         } else {
             // swift-format-ignore: NeverUseForceTry
+            // REASON: scaffold — a failed environment write is a broken test, not a runtime fault.
+            // swiftlint:disable:next force_try
             try! Environment.write.unset(Lint.Rule.Bundle.Baked.Channel.variable)
         }
         defer {
             // swift-format-ignore: NeverUseForceTry
+            // REASON: scaffold — a failed environment write is a broken test, not a runtime fault.
+            // swiftlint:disable:next force_try
             try! Environment.write.unset(Lint.Rule.Bundle.Baked.Channel.variable)
         }
         body()
@@ -60,6 +66,8 @@ extension Lint.Rule.Bundle.Baked.Channel.Test {
     func `unset reads nil`() {
         withVariable(nil) {
             // swift-format-ignore: NeverUseForceTry
+            // REASON: reads back the value this test just wrote; failure is a broken test.
+            // swiftlint:disable:next force_try
             #expect(try! Lint.Rule.Bundle.Baked.Channel.read() == nil)
         }
     }
@@ -69,6 +77,8 @@ extension Lint.Rule.Bundle.Baked.Channel.Test {
         for bundle in Lint.Rule.Bundle.Baked.allCases {
             withVariable(bundle.rawValue) {
                 // swift-format-ignore: NeverUseForceTry
+                // REASON: reads back the value this test just wrote; failure is a broken test.
+                // swiftlint:disable:next force_try
                 #expect(try! Lint.Rule.Bundle.Baked.Channel.read() == bundle)
             }
         }

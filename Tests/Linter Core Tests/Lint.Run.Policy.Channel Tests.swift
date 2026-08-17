@@ -38,13 +38,19 @@ extension Lint.Run.Policy.Channel.Test {
     private func withVariable(_ value: Swift.String?, body: () -> Swift.Void) {
         if let value {
             // swift-format-ignore: NeverUseForceTry
+            // REASON: scaffold — a failed environment write is a broken test, not a runtime fault.
+            // swiftlint:disable:next force_try
             try! Environment.write(Lint.Run.Policy.Channel.variable, to: value)
         } else {
             // swift-format-ignore: NeverUseForceTry
+            // REASON: scaffold — a failed environment write is a broken test, not a runtime fault.
+            // swiftlint:disable:next force_try
             try! Environment.write.unset(Lint.Run.Policy.Channel.variable)
         }
         defer {
             // swift-format-ignore: NeverUseForceTry
+            // REASON: scaffold — a failed environment write is a broken test, not a runtime fault.
+            // swiftlint:disable:next force_try
             try! Environment.write.unset(Lint.Run.Policy.Channel.variable)
         }
         body()
@@ -54,6 +60,8 @@ extension Lint.Run.Policy.Channel.Test {
     func `unset reads nil`() {
         withVariable(nil) {
             // swift-format-ignore: NeverUseForceTry
+            // REASON: reads back the value this test just wrote; failure is a broken test.
+            // swiftlint:disable:next force_try
             #expect(try! Lint.Run.Policy.Channel.read() == nil)
         }
     }
@@ -63,6 +71,8 @@ extension Lint.Run.Policy.Channel.Test {
         for policy in Lint.Run.Policy.allCases {
             withVariable(policy.rawValue) {
                 // swift-format-ignore: NeverUseForceTry
+                // REASON: reads back the value this test just wrote; failure is a broken test.
+                // swiftlint:disable:next force_try
                 #expect(try! Lint.Run.Policy.Channel.read() == policy)
             }
         }

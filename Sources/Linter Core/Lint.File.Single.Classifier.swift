@@ -37,7 +37,8 @@ extension Lint.File.Single.Classifier {
     /// statements), or `.excluding(rules:)` over one. Derived from
     /// ``Lint/Rule/Bundle/Baked`` so the classifier's vocabulary and the
     /// runner's bake list share a single source of truth.
-    fileprivate static func bakedBundle(matching expression: ExprSyntax) -> Lint.Rule.Bundle.Baked? {
+    fileprivate static func bakedBundle(matching expression: ExprSyntax) -> Lint.Rule.Bundle.Baked?
+    {
         guard expression.as(MemberAccessExprSyntax.self) != nil else { return nil }
         let text: Swift.String = expression.trimmedDescription
         return Lint.Rule.Bundle.Baked.allCases.first { $0.expression == text }
@@ -97,7 +98,8 @@ extension Lint.File.Single.Classifier {
         }
 
         // (2) The rule closure must be exactly the baked bundle.
-        guard let runCall: FunctionCallExprSyntax = Lint.File.Single.Invocation.find(in: sourceFile) else {
+        guard let runCall: FunctionCallExprSyntax = Lint.File.Single.Invocation.find(in: sourceFile)
+        else {
             return .evalFallback(reason: "no top-level `Lint.run(...)` call expression")
         }
         guard let closure: ClosureExprSyntax = Self.ruleClosure(of: runCall) else {
@@ -139,7 +141,9 @@ extension Lint.File.Single.Classifier {
         _ expression: ExprSyntax
     ) -> (bundle: Lint.Rule.Bundle.Baked, disabled: Swift.Set<Lint.Rule.ID>)? {
         guard let call: FunctionCallExprSyntax = expression.as(FunctionCallExprSyntax.self),
-            let member: MemberAccessExprSyntax = call.calledExpression.as(MemberAccessExprSyntax.self),
+            let member: MemberAccessExprSyntax = call.calledExpression.as(
+                MemberAccessExprSyntax.self
+            ),
             member.declName.baseName.text == "excluding",
             let base: ExprSyntax = member.base,
             let bundle: Lint.Rule.Bundle.Baked = Self.bakedBundle(matching: base)
@@ -180,7 +184,9 @@ extension Lint.File.Single.Classifier {
         // Form A: string literal.
         if let literal: StringLiteralExprSyntax = expression.as(StringLiteralExprSyntax.self) {
             guard literal.segments.count == 1,
-                let segment: StringSegmentSyntax = literal.segments.first?.as(StringSegmentSyntax.self)
+                let segment: StringSegmentSyntax = literal.segments.first?.as(
+                    StringSegmentSyntax.self
+                )
             else { return nil }
             return Lint.Rule.ID(segment.content.text)
         }
