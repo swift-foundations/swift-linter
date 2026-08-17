@@ -78,7 +78,11 @@ extension Lint.File.Single.Detection {
         var lineCount = 0
         for line in source.split(separator: "\n", maxSplits: 30, omittingEmptySubsequences: false) {
             if line.contains(Self.header) {
-                let parts = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+                let parts = line.split(
+                    separator: ":",
+                    maxSplits: 1,
+                    omittingEmptySubsequences: false
+                )
                 guard parts.count == 2 else { return nil }
                 var versionSlice = parts[1]
                 while let first = versionSlice.first, first == " " || first == "\t" {

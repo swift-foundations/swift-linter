@@ -143,15 +143,16 @@ extension Lint.Driver {
             return defaultConfiguration()
         }
         do throws(Manifest_Resolver.Manifest.Resolver<Lint.Manifest, Lint.Configuration>.Error) {
-            return try Manifest_Resolver.Manifest.Resolver<Lint.Manifest, Lint.Configuration>.resolve(
-                consumerPackageRoot: manifestDirectory,
-                filename: manifestFilename,
-                dependencies: dependencies,
-                defaultConfiguration: defaultConfiguration,
-                buildConfiguration: { manifest, parent in
-                    configuration(from: manifest, parent: parent)
-                }
-            )
+            return try Manifest_Resolver.Manifest.Resolver<Lint.Manifest, Lint.Configuration>
+                .resolve(
+                    consumerPackageRoot: manifestDirectory,
+                    filename: manifestFilename,
+                    dependencies: dependencies,
+                    defaultConfiguration: defaultConfiguration,
+                    buildConfiguration: { manifest, parent in
+                        configuration(from: manifest, parent: parent)
+                    }
+                )
         } catch {
             // Library output discipline: silently fall back to the
             // default Configuration on parent-chain failure (cycle,

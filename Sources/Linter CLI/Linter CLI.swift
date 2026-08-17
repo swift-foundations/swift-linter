@@ -39,10 +39,17 @@ extension Lint {
         @Argument(help: "Paths to lint (files or directories). Defaults to current directory.")
         var paths: [Swift.String] = ["."]
 
-        @Option(name: .long, help: "Output format. Choices: text (default; SwiftLint-compatible textual lines), sarif (SARIF 2.1.0 JSON for CI artifact upload).")
+        @Option(
+            name: .long,
+            help:
+                "Output format. Choices: text (default; SwiftLint-compatible textual lines), sarif (SARIF 2.1.0 JSON for CI artifact upload)."
+        )
         var format: Lint.Reporter.Format = .text
 
-        @Option(name: .customLong("lint-swift-path"), help: "Path to Lint.swift. Defaults to <path>/Lint.swift if present.")
+        @Option(
+            name: .customLong("lint-swift-path"),
+            help: "Path to Lint.swift. Defaults to <path>/Lint.swift if present."
+        )
         var linter: File_System.File.Path?
 
         @Option(
@@ -81,7 +88,8 @@ extension Lint {
 
         @Option(
             name: .customLong("fix-excluding"),
-            help: "Canonical rule ID excluded from --fix application. Repeat for each withheld rule."
+            help:
+                "Canonical rule ID excluded from --fix application. Repeat for each withheld rule."
         )
         var fixExclusions: [Swift.String] = []
 
@@ -151,7 +159,8 @@ extension Lint.CLI {
             currentWorkingDirectory: {
                 let result: Swift.String?
                 do throws(ISO_9945.Kernel.Directory.Working.Error) {
-                    result = try Kernel.Directory.Working.withCurrentBytes { (span: Swift.Span<UInt8>) -> Swift.String in
+                    result = try Kernel.Directory.Working.withCurrentBytes {
+                        (span: Swift.Span<UInt8>) -> Swift.String in
                         var bytes: [UInt8] = []
                         bytes.reserveCapacity(span.count)
                         span.indices.forEach { bytes.append(span[$0]) }
@@ -184,7 +193,8 @@ extension Lint.CLI {
         if let fixMode {
             guard !targets.isEmpty else {
                 Lint.Reporter.Text.emit(
-                    error: "--fix requires at least one --target-root; target membership must be supplied from the package manifest",
+                    error:
+                        "--fix requires at least one --target-root; target membership must be supplied from the package manifest",
                     to: Terminal.Stream.stderr.write
                 )
                 throw ExitCode.failure
@@ -209,7 +219,8 @@ extension Lint.CLI {
             }
         } else if !targets.isEmpty || !fixExclusions.isEmpty || manifest != nil {
             Lint.Reporter.Text.emit(
-                error: "--target-root, --fix-excluding, and --fix-manifest are valid only with --fix",
+                error:
+                    "--target-root, --fix-excluding, and --fix-manifest are valid only with --fix",
                 to: Terminal.Stream.stderr.write
             )
             throw ExitCode.failure
@@ -268,7 +279,8 @@ extension Lint.CLI {
             } catch {
                 do throws(ISO_9945.Kernel.IO.Write.Error) {
                     _ = try Terminal.Stream.stderr.write(
-                        "[swift-linter] error: single-file dispatch failed: \(error)\n".utf8.lazy.map(Byte.init)
+                        "[swift-linter] error: single-file dispatch failed: \(error)\n".utf8.lazy
+                            .map(Byte.init)
                     )
                 } catch {
                     // Best-effort stderr write; broken pipe is acceptable.
@@ -299,7 +311,8 @@ extension Lint.CLI {
             onDispatchError: { description in
                 do throws(ISO_9945.Kernel.IO.Write.Error) {
                     _ = try Terminal.Stream.stderr.write(
-                        "[swift-linter] error: nested-package dispatch failed: \(description)\n".utf8.lazy.map(Byte.init)
+                        "[swift-linter] error: nested-package dispatch failed: \(description)\n"
+                            .utf8.lazy.map(Byte.init)
                     )
                 } catch {
                     // Best-effort stderr write; broken pipe is acceptable.
@@ -321,7 +334,8 @@ extension Lint.CLI {
         // `rethrows` to `any Error` and trips `result wrapper for rethrows
         // shim` ([IMPL-109]). The annotated closure keeps the throw typed and
         // rethrows it precisely, matching the `run(configuration:)` precedent.
-        let typedPaths: [File_System.File.Path] = try paths.map { (raw: Swift.String) throws(Paths.Path.Error) in
+        let typedPaths: [File_System.File.Path] = try paths.map {
+            (raw: Swift.String) throws(Paths.Path.Error) in
             try File_System.File.Path(raw)
         }
         if let fixMode {
@@ -410,14 +424,16 @@ extension Lint.CLI {
     /// down. The `--lint-swift-path` flag binds directly to a
     /// `File.Path?` via `ExpressibleByArgument`, so the override is
     /// already typed by the time it reaches here.
-    fileprivate func resolveConfiguration(consumerRoot: File_System.File.Path) -> Lint.Configuration {
+    fileprivate func resolveConfiguration(consumerRoot: File_System.File.Path) -> Lint.Configuration
+    {
         return Lint.Driver.configuration(
             at: consumerRoot,
             manifestOverride: linter,
             onMissingLinterPath: {
                 do throws(ISO_9945.Kernel.IO.Write.Error) {
                     _ = try Terminal.Stream.stderr.write(
-                        "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n".utf8.lazy
+                        "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n"
+                            .utf8.lazy
                             .map(Byte.init)
                     )
                 } catch {

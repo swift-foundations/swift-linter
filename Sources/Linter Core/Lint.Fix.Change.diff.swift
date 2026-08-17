@@ -28,8 +28,14 @@ extension Lint.Fix.Change {
     /// actually gets, and an occasional wide hunk is a far better failure
     /// than an engine carrying a diff implementation nobody reviews.
     public var diff: Swift.String {
-        let before: [Swift.Substring] = original.split(separator: "\n", omittingEmptySubsequences: false)
-        let after: [Swift.Substring] = fixed.split(separator: "\n", omittingEmptySubsequences: false)
+        let before: [Swift.Substring] = original.split(
+            separator: "\n",
+            omittingEmptySubsequences: false
+        )
+        let after: [Swift.Substring] = fixed.split(
+            separator: "\n",
+            omittingEmptySubsequences: false
+        )
 
         var prefix = 0
         while prefix < before.count, prefix < after.count, before[prefix] == after[prefix] {

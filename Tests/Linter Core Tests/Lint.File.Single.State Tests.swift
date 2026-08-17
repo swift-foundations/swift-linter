@@ -34,6 +34,8 @@ extension Lint.File.Single.State {
 extension Lint.File.Single.State.Test {
     private static func freshRoot(key: Swift.String) -> File.Path {
         // swift-format-ignore: NeverUseForceTry
+        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         try! File.Path.Temporary.deterministic(prefix: "lint-state-root-", key: key, suffix: "")
     }
 

@@ -20,7 +20,9 @@ extension Lint.Fix.Scope.Channel {
 
 extension Lint.Fix.Scope.Channel.Test {
     @Test
-    func `target roots round trip without losing spaces or order`() throws(Lint.Fix.Scope.Channel.Error) {
+    func `target roots round trip without losing spaces or order`() throws(Lint.Fix.Scope.Channel
+        .Error)
+    {
         let roots: [File.Path] = [
             File.Path("/package/Sources/Library"),
             File.Path("/package/Tests/Library Tests"),

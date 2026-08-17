@@ -73,6 +73,8 @@ extension Lint.Run.Test.`Brand Pre-Pass` {
     func `brand owner run self-suppresses across files`() throws(Lint.Run.Error) {
         // Two files: Cardinal.swift declares the brand, Boundary.swift does
         // not. Both invocations must self-suppress via the run-level set.
+        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         let root = try! Self.fixtureRoot("brand-prepass-fixture")
         let configuration = Lint.Configuration {
             .enable(.`brand aware fixture`)
@@ -84,6 +86,8 @@ extension Lint.Run.Test.`Brand Pre-Pass` {
     @Test
     func `consumer run without the brand still fires`() throws(Lint.Run.Error) {
         // No file in the run declares Cardinal — the rule fires (one file).
+        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         let root = try! Self.fixtureRoot("brand-consumer-fixture")
         let configuration = Lint.Configuration {
             .enable(.`brand aware fixture`)
@@ -143,7 +147,9 @@ extension Lint.Run.Test.Integration {
     ///
     /// Resolves from `#filePath` of the test source so the path is
     /// independent of the working directory at `swift test` time.
-    private static func fixtureRoot(testFile: Swift.String = #filePath) throws(Paths.Path.Error) -> File.Path {
+    private static func fixtureRoot(
+        testFile: Swift.String = #filePath
+    ) throws(Paths.Path.Error) -> File.Path {
         // testFile = .../swift-linter/Tests/Linter Core Tests/Lint.Run Tests.swift
         // Strip the filename and the test-target directory, leaving
         // .../swift-linter/Tests/, then descend into the fixture path.
@@ -163,6 +169,8 @@ extension Lint.Run.Test.Integration {
         // `fixtureRoot` validates a path composed from `#filePath`;
         // failure indicates a compile-time invariant break, so `try!`
         // is justified per [API-ERR-001]'s precondition exception.
+        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .all)
@@ -173,6 +181,8 @@ extension Lint.Run.Test.Integration {
 
     @Test
     func `paths .including A yields finding for A only`() throws(Lint.Run.Error) {
+        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .including(["Sources/A"]))
@@ -184,6 +194,8 @@ extension Lint.Run.Test.Integration {
 
     @Test
     func `paths .excluding B yields finding for A only`() throws(Lint.Run.Error) {
+        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .excluding(["Sources/B"]))
@@ -195,6 +207,8 @@ extension Lint.Run.Test.Integration {
 
     @Test
     func `paths .including non-matching yields no findings`() throws(Lint.Run.Error) {
+        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .including(["Tests/Fixtures/Other"]))
