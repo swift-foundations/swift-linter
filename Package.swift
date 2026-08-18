@@ -137,6 +137,16 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "Kernel", package: "swift-kernel"),
+                .product(
+                    name: "Windows 32 Kernel Directory",
+                    package: "swift-windows-32",
+                    condition: .when(platforms: [.windows])
+                ),
+                .product(
+                    name: "Windows 32 Kernel Terminal",
+                    package: "swift-windows-32",
+                    condition: .when(platforms: [.windows])
+                ),
             ]
         ),
         .executableTarget(

@@ -19,6 +19,17 @@ import Linter_Reporter_SARIF
 import Linter_Reporter_Text
 import Terminal_Primitives
 
+// REASON: the CLI writes diagnostics through the L2 terminal syscall extension and
+// resolves the working directory through the L2 directory surface; both are declared
+// per platform, so the OS-conditional import is the deliberate unification boundary
+// (same shape as the reporters). The POSIX side reaches these surfaces transitively
+// through the L3-unifier `Kernel`; Windows has no L3-policy directory surface yet, so
+// the Win32 L2 modules are imported directly here.
+#if os(Windows)
+    import Windows_32_Kernel_Directory
+    import Windows_32_Kernel_Terminal
+#endif
+
 extension Lint.Reporter.Format: ExpressibleByArgument {}
 extension Lint.Run.Policy: ExpressibleByArgument {}
 
@@ -137,6 +148,64 @@ extension Lint.CLI {
 }
 
 extension Lint.CLI {
+    /// The kernel write-syscall error thrown by `Terminal.Stream.Write` on this
+    /// platform: POSIX -> `ISO_9945.Kernel.IO.Write.Error` (`write(2)`);
+    /// Windows -> `Windows.`32`.Kernel.IO.Write.Error` (`WriteFile`).
+    #if !os(Windows)
+        fileprivate typealias KernelWrite = ISO_9945.Kernel.IO.Write.Error
+    #else
+        fileprivate typealias KernelWrite = Windows.`32`.Kernel.IO.Write.Error
+    #endif
+
+    /// Adapts a diagnostic's UTF-8 bytes to the element type this platform's
+    /// `Terminal.Stream.Write.callAsFunction` parameter declares: POSIX takes
+    /// `some Sequence<Byte>`, Windows takes `some Sequence<UInt8>`. `Byte` is a
+    /// distinct wrapper struct, not a `UInt8` typealias, so the two do not unify.
+    #if !os(Windows)
+        fileprivate static func bytes(of text: Swift.String) -> [Byte] {
+            text.utf8.map(Byte.init)
+        }
+    #else
+        fileprivate static func bytes(of text: Swift.String) -> [Swift.UInt8] {
+            Swift.Array(text.utf8)
+        }
+    #endif
+
+    /// The process working directory, or `nil` when the platform call fails.
+    ///
+    /// POSIX reads the `getcwd(3)` bytes through the L3-unifier `Kernel`;
+    /// Windows reads `GetCurrentDirectoryW`'s UTF-16 code units through the
+    /// Win32 L2 directory surface. Failure is a silent fallback in both cases —
+    /// the consumer-root string is then left unchanged.
+    fileprivate static func currentWorkingDirectory() -> Swift.String? {
+        let result: Swift.String?
+        #if !os(Windows)
+            do throws(ISO_9945.Kernel.Directory.Working.Error) {
+                result = try Kernel.Directory.Working.withCurrentBytes {
+                    (span: Swift.Span<UInt8>) -> Swift.String in
+                    var bytes: [UInt8] = []
+                    bytes.reserveCapacity(span.count)
+                    span.indices.forEach { bytes.append(span[$0]) }
+                    return Swift.String(decoding: bytes, as: UTF8.self)
+                }
+            } catch {
+                result = nil
+            }
+        #else
+            do throws(Windows.`32`.Kernel.Directory.Working.Error) {
+                result = Swift.String(
+                    decoding: try Windows.`32`.Kernel.Directory.Working.get(),
+                    as: UTF16.self
+                )
+            } catch {
+                result = nil
+            }
+        #endif
+        return result
+    }
+}
+
+extension Lint.CLI {
     // ArgumentParser's `ParsableCommand.run()` protocol requirement is
     // bare-throws; typed throws is unavailable here until upstream
     // adoption. The body throws three distinct types (`ExitCode`,
@@ -156,23 +225,7 @@ extension Lint.CLI {
         // composition discipline. Linter Core stays kernel-free.
         let consumerRootString: Swift.String = Lint.File.Single.canonicalize(
             consumerRoot: paths.first ?? ".",
-            currentWorkingDirectory: {
-                let result: Swift.String?
-                do throws(ISO_9945.Kernel.Directory.Working.Error) {
-                    result = try Kernel.Directory.Working.withCurrentBytes {
-                        (span: Swift.Span<UInt8>) -> Swift.String in
-                        var bytes: [UInt8] = []
-                        bytes.reserveCapacity(span.count)
-                        span.indices.forEach { bytes.append(span[$0]) }
-                        return Swift.String(decoding: bytes, as: UTF8.self)
-                    }
-                } catch {
-                    // Silent-fallback: getcwd failure (e.g., removed)
-                    // surfaces as the consumer-root-string unchanged.
-                    result = nil
-                }
-                return result
-            }
+            currentWorkingDirectory: { Lint.CLI.currentWorkingDirectory() }
         )
         // F-A2.1 / F-A2.3 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
         // bare-string → `File.Path` conversion happens once at the
@@ -277,10 +330,11 @@ extension Lint.CLI {
                     nonce: runNonce
                 )
             } catch {
-                do throws(ISO_9945.Kernel.IO.Write.Error) {
+                do throws(KernelWrite) {
                     _ = try Terminal.Stream.stderr.write(
-                        "[swift-linter] error: single-file dispatch failed: \(error)\n".utf8.lazy
-                            .map(Byte.init)
+                        Lint.CLI.bytes(
+                            of: "[swift-linter] error: single-file dispatch failed: \(error)\n"
+                        )
                     )
                 } catch {
                     // Best-effort stderr write; broken pipe is acceptable.
@@ -309,10 +363,12 @@ extension Lint.CLI {
             at: consumerRoot,
             arguments: paths,
             onDispatchError: { description in
-                do throws(ISO_9945.Kernel.IO.Write.Error) {
+                do throws(KernelWrite) {
                     _ = try Terminal.Stream.stderr.write(
-                        "[swift-linter] error: nested-package dispatch failed: \(description)\n"
-                            .utf8.lazy.map(Byte.init)
+                        Lint.CLI.bytes(
+                            of: "[swift-linter] error: nested-package dispatch failed: "
+                                + "\(description)\n"
+                        )
                     )
                 } catch {
                     // Best-effort stderr write; broken pipe is acceptable.
@@ -430,11 +486,13 @@ extension Lint.CLI {
             at: consumerRoot,
             manifestOverride: linter,
             onMissingLinterPath: {
-                do throws(ISO_9945.Kernel.IO.Write.Error) {
+                do throws(KernelWrite) {
                     _ = try Terminal.Stream.stderr.write(
-                        "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n"
-                            .utf8.lazy
-                            .map(Byte.init)
+                        Lint.CLI.bytes(
+                            of: "[swift-linter] error: SWIFT_LINTER_PATH environment variable "
+                                + "not set; cannot resolve manifest dependencies. Falling back "
+                                + "to default (zero-rules) configuration.\n"
+                        )
                     )
                 } catch {
                     // Best-effort stderr write; broken pipe is acceptable.
