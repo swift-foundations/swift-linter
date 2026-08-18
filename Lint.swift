@@ -19,9 +19,15 @@
 import Linter
 import Linter_Institute_Rules
 
+// The rules package is named by URL, not by a sibling-disk path. CI checks out
+// the subject repository alone, so `../swift-institute-linter-rules` resolves
+// only on a developer machine that happens to carry the sibling checkout — in
+// the `Quality · swift-linter` job it is a hard "cannot be accessed" failure.
+// The URL form is what the rest of the fleet declares.
 Lint.run(dependencies: [
     .package(
-        path: "../swift-institute-linter-rules",
+        url: "https://github.com/swift-foundations/swift-institute-linter-rules.git",
+        branch: "main",
         products: ["Linter Institute Rules"]
     ),
 ]) {

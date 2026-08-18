@@ -249,7 +249,9 @@ extension Lint.Run {
     /// it. Mirrors the read+parse flow of ``parsedSource(root:relativePath:manager:declaredTypeNames:)``
     /// without registering into the `Source.Manager` (the pre-pass needs only
     /// the tree, discarded immediately after the top-level scan).
-    fileprivate static func runDeclaredTypeNames(under paths: [File.Path]) -> Swift.Set<Swift.String> {
+    fileprivate static func runDeclaredTypeNames(
+        under paths: [File.Path]
+    ) -> Swift.Set<Swift.String> {
         var names: Swift.Set<Swift.String> = []
         for root in paths {
             for sourcePath in Lint.Source.Walker.paths(under: root) {

@@ -43,7 +43,10 @@ extension `Run summary line`.Unit {
             violations: 0,
             findings: 0
         )
-        #expect(line == "swift-pair-primitives · 90 active rules · 48 files linted · 0 violations · 0 findings")
+        #expect(
+            line
+                == "swift-pair-primitives · 90 active rules · 48 files linted · 0 violations · 0 findings"
+        )
     }
 
     @Test
@@ -105,6 +108,8 @@ extension `Run summary line`.Unit {
             violations: 3,
             findings: 9
         )
-        #expect(line == "swift-posix · 40 active rules · 12 files linted · 3 violations · 9 findings")
+        #expect(
+            line == "swift-posix · 40 active rules · 12 files linted · 3 violations · 9 findings"
+        )
     }
 }

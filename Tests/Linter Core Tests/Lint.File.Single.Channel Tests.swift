@@ -38,23 +38,31 @@ extension Lint.File.Single.Channel {
 extension Lint.File.Single.Channel.Test {
     private static func freshRoot(key: Swift.String) -> File.Path {
         // swift-format-ignore: NeverUseForceTry
+        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         try! File.Path.Temporary.deterministic(prefix: "lint-channel-root-", key: key, suffix: "")
     }
 
     private static func writeFixture(key: Swift.String, content: Swift.String) -> File.Path {
         // swift-format-ignore: NeverUseForceTry
+        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         let path = try! File.Path.Temporary.deterministic(
             prefix: "lint-channel-file-",
             key: key,
             suffix: ".json"
         )
         // swift-format-ignore: NeverUseForceTry
+        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         try! File(path).write.atomic(content)
         return path
     }
 
     @Test
-    func `An UNSET channel variable reads as nil (no overlay)`() throws(Lint.File.Single.Channel.Error) {
+    func `An UNSET channel variable reads as nil (no overlay)`() throws(Lint.File.Single.Channel
+        .Error)
+    {
         // A variable guaranteed unset in the test environment — only an UNSET
         // variable is a legitimate nil.
         let channel = Lint.File.Single.Channel(
@@ -73,7 +81,9 @@ extension Lint.File.Single.Channel.Test {
         let channel = Lint.File.Single.Channel.selection
         do throws(Lint.File.Single.Channel.Error) {
             _ = try channel.resolve(raw: "/nonexistent/swift-linter-test/selection-manifest.json")
-            Issue.record("resolve(raw:) must throw for a set-but-missing manifest, not return a value")
+            Issue.record(
+                "resolve(raw:) must throw for a set-but-missing manifest, not return a value"
+            )
         } catch {
             switch error {
             case .unreadable:
@@ -119,8 +129,14 @@ extension Lint.File.Single.Channel.Test {
     @Test
     func `The nonce makes the temp-file name unique per run`() throws(Paths.Path.Error) {
         let root = try File.Path("/tmp/swift-linter-nonce-test")
-        let fixed = try Lint.File.Single.Channel.selection.path(consumerPackageRoot: root, nonce: "")
-        let unique = try Lint.File.Single.Channel.selection.path(consumerPackageRoot: root, nonce: "deadbeef")
+        let fixed = try Lint.File.Single.Channel.selection.path(
+            consumerPackageRoot: root,
+            nonce: ""
+        )
+        let unique = try Lint.File.Single.Channel.selection.path(
+            consumerPackageRoot: root,
+            nonce: "deadbeef"
+        )
         #expect(fixed.string.hasSuffix("selection-manifest.json"))
         #expect(unique.string.hasSuffix("selection-manifest-deadbeef.json"))
         #expect(fixed != unique)

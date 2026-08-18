@@ -98,6 +98,11 @@ extension Lint.Reporter.Text {
         }
     }
 
+    // REASON: a formatting entry point — five display-only counts, a subject, and a sink.
+    // Region form, not `disable:next`: an intervening line comment would orphan the doc
+    // comment below it.
+    // swiftlint:disable function_parameter_count
+
     /// Emit the always-on one-line run summary to `write` (the engine passes
     /// **stderr** — stdout stays the pure diagnostic stream).
     ///
@@ -143,6 +148,8 @@ extension Lint.Reporter.Text {
             // Best-effort stderr write; broken pipe acceptable.
         }
     }
+
+    // swiftlint:enable function_parameter_count
 
     /// Emit `text` verbatim via `write`, adding nothing.
     ///

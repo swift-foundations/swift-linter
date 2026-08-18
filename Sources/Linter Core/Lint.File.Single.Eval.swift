@@ -83,11 +83,12 @@ extension Lint.File.Single.Eval {
     ) throws(Lint.File.Single.Error) -> Swift.Int32 {
         // Extract `Lint.run(dependencies:)` clauses from the already-parsed
         // tree — only the eval path materializes a project and so needs them.
-        let extractedDependencies: [Package.Dependency] = try Lint.File.Single.Extractor.dependencies(
-            parsed: parsed,
-            sourcePath: consumerLintSwiftPath,
-            consumerPackageRoot: consumerPackageRoot
-        )
+        let extractedDependencies: [Package.Dependency] = try Lint.File.Single.Extractor
+            .dependencies(
+                parsed: parsed,
+                sourcePath: consumerLintSwiftPath,
+                consumerPackageRoot: consumerPackageRoot
+            )
 
         // Resolve the parent chain (writes the folded `Lint.Manifest` via the
         // parent ``Channel`` and returns its path). Runs BEFORE
@@ -196,7 +197,10 @@ extension Lint.File.Single.Eval {
                 throw .materializationFailed(reason: reason)
 
             case .spawnFailed(let consumerPackageRoot, let description):
-                throw .spawnFailed(consumerPackageRoot: consumerPackageRoot, description: description)
+                throw .spawnFailed(
+                    consumerPackageRoot: consumerPackageRoot,
+                    description: description
+                )
             }
         }
     }

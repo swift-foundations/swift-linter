@@ -34,7 +34,10 @@ extension Lint.Suppression.Test.Scanner {
     ///
     /// Helper so each test reads as
     /// "given this source, the map has these entries".
-    private static func scanSource(_ source: Swift.String, fileName: Swift.String = "<test>") -> Lint.Suppression {
+    private static func scanSource(
+        _ source: Swift.String,
+        fileName: Swift.String = "<test>"
+    ) -> Lint.Suppression {
         let tree = Parser.parse(source: source)
         let converter = SourceLocationConverter(fileName: fileName, tree: tree)
         return Lint.Suppression.scan(tree: tree, converter: converter)
@@ -130,7 +133,9 @@ extension Lint.Suppression.Test.Scanner {
 
     @Test
     func `suppresses returns true only for matching line and rule ID`() {
-        let map = Lint.Suppression(entries: [Lint.Suppression.Entry(line: 5, rule: "rule one", reason: nil)])
+        let map = Lint.Suppression(entries: [
+            Lint.Suppression.Entry(line: 5, rule: "rule one", reason: nil)
+        ])
         #expect(map.suppresses(line: 5, rule: "rule one"))
         #expect(!map.suppresses(line: 5, rule: "rule two"))
         #expect(!map.suppresses(line: 6, rule: "rule one"))
@@ -206,14 +211,22 @@ extension Lint.Suppression.Test.`Engine Integration` {
     /// fault the test should surface as a typed throw — `try!` /
     /// force-unwrap is the right shape.
     private static func writeFixture(content: Swift.String) -> File.Path {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("lint-suppression-fixture-\(UUID().uuidString)")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "lint-suppression-fixture-\(UUID().uuidString)"
+        )
         let sources = directory.appendingPathComponent("Sources")
         // swift-format-ignore: NeverUseForceTry
+        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         try! FileManager.default.createDirectory(at: sources, withIntermediateDirectories: true)
         let file = sources.appendingPathComponent("x.swift")
         // swift-format-ignore: NeverUseForceTry, NeverForceUnwrap
+        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         try! content.data(using: .utf8)!.write(to: file)
         // swift-format-ignore: NeverUseForceTry
+        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
+        // swiftlint:disable:next force_try
         return try! File.Path(directory.path)
     }
 
@@ -314,7 +327,9 @@ extension Lint.Suppression.Test.`Engine Integration` {
     }
 
     @Test
-    func `Engine tags findings with the enclosing decl's effective visibility`() throws(Lint.Run.Error) {
+    func `Engine tags findings with the enclosing decl's effective visibility`() throws(Lint.Run
+        .Error)
+    {
         // `targetCall` is on line 2 inside a `private struct Outer`,
         // so the effective visibility of the enclosing decl chain is
         // `.private`. The engine computes this post-rule via

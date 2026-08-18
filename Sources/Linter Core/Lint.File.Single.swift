@@ -92,7 +92,9 @@ extension Lint.File.Single {
     /// accessor name per `[API-NAME-002]` — `Lint.File.Single.contents(of:)`.
     ///
     /// F-A2.3 cascade: typed `File.Path` parameter.
-    internal static func contents(of path: File.Path) throws(File.System.Read.Full.Error) -> Swift.String {
+    internal static func contents(
+        of path: File.Path
+    ) throws(File.System.Read.Full.Error) -> Swift.String {
         // `read.full` yields a borrowed `Span<Byte>`; copying it out requires an
         // index walk (`Span` is `~Escapable` and not a `Sequence`, so neither
         // `Array(span)` nor `for byte in span` is available). This is the

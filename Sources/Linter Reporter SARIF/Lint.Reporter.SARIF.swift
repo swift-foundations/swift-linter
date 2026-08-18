@@ -99,7 +99,8 @@ extension Lint.Reporter.SARIF {
     fileprivate static func sarifLog(for findings: [Lint.Finding]) -> JSON {
         [
             "version": "2.1.0",
-            "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cs01/schemas/sarif-schema-2.1.0.json",
+            "$schema":
+                "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cs01/schemas/sarif-schema-2.1.0.json",
             "runs": [
                 [
                     "tool": [
@@ -137,8 +138,12 @@ extension Lint.Reporter.SARIF {
                         "physicalLocation": [
                             "artifactLocation": ["uri": JSON(stringLiteral: pathOrID)],
                             "region": [
-                                "startLine": JSON(integerLiteral: Int(record.location.line.underlying)),
-                                "startColumn": JSON(integerLiteral: Int(bitPattern: record.location.column)),
+                                "startLine": JSON(
+                                    integerLiteral: Int(record.location.line.underlying)
+                                ),
+                                "startColumn": JSON(
+                                    integerLiteral: Int(bitPattern: record.location.column)
+                                ),
                             ],
                         ]
                     ]

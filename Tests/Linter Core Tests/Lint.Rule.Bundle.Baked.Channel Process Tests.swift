@@ -223,7 +223,8 @@ import Testing
         }
 
         @Test
-        func `A valid token absent from this runner's catalogue exits nonzero and names the token`() {
+        func `A valid token absent from this runner's catalogue exits nonzero and names the token`()
+        {
             guard
                 let runner = Executable.product(
                     Executable.singleBundle,
@@ -251,17 +252,26 @@ import Testing
 
         @Test
         func `primitives selects exactly the primitives bundle`() {
-            assertSelectsExactlyOwnBundle(token: "primitives", identifier: "bundle fixture primitives")
+            assertSelectsExactlyOwnBundle(
+                token: "primitives",
+                identifier: "bundle fixture primitives"
+            )
         }
 
         @Test
         func `standards selects exactly the standards bundle`() {
-            assertSelectsExactlyOwnBundle(token: "standards", identifier: "bundle fixture standards")
+            assertSelectsExactlyOwnBundle(
+                token: "standards",
+                identifier: "bundle fixture standards"
+            )
         }
 
         @Test
         func `institute selects exactly the institute bundle`() {
-            assertSelectsExactlyOwnBundle(token: "institute", identifier: "bundle fixture institute")
+            assertSelectsExactlyOwnBundle(
+                token: "institute",
+                identifier: "bundle fixture institute"
+            )
         }
 
         private func assertSelectsExactlyOwnBundle(
