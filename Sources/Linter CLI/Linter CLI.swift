@@ -181,7 +181,8 @@ extension Lint.CLI {
         let result: Swift.String?
         #if !os(Windows)
             do throws(ISO_9945.Kernel.Directory.Working.Error) {
-                result = try Kernel.Directory.Working.withCurrentBytes { (span: Swift.Span<UInt8>) -> Swift.String in
+                result = try Kernel.Directory.Working.withCurrentBytes {
+                    (span: Swift.Span<UInt8>) -> Swift.String in
                     var bytes: [UInt8] = []
                     bytes.reserveCapacity(span.count)
                     span.indices.forEach { bytes.append(span[$0]) }
@@ -192,7 +193,10 @@ extension Lint.CLI {
             }
         #else
             do throws(Windows.`32`.Kernel.Directory.Working.Error) {
-                result = Swift.String(decoding: try Windows.`32`.Kernel.Directory.Working.get(), as: UTF16.self)
+                result = Swift.String(
+                    decoding: try Windows.`32`.Kernel.Directory.Working.get(),
+                    as: UTF16.self
+                )
             } catch {
                 result = nil
             }
@@ -328,7 +332,9 @@ extension Lint.CLI {
             } catch {
                 do throws(KernelWrite) {
                     _ = try Terminal.Stream.stderr.write(
-                        Lint.CLI.bytes(of: "[swift-linter] error: single-file dispatch failed: \(error)\n")
+                        Lint.CLI.bytes(
+                            of: "[swift-linter] error: single-file dispatch failed: \(error)\n"
+                        )
                     )
                 } catch {
                     // Best-effort stderr write; broken pipe is acceptable.
@@ -359,7 +365,10 @@ extension Lint.CLI {
             onDispatchError: { description in
                 do throws(KernelWrite) {
                     _ = try Terminal.Stream.stderr.write(
-                        Lint.CLI.bytes(of: "[swift-linter] error: nested-package dispatch failed: \(description)\n")
+                        Lint.CLI.bytes(
+                            of: "[swift-linter] error: nested-package dispatch failed: "
+                                + "\(description)\n"
+                        )
                     )
                 } catch {
                     // Best-effort stderr write; broken pipe is acceptable.
@@ -480,7 +489,9 @@ extension Lint.CLI {
                 do throws(KernelWrite) {
                     _ = try Terminal.Stream.stderr.write(
                         Lint.CLI.bytes(
-                            of: "[swift-linter] error: SWIFT_LINTER_PATH environment variable not set; cannot resolve manifest dependencies. Falling back to default (zero-rules) configuration.\n"
+                            of: "[swift-linter] error: SWIFT_LINTER_PATH environment variable "
+                                + "not set; cannot resolve manifest dependencies. Falling back "
+                                + "to default (zero-rules) configuration.\n"
                         )
                     )
                 } catch {
