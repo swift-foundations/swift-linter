@@ -171,7 +171,7 @@ extension Lint.File.Single.Eval {
             evalRoot: evalRoot,
             executableName: "Lint",
             dependencies: dependencies,
-            platforms: [".macOS(.v26)"],
+            platforms: [".macOS(.v27)"],
             swiftLanguageModes: [".v6"],
             ecosystemSettings: [
                 ".enableUpcomingFeature(\"ExistentialAny\")",

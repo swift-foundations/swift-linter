@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.4
 // Nested experiment package manifest. The walker MUST treat this
 // manifest's parent directory (`Experiments/inner/`) as the root of an
 // independent SwiftPM package whose subtree is skipped during the

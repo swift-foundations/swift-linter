@@ -598,7 +598,7 @@ extension Lint.Fix.Test.Application {
 // real prebuilt-runner process.
 
 private let manifestScopeOriginal = """
-    // swift-tools-version: 6.3
+    // swift-tools-version: 6.4
     import PackageDescription
 
     let package = Package(
@@ -608,7 +608,7 @@ private let manifestScopeOriginal = """
     """
 
 private let manifestScopeRewritten = """
-    // swift-tools-version: 6.3
+    // swift-tools-version: 6.4
     import PackageDescription
 
     let package = Package(
@@ -623,7 +623,7 @@ private let manifestScopeRewritten = """
 // non-zero. Verified against the installed toolchain before being chosen
 // as the fixture — the concrete class re-parse structurally cannot catch.
 private let manifestScopeCorrupted = """
-    // swift-tools-version: 6.3
+    // swift-tools-version: 6.4
     import PackageDescription
 
     let package = Package(

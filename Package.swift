@@ -1,15 +1,15 @@
-// swift-tools-version: 6.3.3
+// swift-tools-version: 6.4
 
 import PackageDescription
 
 let package = Package(
     name: "swift-linter",
     platforms: [
-        .macOS("27"),
-        .iOS("27"),
-        .tvOS("27"),
-        .watchOS("27"),
-        .visionOS("27"),
+        .macOS(.v27),
+        .iOS(.v27),
+        .tvOS(.v27),
+        .watchOS(.v27),
+        .visionOS(.v27),
     ],
     products: [
         .library(
@@ -30,14 +30,38 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/swift-primitives/swift-ascii-primitives.git", branch: "main"),
-        .package(url: "https://github.com/swift-primitives/swift-glob-primitives.git", branch: "main"),
-        .package(url: "https://github.com/swift-primitives/swift-linter-primitives.git", branch: "main"),
-        .package(url: "https://github.com/swift-primitives/swift-manifest-primitives.git", branch: "main"),
-        .package(url: "https://github.com/swift-primitives/swift-package-primitives.git", branch: "main"),
-        .package(url: "https://github.com/swift-primitives/swift-standard-library-extensions.git", branch: "main"),
-        .package(url: "https://github.com/swift-primitives/swift-terminal-primitives.git", branch: "main"),
-        .package(url: "https://github.com/swift-primitives/swift-version-primitives.git", branch: "main"),
+        .package(
+            url: "https://github.com/swift-primitives/swift-ascii-primitives.git",
+            branch: "main"
+        ),
+        .package(
+            url: "https://github.com/swift-primitives/swift-glob-primitives.git",
+            branch: "main"
+        ),
+        .package(
+            url: "https://github.com/swift-primitives/swift-linter-primitives.git",
+            branch: "main"
+        ),
+        .package(
+            url: "https://github.com/swift-primitives/swift-manifest-primitives.git",
+            branch: "main"
+        ),
+        .package(
+            url: "https://github.com/swift-primitives/swift-package-primitives.git",
+            branch: "main"
+        ),
+        .package(
+            url: "https://github.com/swift-primitives/swift-standard-library-extensions.git",
+            branch: "main"
+        ),
+        .package(
+            url: "https://github.com/swift-primitives/swift-terminal-primitives.git",
+            branch: "main"
+        ),
+        .package(
+            url: "https://github.com/swift-primitives/swift-version-primitives.git",
+            branch: "main"
+        ),
         .package(url: "https://github.com/swift-iso/swift-iso-9945.git", branch: "main"),
         .package(url: "https://github.com/swift-microsoft/swift-windows-32.git", branch: "main"),
         .package(url: "https://github.com/swift-standards/swift-spm-standard.git", branch: "main"),
@@ -47,10 +71,16 @@ let package = Package(
         .package(url: "https://github.com/swift-foundations/swift-json.git", branch: "main"),
         .package(url: "https://github.com/swift-foundations/swift-kernel.git", branch: "main"),
         .package(url: "https://github.com/swift-foundations/swift-manifests.git", branch: "main"),
-        .package(url: "https://github.com/swift-foundations/swift-package-manager.git", branch: "main"),
+        .package(
+            url: "https://github.com/swift-foundations/swift-package-manager.git",
+            branch: "main"
+        ),
         .package(url: "https://github.com/swift-foundations/swift-process.git", branch: "main"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", "602.0.0"..<"603.0.0"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMajor(from: "1.5.0")),
+        .package(
+            url: "https://github.com/apple/swift-argument-parser.git",
+            .upToNextMajor(from: "1.5.0")
+        ),
     ],
     targets: [
         .target(
@@ -94,7 +124,10 @@ let package = Package(
             dependencies: [
                 .product(name: "ASCII Primitives", package: "swift-ascii-primitives"),
                 .product(name: "Glob Primitives", package: "swift-glob-primitives"),
-                .product(name: "Glob Primitives Standard Library Integration", package: "swift-glob-primitives"),
+                .product(
+                    name: "Glob Primitives Standard Library Integration",
+                    package: "swift-glob-primitives"
+                ),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Manifest Primitives", package: "swift-manifest-primitives"),
                 .product(name: "Package Primitives", package: "swift-package-primitives"),
@@ -108,7 +141,10 @@ let package = Package(
                 .product(name: "SPM Standard", package: "swift-spm-standard"),
                 .product(name: "URI Standard", package: "swift-uri-standard"),
                 .product(name: "Version Primitives", package: "swift-version-primitives"),
-                .product(name: "Version Primitives Standard Library Integration", package: "swift-version-primitives"),
+                .product(
+                    name: "Version Primitives Standard Library Integration",
+                    package: "swift-version-primitives"
+                ),
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
                 .product(name: "SwiftOperators", package: "swift-syntax"),
@@ -124,10 +160,16 @@ let package = Package(
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "Package Primitives", package: "swift-package-primitives"),
                 .product(name: "Process", package: "swift-process"),
-                .product(name: "Standard Library Extensions", package: "swift-standard-library-extensions"),
+                .product(
+                    name: "Standard Library Extensions",
+                    package: "swift-standard-library-extensions"
+                ),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
                 .product(name: "URI Standard Library Integration", package: "swift-uri-standard"),
-                .product(name: "Version Primitives Standard Library Integration", package: "swift-version-primitives"),
+                .product(
+                    name: "Version Primitives Standard Library Integration",
+                    package: "swift-version-primitives"
+                ),
             ]
         ),
         .executableTarget(
