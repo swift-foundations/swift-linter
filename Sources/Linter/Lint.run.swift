@@ -34,6 +34,28 @@ extension Lint {
     }
 
     public static func run(bundles: [Lint.Rule.Bundle.Baked: [Lint.Rule.Configuration]]) {
+        let arguments = [Swift.String](Swift.CommandLine.arguments.dropFirst())
+        if arguments.first == "--profile" {
+            guard arguments.count >= 3 else {
+                failLoud("profile invocation requires --profile <profile.json> <path> ...")
+            }
+            let profile: Lint.Profile
+            do throws(Lint.Profile.Error) { profile = try .read(at: arguments[1]) } catch {
+                failLoud("profile: \(error)")
+            }
+            guard let baked = bundles[profile.bundle] else {
+                failLoud("profile: this runner does not bake bundle '\(profile.bundle.rawValue)'")
+            }
+            let selected: [Lint.Rule.Configuration]
+            do throws(Lint.Profile.Error) { selected = try profile.select(from: baked) } catch {
+                failLoud("profile: \(error)")
+            }
+            run(
+                configuration: Self.Configuration { selected },
+                paths: [Swift.String](arguments.dropFirst(2))
+            )
+            return
+        }
         let read: Lint.Rule.Bundle.Baked?
         do throws(Lint.Rule.Bundle.Baked.Channel.Error) {
             read = try Lint.Rule.Bundle.Baked.Channel.read()
@@ -66,11 +88,17 @@ extension Lint {
     }
 
     public static func run(configuration: Lint.Configuration) {
-        let arguments = Swift.CommandLine.arguments
-        let pathStrings: [Swift.String] =
-            arguments.count >= 2
-            ? [Swift.String](arguments.dropFirst())
-            : ["."]
+        run(
+            configuration: configuration,
+            paths: [Swift.String](Swift.CommandLine.arguments.dropFirst())
+        )
+    }
+
+    private static func run(
+        configuration: Lint.Configuration,
+        paths: [Swift.String]
+    ) {
+        let pathStrings = paths.isEmpty ? ["."] : paths
 
         let consumerPaths: [File_System.File.Path]
         do throws(Paths.Path.Error) {

@@ -171,6 +171,7 @@ let package = Package(
                 "Linter Reporter Structured",
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "File System", package: "swift-file-system"),
+                .product(name: "JSON", package: "swift-json"),
                 .product(name: "Package Primitives", package: "swift-package-primitives"),
                 .product(name: "Process", package: "swift-process"),
                 .product(
