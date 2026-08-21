@@ -1,14 +1,3 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 import Environment
 import Linter
 import Testing
@@ -23,17 +12,6 @@ extension Lint.File.Single.Test {
         @Suite struct Integration {}
     }
 }
-
-// MARK: - Lint.File.Single.Runner.invocation(binary:arguments:)
-//
-// Hole 1a regression. The prebuilt-runner fast path MUST forward the
-// consumer's CLI `arguments` (the lint-target paths) so it lints EXACTLY the
-// paths the eval path lints — `Manifest.Executable.dispatch` appends the same
-// vector to its `swift run … Lint` invocation. The prior invocation
-// `[binary, consumerPackageRoot.string]` dropped `arguments`, so a multi-path
-// or non-cwd target was silently linted as just the package root: a
-// wrong-result-that-exits-0 fast-path/eval divergence. These tests pin that
-// the invocation forwards `arguments` verbatim.
 
 extension Lint.File.Single.Test.Runner.Unit {
     @Test
@@ -56,10 +34,7 @@ extension Lint.File.Single.Test.Runner.Unit {
 
     @Test
     func `Empty arguments yield just the binary (Lint.run applies its dot default)`() {
-        // An empty argument vector mirrors the eval path: `swift run … Lint`
-        // with no trailing args, where `Lint.run(configuration:)` falls back
-        // to `["."]`. The fast path must match — no synthetic consumer-root
-        // argument that the eval path never receives.
+
         let invocation = Lint.File.Single.Runner.invocation(
             binary: "runner",
             arguments: []
@@ -67,13 +42,6 @@ extension Lint.File.Single.Test.Runner.Unit {
         #expect(invocation == ["runner"])
     }
 }
-
-// MARK: - environment(inheriting:bundle:selection:)
-//
-// The runner boundary owns only its bundle and selection overlays. It must
-// preserve the coordinator's complete environment so the shared
-// `Lint.run(configuration:)` terminal receives the exact requested report
-// format instead of silently reverting to text.
 
 extension Lint.File.Single.Test.Runner.Unit {
     @Test

@@ -1,14 +1,3 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 import Environment
 import JSON
 import Linter
@@ -26,20 +15,14 @@ extension Lint.Reporter.Format {
 extension Lint.Reporter.Format.Test {
     fileprivate static func withVariable(_ value: Swift.String?, body: () -> Swift.Void) {
         if let value {
-            // swift-format-ignore: NeverUseForceTry
-            // REASON: scaffold — a failed environment write is a broken test, not a runtime fault.
-            // swiftlint:disable:next force_try
+
             try! Environment.write(Lint.Reporter.Format.Channel.variable, to: value)
         } else {
-            // swift-format-ignore: NeverUseForceTry
-            // REASON: scaffold — a failed environment write is a broken test, not a runtime fault.
-            // swiftlint:disable:next force_try
+
             try! Environment.write.unset(Lint.Reporter.Format.Channel.variable)
         }
         defer {
-            // swift-format-ignore: NeverUseForceTry
-            // REASON: scaffold — a failed environment write is a broken test, not a runtime fault.
-            // swiftlint:disable:next force_try
+
             try! Environment.write.unset(Lint.Reporter.Format.Channel.variable)
         }
         body()
@@ -66,9 +49,7 @@ extension Lint.Reporter.Format.Test.Integration {
     @Test
     func `Unset channel preserves text compatibility`() {
         Lint.Reporter.Format.Test.withVariable(nil) {
-            // swift-format-ignore: NeverUseForceTry
-            // REASON: reads back the value this test just wrote; failure is a broken test.
-            // swiftlint:disable:next force_try
+
             #expect(try! Lint.Reporter.Format.Channel.read() == .text)
         }
     }
@@ -79,9 +60,7 @@ extension Lint.Reporter.Format.Test.Integration {
             Lint.Reporter.Format.Test.withVariable(
                 Lint.Reporter.Format.Channel.value(format)
             ) {
-                // swift-format-ignore: NeverUseForceTry
-                // REASON: reads back the value this test just wrote; failure is a broken test.
-                // swiftlint:disable:next force_try
+
                 #expect(try! Lint.Reporter.Format.Channel.read() == format)
             }
         }

@@ -1,53 +1,14 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 internal import Environment
 
 extension Lint.Rule.Bundle.Baked {
-    /// Environment channel carrying the dispatcher's baked-bundle selection to
-    /// the prebuilt standard runner.
-    ///
-    /// The runner bakes EVERY published standard bundle (see
-    /// ``Lint/Rule/Bundle/Baked``); which one a given spawn must lint with is
-    /// the consumer's choice, recognized by the
-    /// ``Lint/File/Single/Classifier`` and exported here by the runner spawn
-    /// (``Lint/File/Single/Runner/run(binary:consumerPackageRoot:arguments:selection:bundle:nonce:)``)
-    /// before exec. The runner's `Lint.run(bundles:)` reads the channel and
-    /// selects the matching baked rule set. An environment channel (not an
-    /// argv flag) because the dispatcher forwards the consumer's lint-target
-    /// argv VERBATIM — a flag would be indistinguishable from a path argument.
-    ///
-    /// Unset ⇒ `nil`. The channel itself stays a bare presence/absence read
-    /// — the same shape as every other channel in this family — but its sole
-    /// caller, `Lint.run(bundles:)`, treats an unset read as a hard error
-    /// rather than defaulting it: every dispatcher that reaches the prebuilt
-    /// runner (``Lint/File/Single/Runner``) exports this token unconditionally
-    /// before spawning, so `nil` here is version skew, not a legitimate
-    /// caller with nothing to say. SET-but-unrecognized fails loud via
-    /// ``Error/invalid(value:)``: a machine-set channel carrying an unknown
-    /// token is also version skew between dispatcher and runner, and linting
-    /// a SUBSTITUTED bundle would be a wrong-result-that-exits-0 hazard
-    /// (mirrors the exit-policy / selection / parent channel discipline).
+
     public enum Channel {}
 }
 
 extension Lint.Rule.Bundle.Baked.Channel {
-    /// The environment variable name.
+
     public static let variable: Swift.String = "SWIFT_LINTER_BUNDLE"
 
-    /// Read the baked-bundle selection from the process environment.
-    ///
-    /// - Returns: the parsed token, or `nil` when the variable is unset.
-    /// - Throws: ``Error/invalid(value:)`` when set to a value outside the
-    ///   ``Lint/Rule/Bundle/Baked`` vocabulary.
     public static func read() throws(Error) -> Lint.Rule.Bundle.Baked? {
         guard let raw: Swift.String = Environment.read(Self.variable) else {
             return nil

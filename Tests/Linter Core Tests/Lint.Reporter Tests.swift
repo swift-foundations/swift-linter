@@ -1,14 +1,3 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 import Linter_Primitives
 import Linter_Reporter_SARIF
 import Linter_Reporter_Text
@@ -23,8 +12,7 @@ extension Lint.Reporter {
 }
 
 extension Lint.Reporter.Test {
-    /// Build a fixture record; tests vary visibility and assert that
-    /// the reporter output surfaces the tag.
+
     fileprivate static func fixture(
         visibility: Lint.Visibility?
     ) -> Lint.Finding {
@@ -43,15 +31,13 @@ extension Lint.Reporter.Test {
     }
 }
 
-// MARK: - Text reporter
-
 extension Lint.Reporter.Test.Text {
     @Test
     func `nil visibility omits the bracketed suffix`() {
         let finding = Lint.Reporter.Test.fixture(visibility: nil)
         let line = Lint.Reporter.Text.line(for: finding)
         #expect(!line.contains("[visibility:"))
-        // SwiftLint-compatible shape still intact.
+
         #expect(line.hasPrefix("/tmp/Foo.swift:10:5: warning: fixture rule: fixture message"))
     }
 
@@ -72,15 +58,13 @@ extension Lint.Reporter.Test.Text {
     }
 }
 
-// MARK: - SARIF reporter
-
 extension Lint.Reporter.Test.SARIF {
     @Test
     func `nil visibility omits the properties field`() {
         let finding = Lint.Reporter.Test.fixture(visibility: nil)
         let report = Lint.Reporter.SARIF.report(for: [finding])
         #expect(!report.contains("\"visibility\""))
-        // Sanity: the result block still rendered.
+
         #expect(report.contains("\"ruleId\""))
     }
 

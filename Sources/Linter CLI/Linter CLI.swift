@@ -1,14 +1,3 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 public import ArgumentParser
 import Environment
 import File_System
@@ -19,12 +8,6 @@ import Linter_Reporter_SARIF
 import Linter_Reporter_Text
 import Terminal_Primitives
 
-// REASON: the CLI writes diagnostics through the L2 terminal syscall extension and
-// resolves the working directory through the L2 directory surface; both are declared
-// per platform, so the OS-conditional import is the deliberate unification boundary
-// (same shape as the reporters). The POSIX side reaches these surfaces transitively
-// through the L3-unifier `Kernel`; Windows has no L3-policy directory surface yet, so
-// the Win32 L2 modules are imported directly here.
 #if os(Windows)
     import Windows_32_Kernel_Directory
     import Windows_32_Kernel_Terminal
@@ -34,7 +17,7 @@ extension Lint.Reporter.Format: ExpressibleByArgument {}
 extension Lint.Run.Policy: ExpressibleByArgument {}
 
 extension File.Path: @retroactive ExpressibleByArgument {
-    /// Creates a path by validating the CLI-supplied argument string, or `nil` if invalid.
+
     public init?(argument: Swift.String) {
         do throws(Paths.Path.Error) {
             self = try File.Path(argument)
@@ -117,14 +100,6 @@ extension Lint {
     }
 }
 
-// `static let configuration`, `run()`, `resolveConfiguration`, and `emit` live
-// in this extension per `[API-IMPL-008]` (minimal type body): the `@main`
-// `ParsableCommand` struct body carries ONLY its `@Argument`/`@Option` stored
-// properties (ArgumentParser binds the option vocabulary via those declared
-// wrappers); the command's static configuration and behavior are extension
-// members. `@main` + `ParsableCommand` conformance resolve through the extension
-// (the `static var configuration` / `func run()` requirements are satisfied by
-// extension members; the `@main` synthesized entry point finds them).
 extension Lint.CLI {
     static let configuration = CommandConfiguration(
         commandName: "swift-linter",
@@ -148,19 +123,13 @@ extension Lint.CLI {
 }
 
 extension Lint.CLI {
-    /// The kernel write-syscall error thrown by `Terminal.Stream.Write` on this
-    /// platform: POSIX -> `ISO_9945.Kernel.IO.Write.Error` (`write(2)`);
-    /// Windows -> `Windows.`32`.Kernel.IO.Write.Error` (`WriteFile`).
+
     #if !os(Windows)
         fileprivate typealias KernelWrite = ISO_9945.Kernel.IO.Write.Error
     #else
         fileprivate typealias KernelWrite = Windows.`32`.Kernel.IO.Write.Error
     #endif
 
-    /// Adapts a diagnostic's UTF-8 bytes to the element type this platform's
-    /// `Terminal.Stream.Write.callAsFunction` parameter declares: POSIX takes
-    /// `some Sequence<Byte>`, Windows takes `some Sequence<UInt8>`. `Byte` is a
-    /// distinct wrapper struct, not a `UInt8` typealias, so the two do not unify.
     #if !os(Windows)
         fileprivate static func bytes(of text: Swift.String) -> [Byte] {
             text.utf8.map(Byte.init)
@@ -171,12 +140,6 @@ extension Lint.CLI {
         }
     #endif
 
-    /// The process working directory, or `nil` when the platform call fails.
-    ///
-    /// POSIX reads the `getcwd(3)` bytes through the L3-unifier `Kernel`;
-    /// Windows reads `GetCurrentDirectoryW`'s UTF-16 code units through the
-    /// Win32 L2 directory surface. Failure is a silent fallback in both cases —
-    /// the consumer-root string is then left unchanged.
     fileprivate static func currentWorkingDirectory() -> Swift.String? {
         let result: Swift.String?
         #if !os(Windows)
@@ -206,42 +169,16 @@ extension Lint.CLI {
 }
 
 extension Lint.CLI {
-    // ArgumentParser's `ParsableCommand.run()` protocol requirement is
-    // bare-throws; typed throws is unavailable here until upstream
-    // adoption. The body throws three distinct types (`ExitCode`,
-    // `Path.Error` via `try File.Path(_:)`, `Lint.Run.Error`) — they
-    // unify to `any Error` at the boundary by necessity, not by choice.
-    // swift-linter:disable:next untyped throws
-    // REASON: signature forced by external protocol ArgumentParser.ParsableCommand.run()
-    // (bare `throws`); typed throws is unavailable here until upstream adoption.
-    // swiftlint:disable:next typed_throws_required
+
     func run() throws {
-        // Resolve `"."` / empty to an absolute path before any
-        // engine-side path arithmetic. SwiftPM rejects the literal
-        // `"."` as a package name in the materialized eval project
-        // (yields `unknown package '.'`); the CLI is the boundary
-        // between user-supplied paths and engine internals, so cwd
-        // resolution lives here per the platform skill's L3-unifier
-        // composition discipline. Linter Core stays kernel-free.
+
         let consumerRootString: Swift.String = Lint.File.Single.canonicalize(
             consumerRoot: paths.first ?? ".",
             currentWorkingDirectory: { Lint.CLI.currentWorkingDirectory() }
         )
-        // F-A2.1 / F-A2.3 (audit `Research/2026-05-12-typed-primitive-adoption-audit.md`):
-        // bare-string → `File.Path` conversion happens once at the
-        // CLI boundary per `[IMPL-010]`. Every engine surface below
-        // receives the typed value.
+
         let consumerRoot: File_System.File.Path = try File_System.File.Path(consumerRootString)
 
-        // Fix mode rides its own environment channel, exported here once,
-        // for the same reason the exit policy does: the dispatched
-        // executables read only lint-target paths from their argument
-        // vector, so a `--fix` on that vector would be read as a path. Both
-        // dispatch targets and the in-process fallback below funnel through
-        // `Lint.run(configuration:)` / `Lint.Fix.apply`, so this single
-        // export reaches all three. Exported only when requested — unset IS
-        // an ordinary lint run, and every pre-existing invocation stays
-        // bit-identical.
         let fixMode: Lint.Fix.Mode? = fix ? (dryRun ? .dryRun : .apply) : nil
         if let fixMode {
             guard !targets.isEmpty else {
@@ -279,45 +216,17 @@ extension Lint.CLI {
             throw ExitCode.failure
         }
 
-        // Export the typed report selection before choosing an execution
-        // path. Single-file eval, the prebuilt standard runner, and a nested
-        // configured package each inherit the process environment and converge
-        // on `Lint.run(configuration:)`, which reads this channel at their
-        // shared terminal. Writing `.text` too is intentional: the CLI's
-        // selection is authoritative even when its own parent environment
-        // carries a different token.
         try Environment.write(
             Lint.Reporter.Format.Channel.variable,
             to: Lint.Reporter.Format.Channel.value(format)
         )
-        // Export strict exit policy before choosing a configured dispatch
-        // path. Single-file eval, the prebuilt standard runner, and a nested
-        // configured package each inherit this process environment and read
-        // the channel at their shared `Lint.run(configuration:)` terminal.
-        // Advisory remains the unset compatibility default.
+
         if policy != .advisory {
             try Environment.write(Lint.Run.Policy.Channel.variable, to: policy.rawValue)
         }
 
-        // Single-file `Lint.swift` (Shape γ) dispatch — research
-        // recommendation 2026-05-12-swift-linter-unified-consumer-manifest.md.
-        // When the consumer places a `Lint.swift` at the package root
-        // with a `// swift-linter-tools-version:` magic-comment header,
-        // swift-linter parses it via SwiftSyntax to extract the
-        // declared `.package(...)` dependencies, materializes an eval
-        // project at `<consumerRoot>/.swift-lint/eval/`, and dispatches
-        // `swift run --package-path <eval> Lint <args>`. The dispatched
-        // executable IS the linter binary for the consumer.
         if Lint.File.Single.Detection.detect(at: consumerRoot) != nil {
-            // Format and exit policy no longer gate the prebuilt fast path:
-            // both are typed channels read by the same
-            // `Lint.run(configuration:)` terminal the eval executable uses.
-            // Per-run nonce (2f): woven into the selection / parent channel
-            // temp-file names so concurrent `swift-linter` runs on the same
-            // consumer root never clobber a FIXED path. A 64-bit random hex
-            // token is unique-per-run with overwhelming probability; the CLI
-            // is the right place to mint it (Linter Core stays kernel-free,
-            // mirroring the injected cwd closure).
+
             let runNonce: Swift.String = Swift.String(
                 UInt64.random(in: UInt64.min...UInt64.max),
                 radix: 16
@@ -337,7 +246,7 @@ extension Lint.CLI {
                         )
                     )
                 } catch {
-                    // Best-effort stderr write; broken pipe is acceptable.
+
                 }
                 throw ExitCode.failure
             }
@@ -347,18 +256,6 @@ extension Lint.CLI {
             return
         }
 
-        // Lint/ nested-package dispatch (architecture cohort Phase A).
-        // When the consumer opts into the nested-package shape via a
-        // `Lint/Package.swift`, swift-linter delegates the run to the
-        // consumer's Lint/ executable (which links engine + rule packs
-        // declared in its Lint/Package.swift). The dispatched
-        // executable's stdout IS the authoritative diagnostic stream;
-        // this CLI becomes a coordinator under that path.
-        //
-        // `onDispatchError` translates the typed `Manifest.NestedPackage.Error`
-        // (silently suppressed at the library boundary) into a stderr
-        // diagnostic. Without this hook the user sees a bare non-zero
-        // exit with no explanation when the nested-package spawn fails.
         if let dispatchedExitCode = Lint.Driver.dispatch.nested(
             at: consumerRoot,
             arguments: paths,
@@ -371,7 +268,7 @@ extension Lint.CLI {
                         )
                     )
                 } catch {
-                    // Best-effort stderr write; broken pipe is acceptable.
+
                 }
             }
         ) {
@@ -382,14 +279,7 @@ extension Lint.CLI {
         }
 
         let configuration: Lint.Configuration = resolveConfiguration(consumerRoot: consumerRoot)
-        // ArgumentParser hands `[String]`; validate at the CLI boundary
-        // exactly once via `try File.Path(_:)` so the engine receives
-        // typed paths from here down [IMPL-010].
-        // Typed-throws closure annotation (`throws(Paths.Path.Error)`): a
-        // bare `paths.map { try … }` erases the typed throw through stdlib
-        // `rethrows` to `any Error` and trips `result wrapper for rethrows
-        // shim` ([IMPL-109]). The annotated closure keeps the throw typed and
-        // rethrows it precisely, matching the `run(configuration:)` precedent.
+
         let typedPaths: [File_System.File.Path] = try paths.map {
             (raw: Swift.String) throws(Paths.Path.Error) in
             try File_System.File.Path(raw)
@@ -463,23 +353,6 @@ extension Lint.CLI {
         }
     }
 
-    /// Resolves the configuration to use for this run.
-    ///
-    /// Phase 2 v2: full Manifest.load subprocess evaluation. When the
-    /// user passes `--lint-swift-path`, that explicit file path
-    /// overrides the default detection at `<paths.first>/Lint.swift`.
-    /// The driver falls back to a defaults-everything Configuration
-    /// when no manifest is reachable (per supervisor block entry #5).
-    ///
-    /// `onMissingLinterPath` translates the silently-suppressed
-    /// `SWIFT_LINTER_PATH`-unset case into a stderr diagnostic. The
-    /// library still falls back to defaults-everything; the CLI tells
-    /// the user why.
-    ///
-    /// F-A2.1 / F-A2.2: typed `File.Path` artery from CLI boundary
-    /// down. The `--lint-swift-path` flag binds directly to a
-    /// `File.Path?` via `ExpressibleByArgument`, so the override is
-    /// already typed by the time it reaches here.
     fileprivate func resolveConfiguration(consumerRoot: File_System.File.Path) -> Lint.Configuration
     {
         return Lint.Driver.configuration(
@@ -495,16 +368,14 @@ extension Lint.CLI {
                         )
                     )
                 } catch {
-                    // Best-effort stderr write; broken pipe is acceptable.
+
                 }
             }
         )
     }
 
     func emit(_ findings: [Lint.Finding]) {
-        // Phase 2 Stream C: emit directly via Terminal.Stream.Write's
-        // L2 syscall extension (POSIX: swift-iso-9945; Windows:
-        // swift-windows-32). OQ-T2 from Phase 1.5 is closed.
+
         format.emit(findings: findings, to: Terminal.Stream.stdout.write)
     }
 }

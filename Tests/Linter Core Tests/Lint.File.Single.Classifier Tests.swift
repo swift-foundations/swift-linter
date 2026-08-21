@@ -1,14 +1,3 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 import Linter_Primitives
 import Testing
 
@@ -19,28 +8,13 @@ extension Lint.File.Single.Classifier {
     struct Test {}
 }
 
-// MARK: - classify(source:)
-//
-// Phase-3 fast-path/eval-fallback classifier. A consumer is routed to the
-// prebuilt standard runner ONLY when its active rule set is exactly ONE of the
-// baked bundles (`Lint.Rule.Bundle.Baked`: primitives / standards / institute)
-// the runner bakes — guaranteeing the runner reproduces the eval result with
-// the bundle the CONSUMER selected (the A4-gap vocabulary). Every other shape,
-// including a non-baked bundle, and any parse the classifier
-// is unsure about, falls back to the eval path (failure-safe). Fixtures mirror
-// real ecosystem consumers: swift-array-primitives (bare), swift-cardinal-
-// primitives (excludes), swift-carrier-primitives (inline rule + excludes).
-
 extension Lint.File.Single.Classifier.Test {
-    /// Pattern helper — `Classification.evalFallback` carries a varying
-    /// `reason`, so equality is checked structurally, not by reason text.
+
     private func isEvalFallback(_ classification: Lint.File.Single.Classification) -> Swift.Bool {
         if case .evalFallback = classification { return true }
         return false
     }
 
-    /// Pattern helper — extract the bundle token and excluded ID set, or
-    /// `nil` if the classification is not `.fastPathStandardBundleExcluding`.
     private func excluded(
         _ classification: Lint.File.Single.Classification
     ) -> (bundle: Lint.Rule.Bundle.Baked, disabled: Swift.Set<Lint.Rule.ID>)? {
@@ -90,8 +64,7 @@ extension Lint.File.Single.Classifier.Test {
 
     @Test
     func `Excluding with string-literal IDs is fast path with exact exclusions`() {
-        // swift-ordinal-primitives shape: bundle minus per-package excludes,
-        // expressed as bare `Lint.Rule.ID` string literals.
+
         let source = """
             // swift-linter-tools-version: 0.1
             import Linter
@@ -119,8 +92,7 @@ extension Lint.File.Single.Classifier.Test {
 
     @Test
     func `Excluding with .id-accessor IDs is fast path with exact exclusions`() {
-        // swift-cardinal-primitives shape: typed `Lint.Rule.`name`.id` accessors.
-        // The backtick name == the rule's `id:` string (institute convention).
+
         let source = """
             // swift-linter-tools-version: 0.1
             import Linter
@@ -169,9 +141,7 @@ extension Lint.File.Single.Classifier.Test {
 
     @Test
     func `Excluding with an unreadable element falls back to eval (never guess)`() {
-        // A computed/interpolated element the classifier cannot read exactly
-        // must drop the WHOLE consumer to the eval fallback — a partially-
-        // extracted exclusion set would silently fire an excluded rule.
+
         let source = """
             // swift-linter-tools-version: 0.1
             import Linter
@@ -207,7 +177,7 @@ extension Lint.File.Single.Classifier.Test {
 
     @Test
     func `Inline custom rule plus enable falls back to eval`() {
-        // swift-carrier-primitives shape (the 1/78 inline-rule consumer).
+
         let source = """
             // swift-linter-tools-version: 0.1
             import Linter
@@ -234,9 +204,7 @@ extension Lint.File.Single.Classifier.Test {
 
     @Test
     func `Bare standards bundle is the fast path with the standards token`() {
-        // swift-uri-standard shape (A4-gap closure): the runner bakes
-        // `Bundle.standards` too, so a bare standards consumer routes to it
-        // with the `standards` token — never the primitives set.
+
         let source = """
             // swift-linter-tools-version: 0.1
             import Linter
@@ -315,10 +283,7 @@ extension Lint.File.Single.Classifier.Test {
 
     @Test
     func `Non-baked bundle falls back to eval`() {
-        // A bare `universal` bundle is outside the baked vocabulary (its sole
-        // consumer is the universal pack's own self-lint) — the runner would
-        // have to substitute a different rule set, so it must take the eval
-        // fallback.
+
         let source = """
             // swift-linter-tools-version: 0.1
             import Linter
@@ -351,8 +316,7 @@ extension Lint.File.Single.Classifier.Test {
 
     @Test
     func `Parent inheritance directive falls back to eval`() {
-        // The runner's `Lint.run(bundle:)` folds no parent manifest, so a
-        // `// parent:` chain could add/remove rules the runner can't reflect.
+
         let source = """
             // swift-linter-tools-version: 0.1
             // parent: https://github.com/swift-primitives/swift-primitives-linter-rules.git
@@ -370,12 +334,7 @@ extension Lint.File.Single.Classifier.Test {
 
     @Test
     func `A non-directive parent substring stays on the fast path`() {
-        // 2e: the parent gate uses `Manifest.Parent.scan` (line-anchored,
-        // leading-30-lines) — the SAME routine the resolver uses — not a raw
-        // `source.contains("// parent:")`. A `// parent:` appearing as a
-        // trailing comment (not a line-anchored directive) is NOT a parent
-        // chain: the resolver would not act on it, so the consumer stays on the
-        // fast path. The old substring match wrongly forced eval here.
+
         let source = """
             // swift-linter-tools-version: 0.1
             import Linter
@@ -405,8 +364,7 @@ extension Lint.File.Single.Classifier.Test {
 
     @Test
     func `Two-statement bare closure falls back to eval`() {
-        // A sibling statement next to the bare bundle (even a redundant one)
-        // means the active set is not provably the baked set — fall back.
+
         let source = """
             // swift-linter-tools-version: 0.1
             import Linter

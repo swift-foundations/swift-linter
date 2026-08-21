@@ -1,33 +1,6 @@
 // swift-tools-version: 6.4
 import PackageDescription
 
-// ===----------------------------------------------------------------------===//
-//
-// Phase-3 "standard runner" — the full-bake executable that bundles the engine
-// (Linter) + SwiftSyntax + the standard primitives rule-pack bundle, compiled
-// ONCE and reused warm. The swift-linter CLI fast path
-// (Lint.File.Single.Classifier) routes a pure-bundle consumer here instead of
-// materializing + compiling a per-run eval project, turning a cold ~335–605s
-// eval into a ~0.65s warm lint.
-//
-// This is a SEPARATE package nested in the swift-linter repo (not a target of
-// the root Package.swift) so it can be built and cached independently in CI:
-//
-//   swift build --package-path Runner --product runner   # debug, ~310–560s once
-//
-// then the dispatcher fast path execs the cached `runner` binary via the
-// SWIFT_LINTER_RUNNER environment variable.
-//
-// All deps are branch:"main" URL packages so the [CI-044] composite cache key
-// (engine HEAD + standard rule-pack HEADs) governs freshness; a rule-pack
-// commit busts the key → one shared rebuild → instant warm thereafter
-// ("A-dynamic": rules always track latest committed main). The local-dev build
-// resolves these URLs through ~/.swiftpm/configuration/mirrors.json.
-//
-// See Research/near-instant-lint-with-external-rule-loading.md (Phase 3).
-//
-// ===----------------------------------------------------------------------===//
-
 let package = Package(
     name: "standard-runner",
     platforms: [.macOS(.v27)],
@@ -54,11 +27,7 @@ let package = Package(
             name: "runner",
             dependencies: [
                 .product(name: "Linter", package: "swift-linter"),
-                // Each aggregate product delivers one baked bundle
-                // (transitively re-exporting its upstream tiers):
-                // `Bundle.primitives`, `Bundle.standards`, `Bundle.institute`.
-                // The dispatcher selects among them per spawn via the
-                // SWIFT_LINTER_BUNDLE channel (A4-gap closure).
+
                 .product(name: "Linter Primitives Rules", package: "swift-primitives-linter-rules"),
                 .product(name: "Linter Standards Rules", package: "swift-standards-linter-rules"),
                 .product(name: "Linter Institute Rules", package: "swift-institute-linter-rules"),

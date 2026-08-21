@@ -1,5 +1,3 @@
-// swift-linter-tools-version: 0.1
-
 import Linter
 
 extension Lint.Rule {

@@ -1,14 +1,3 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 import File_System
 import Testing
 
@@ -19,42 +8,20 @@ extension Lint.File.Single.Channel {
     struct Test {}
 }
 
-// MARK: - Lint.File.Single.Channel
-//
-// Hole 1b regression + the unified symmetric IPC contract. The selection and
-// parent channels both:
-//   - read() == nil ONLY when the variable is UNSET (legitimate "no overlay");
-//   - HARD-ERROR (throw) when the variable is SET but the file is
-//     missing / unreadable / unparseable — NEVER a silent fall-through that
-//     would widen to the full baked bundle (re-firing an excluded rule) or
-//     silently drop a parent's rules.
-// The fail-loud SET path is exercised through `resolve(raw:)`, which is the
-// SET case in isolation (no process-env mutation required).
-//
-// Fixtures use the institute `File_System` temp APIs (Foundation-free per
-// [PRIM-FOUND-001]); a broken temp environment is a broken test, not a runtime
-// fault, so `try!` is the right shape for setup.
-
 extension Lint.File.Single.Channel.Test {
     private static func freshRoot(key: Swift.String) -> File.Path {
-        // swift-format-ignore: NeverUseForceTry
-        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
-        // swiftlint:disable:next force_try
+
         try! File.Path.Temporary.deterministic(prefix: "lint-channel-root-", key: key, suffix: "")
     }
 
     private static func writeFixture(key: Swift.String, content: Swift.String) -> File.Path {
-        // swift-format-ignore: NeverUseForceTry
-        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
-        // swiftlint:disable:next force_try
+
         let path = try! File.Path.Temporary.deterministic(
             prefix: "lint-channel-file-",
             key: key,
             suffix: ".json"
         )
-        // swift-format-ignore: NeverUseForceTry
-        // REASON: fixture setup — a broken temp environment is a broken test, not a runtime fault.
-        // swiftlint:disable:next force_try
+
         try! File(path).write.atomic(content)
         return path
     }
@@ -63,8 +30,7 @@ extension Lint.File.Single.Channel.Test {
     func `An UNSET channel variable reads as nil (no overlay)`() throws(Lint.File.Single.Channel
         .Error)
     {
-        // A variable guaranteed unset in the test environment — only an UNSET
-        // variable is a legitimate nil.
+
         let channel = Lint.File.Single.Channel(
             variable: "SWIFT_LINTER_TEST_DEFINITELY_UNSET_8F3A2B",
             basename: "test-manifest"
@@ -75,9 +41,7 @@ extension Lint.File.Single.Channel.Test {
 
     @Test
     func `A SET-but-missing manifest HARD-ERRORS, never silently widens`() {
-        // THE 1b regression: the SET case with a missing file must THROW —
-        // it must NEVER return nil (which the runner would read as "no overlay"
-        // → lint the FULL baked bundle → re-fire an EXCLUDED rule, exit 0).
+
         let channel = Lint.File.Single.Channel.selection
         do throws(Lint.File.Single.Channel.Error) {
             _ = try channel.resolve(raw: "/nonexistent/swift-linter-test/selection-manifest.json")
@@ -87,7 +51,7 @@ extension Lint.File.Single.Channel.Test {
         } catch {
             switch error {
             case .unreadable:
-                break  // expected
+                break
 
             default:
                 Issue.record("expected .unreadable, got \(error)")
@@ -105,7 +69,7 @@ extension Lint.File.Single.Channel.Test {
         } catch {
             switch error {
             case .unparseable:
-                break  // expected
+                break
 
             default:
                 Issue.record("expected .unparseable, got \(error)")

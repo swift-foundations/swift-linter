@@ -1,41 +1,18 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 public import File_System
 public import Linter_Primitives
 
 extension Lint.Fix {
-    /// One source file rewrite in the run's exact publication plan.
-    ///
-    /// Both texts are carried rather than a precomputed diff so that the
-    /// reporting shape is the caller's choice and the applying path and the
-    /// dry-run path emit from the same value.
+
     public struct Change: Sendable, Equatable {
-        /// The exact path planned for replacement.
+
         public let path: File.Path
 
-        /// The rules whose fixes contributed, in application order.
-        ///
-        /// A file that several rules touched lists each of them: the commit
-        /// message for a fix run should be able to name what it applied.
         public let rules: [Lint.Rule.ID]
 
-        /// The file's text before any fix ran.
         public let original: Swift.String
 
-        /// The file's text after every participating fix ran.
         public let fixed: Swift.String
 
-        /// Creates a change from the file, the contributing rules, and the
-        /// text on both sides of the rewrite.
         @inlinable
         public init(
             path: File.Path,
@@ -52,32 +29,15 @@ extension Lint.Fix {
 }
 
 extension Lint.Fix {
-    /// A rewrite the engine computed and then declined to publish, because
-    /// the rewritten text failed the guard for its scope — see ``Reason``.
-    ///
-    /// Reported rather than discarded: a rewriter emitting a rewrite its
-    /// scope's guard rejects is a defect in that rewriter, and a fix run
-    /// that hid it would let the defect persist behind a clean-looking
-    /// result.
+
     public struct Refusal: Sendable, Equatable {
-        /// The file whose rewrite was refused.
-        ///
-        /// A refusal prevents the applying run's complete plan from reaching
-        /// publication, so every source file remains unchanged.
+
         public let path: File.Path
 
-        /// The rule whose fix produced the refused rewrite.
         public let rule: Lint.Rule.ID
 
-        /// Why the rewrite was refused.
         public let reason: Reason
 
-        /// Creates a refusal from the file, the rule whose fix produced the
-        /// refused rewrite, and why it was refused.
-        ///
-        /// `reason` defaults to ``Reason/unparseable`` — every ordinary
-        /// file's only possible refusal — so every pre-existing call site
-        /// is unaffected.
         @inlinable
         public init(path: File.Path, rule: Lint.Rule.ID, reason: Reason = .unparseable) {
             self.path = path

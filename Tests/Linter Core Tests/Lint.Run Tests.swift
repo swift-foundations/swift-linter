@@ -1,14 +1,3 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 import File_System
 import Linter_Primitives
 import Testing
@@ -23,13 +12,6 @@ extension Lint.Run {
     }
 }
 
-// Engine-level brand pre-pass coverage (§A brand-owner recognizer). A
-// synthetic rule fires once per visited file UNLESS the run's own sources
-// declare `Cardinal` — reading the run-level `declaredTypeNames` the engine's
-// pre-pass stamps on every `Lint.Source.Parsed`. The point is to prove the
-// engine computes the run-level union ACROSS files and threads it through:
-// the brand is declared in `Cardinal.swift`, but the rule must self-suppress
-// even when visiting the sibling `Boundary.swift`.
 extension Lint.Rule {
     fileprivate static let `brand aware fixture` = Lint.Rule(
         id: "brand aware fixture",
@@ -62,8 +44,8 @@ extension Lint.Run.Test.`Brand Pre-Pass` {
             testFile
             .split(separator: "/", omittingEmptySubsequences: false)
             .map(Swift.String.init)
-        _ = components.popLast()  // "Lint.Run Tests.swift"
-        _ = components.popLast()  // "Linter Core Tests"
+        _ = components.popLast()
+        _ = components.popLast()
         components.append("Fixtures")
         components.append(name)
         return try File.Path(components.joined(separator: "/"))
@@ -71,10 +53,7 @@ extension Lint.Run.Test.`Brand Pre-Pass` {
 
     @Test
     func `brand owner run self-suppresses across files`() throws(Lint.Run.Error) {
-        // Two files: Cardinal.swift declares the brand, Boundary.swift does
-        // not. Both invocations must self-suppress via the run-level set.
-        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
-        // swiftlint:disable:next force_try
+
         let root = try! Self.fixtureRoot("brand-prepass-fixture")
         let configuration = Lint.Configuration {
             .enable(.`brand aware fixture`)
@@ -85,9 +64,7 @@ extension Lint.Run.Test.`Brand Pre-Pass` {
 
     @Test
     func `consumer run without the brand still fires`() throws(Lint.Run.Error) {
-        // No file in the run declares Cardinal — the rule fires (one file).
-        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
-        // swiftlint:disable:next force_try
+
         let root = try! Self.fixtureRoot("brand-consumer-fixture")
         let configuration = Lint.Configuration {
             .enable(.`brand aware fixture`)
@@ -97,10 +74,6 @@ extension Lint.Run.Test.`Brand Pre-Pass` {
     }
 }
 
-// Engine-level path-filter tests use a synthetic fixture rule constructed
-// inline; the engine package has no dependency on any rule pack. The rule
-// fires once per visited source file, which is sufficient signal to
-// validate the `Lint.Filter` discrimination paths.
 extension Lint.Rule {
     fileprivate static let `test fixture` = Lint.Rule(
         id: "test fixture",
@@ -123,42 +96,18 @@ extension Lint.Rule {
     )
 }
 
-// MARK: - Path filter integration
-//
-// Engine-layer integration coverage for the per-rule
-// `Lint.Rule.Configuration.paths` filter (`Lint.Filter`). The fixture
-// at `Tests/Fixtures/path-filter-fixture/` contains two source files
-// — `Sources/A/x.swift` and `Sources/B/y.swift` — each carrying a
-// call-site `__unchecked:` argument that `Lint.Rule.Unchecked` fires
-// on. Each test activates `Lint.Rule.Unchecked` with a different
-// `paths:` filter shape and asserts the resulting finding count.
-//
-// Filter prefixes are bare run-root-relative strings (e.g.,
-// `"Sources/A"`) — the walker emits relative
-// ``Lint/Source/Path`` values per its run-root-stripping contract,
-// so prefix matches against bare relative entries align without any
-// absolute-root concatenation at call sites. This is the typed-rim,
-// typed-throughout shape: tests author intent (`"Sources/A"`), the
-// walker handles the mechanism (root-prefix strip).
-
 extension Lint.Run.Test.Integration {
-    /// Compute the absolute path to the fixture root:
-    /// `<swift-linter>/Tests/Fixtures/path-filter-fixture`.
-    ///
-    /// Resolves from `#filePath` of the test source so the path is
-    /// independent of the working directory at `swift test` time.
+
     private static func fixtureRoot(
         testFile: Swift.String = #filePath
     ) throws(Paths.Path.Error) -> File.Path {
-        // testFile = .../swift-linter/Tests/Linter Core Tests/Lint.Run Tests.swift
-        // Strip the filename and the test-target directory, leaving
-        // .../swift-linter/Tests/, then descend into the fixture path.
+
         var components: [Swift.String] =
             testFile
             .split(separator: "/", omittingEmptySubsequences: false)
             .map(Swift.String.init)
-        _ = components.popLast()  // "Lint.Run Tests.swift"
-        _ = components.popLast()  // "Linter Core Tests"
+        _ = components.popLast()
+        _ = components.popLast()
         components.append("Fixtures")
         components.append("path-filter-fixture")
         return try File.Path(components.joined(separator: "/"))
@@ -166,11 +115,7 @@ extension Lint.Run.Test.Integration {
 
     @Test
     func `paths .all yields findings for both A and B`() throws(Lint.Run.Error) {
-        // `fixtureRoot` validates a path composed from `#filePath`;
-        // failure indicates a compile-time invariant break, so `try!`
-        // is justified per [API-ERR-001]'s precondition exception.
-        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
-        // swiftlint:disable:next force_try
+
         let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .all)
@@ -181,8 +126,7 @@ extension Lint.Run.Test.Integration {
 
     @Test
     func `paths .including A yields finding for A only`() throws(Lint.Run.Error) {
-        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
-        // swiftlint:disable:next force_try
+
         let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .including(["Sources/A"]))
@@ -194,8 +138,7 @@ extension Lint.Run.Test.Integration {
 
     @Test
     func `paths .excluding B yields finding for A only`() throws(Lint.Run.Error) {
-        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
-        // swiftlint:disable:next force_try
+
         let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .excluding(["Sources/B"]))
@@ -207,8 +150,7 @@ extension Lint.Run.Test.Integration {
 
     @Test
     func `paths .including non-matching yields no findings`() throws(Lint.Run.Error) {
-        // REASON: fixture root — unresolvable means a broken test, not a runtime fault.
-        // swiftlint:disable:next force_try
+
         let root = try! Self.fixtureRoot()
         let configuration = Lint.Configuration {
             .enable(.`test fixture`, paths: .including(["Tests/Fixtures/Other"]))

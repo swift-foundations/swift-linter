@@ -1,14 +1,3 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 import Environment
 import JSON
 import Linter
@@ -166,16 +155,7 @@ import Testing
             violations expectedViolations: Swift.Int,
             findings expectedFindings: Swift.Int? = nil
         ) {
-            // Every fixture driven through this helper enables only the
-            // shared `report format fixture` rule (severity `.error`), so
-            // absent an explicit override the total findings count and the
-            // SARIF result count coincide with the result count itself —
-            // there are no note/remark findings in this population. The
-            // dedicated mixed-severity coverage
-            // (`Lint.Run.Outcome.Test.Integration`) is what proves findings
-            // and violations diverge; this helper only pins that the CLI
-            // wires the (possibly-equal) `findings` count through to both
-            // surfaces unchanged.
+
             let expectedFindings = expectedFindings ?? expectedResults
             let stdout = Self.stdout(output)
             let stderr = Self.stderr(output)
@@ -320,16 +300,7 @@ import Testing
                     environment: Lint.Reporter.Format.Test.Executable.environment(
                         linter: Lint.Reporter.Format.Test.Executable.root()
                     ),
-                    // The eval-fallback path materializes and cold-builds an
-                    // entirely separate SwiftPM package (full resolve +
-                    // debug build of the Linter engine dependency graph),
-                    // comparable in cost to the outer package's own build —
-                    // orders of magnitude heavier than the other spawn-based
-                    // tests in this file, which share the shared 600s
-                    // timeout above. Give this call site its own headroom
-                    // (order of the outer package's full build time plus
-                    // margin) rather than raising the shared constant every
-                    // other test also pays for.
+
                     timeout: .seconds(1800)
                 )
             else { return }
@@ -393,11 +364,7 @@ import Testing
                 return
             }
             let arguments = [Lint.Reporter.Format.Test.Executable.fixture("report-format-direct")]
-            // The bundle channel is unconditional for every real dispatcher
-            // (see `Lint.File.Single.Runner.run`); a direct spawn of the
-            // prebuilt runner binary — bypassing that dispatcher — must set
-            // it explicitly now that an unset bundle channel is a hard
-            // error. Only the FORMAT channel is exercised unset here.
+
             let primitivesBundle = Lint.Rule.Bundle.Baked.primitives.rawValue
             guard
                 let unset = Lint.Reporter.Format.Test.Executable.run(

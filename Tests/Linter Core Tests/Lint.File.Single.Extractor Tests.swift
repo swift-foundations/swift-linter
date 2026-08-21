@@ -1,14 +1,3 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 import File_System
 import SPM_Standard
 import Testing
@@ -28,16 +17,6 @@ extension Lint.File.Single {
         @Suite struct Canonicalize {}
     }
 }
-
-// MARK: - canonicalize(consumerRoot:currentWorkingDirectory:)
-//
-// CLI-boundary helper that resolves `"."` / empty consumer-root paths
-// to the absolute current working directory before any engine-side path
-// arithmetic. SwiftPM rejects the literal `"."` as a package name in
-// the materialized eval project (`unknown package '.'`); the helper
-// closes that gap at the user-input boundary. Closure-injected cwd
-// keeps Linter Core kernel-free; the CLI binds the closure to
-// Kernel.Directory.Working.withCurrentBytes per the platform skill.
 
 extension Lint.File.Single.Test.Canonicalize {
     @Test
@@ -78,11 +57,7 @@ extension Lint.File.Single.Test.Canonicalize {
 
     @Test
     func `Dot consumerRoot with cwd unavailable falls back to dot`() {
-        // When the cwd closure returns nil (e.g., getcwd syscall failure),
-        // the canonicalize helper falls back to the input. Downstream
-        // SwiftPM resolution will then surface the historic
-        // `unknown package '.'` error — failure is loud rather than
-        // silently coercing to a bogus path.
+
         let resolved = Lint.File.Single.canonicalize(
             consumerRoot: ".",
             currentWorkingDirectory: { nil }
@@ -90,13 +65,6 @@ extension Lint.File.Single.Test.Canonicalize {
         #expect(resolved == ".")
     }
 }
-
-// MARK: - name(at:consumerPackageRoot:)
-//
-// SwiftPM rejects the literal `"."` as a package name (`unknown package '.'`);
-// the self-reference path forms (`""` and `"."`) must derive the package name
-// from the consumer-root directory's basename instead — companion to the
-// `resolve(_:relativeTo:)` self-reference shortcut on the path-resolution side.
 
 extension Lint.File.Single.Extractor.Test.Name {
     @Test

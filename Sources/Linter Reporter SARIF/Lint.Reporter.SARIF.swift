@@ -1,55 +1,21 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 public import JSON
 public import Linter_Primitives
 public import Linter_Reporter_Text
 public import Terminal_Primitives
 
-// REASON: Phase 2 Stream C (OQ-T2 closed) — Reporter writes directly via the L2 terminal
-// syscall extension per platform; the OS-conditional import is the deliberate unification
-// boundary chosen when the Phase 1.5 closure stand-in was retired, not undifferentiated L1
-// primitive code.
 #if !os(Windows)
     public import ISO_9945_Kernel_Terminal
 #else
     public import Windows_32_Kernel_Terminal
 #endif
 
-/// SARIF 2.1.0 reporter — emits a single sarifLog object covering all
-/// findings from one run.
-///
-/// Suitable for CI artifact upload (GitHub Code Scanning, GitLab SAST, Azure
-/// DevOps Advanced Security).
-///
-/// Reference: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
-///
-/// JSON serialization composes `swift-foundations/swift-json` (Foundation-
-/// clean; backed by RFC 8259). Builds a `JSON` value via the package's
-/// literal-rich API and serializes via `JSON.serialize(pretty:)`.
-///
-/// Phase 2 Stream C: report writes directly to `Terminal.Stream.Write`
-/// via the L2 syscall extension. SARIF is a single-shot document (one
-/// JSON object per run) so the write fires once with the full payload.
 extension Lint.Reporter {
-    /// SARIF 2.1.0 reporter namespace — emits a single sarifLog object per run.
+
     public enum SARIF {}
 }
 
 extension Lint.Reporter.SARIF {
-    /// The kernel write-syscall error thrown by `Terminal.Stream.Write` on
-    /// this platform, resolved the same way as the OS-conditional import
-    /// above: POSIX -> `ISO_9945.Kernel.IO.Write.Error` (`write(2)`);
-    /// Windows -> `Windows.`32`.Kernel.IO.Write.Error` (`WriteFile`). Mirrors
-    /// the sibling text reporter's per-platform typealias shape.
+
     #if !os(Windows)
         fileprivate typealias Kernel = ISO_9945.Kernel.IO.Write.Error
     #else
@@ -58,12 +24,7 @@ extension Lint.Reporter.SARIF {
 }
 
 extension Lint.Reporter.SARIF {
-    /// Adapts the document's UTF-8 bytes to the exact `Sequence` element type
-    /// this platform's `Terminal.Stream.Write.callAsFunction` parameter
-    /// requires: POSIX takes `some Sequence<Byte>`, Windows takes
-    /// `some Sequence<UInt8>`. `Byte` is a distinct wrapper struct, not a
-    /// `UInt8` typealias, so the two element types do not unify — same
-    /// adaptation as the sibling text reporter.
+
     #if !os(Windows)
         fileprivate static func bytes(of text: Swift.String) -> [Byte] {
             text.utf8.map(Byte.init)
@@ -76,7 +37,7 @@ extension Lint.Reporter.SARIF {
 }
 
 extension Lint.Reporter.SARIF {
-    /// Emit a SARIF report via the given write surface.
+
     public static func emit(
         findings: [Lint.Finding],
         to write: Terminal.Stream.Write
@@ -84,13 +45,10 @@ extension Lint.Reporter.SARIF {
         do throws(Kernel) {
             _ = try write(bytes(of: report(for: findings) + "\n"))
         } catch {
-            // Best-effort stdout write; broken pipe is acceptable for
-            // a textual diagnostic emitter (the conventional behavior
-            // when stdout's reader has closed).
+
         }
     }
 
-    /// Build the SARIF document as a String (testable; CLI uses `emit`).
     public static func report(for findings: [Lint.Finding]) -> Swift.String {
         let document = sarifLog(for: findings)
         return document.serialize(pretty: true)
@@ -116,14 +74,6 @@ extension Lint.Reporter.SARIF {
         ]
     }
 
-    /// Map one ``Lint/Finding`` to its SARIF `result` object.
-    ///
-    /// When the finding carries a non-`nil` ``Lint/Finding/visibility``,
-    /// the `properties` bag receives a `visibility` field with the
-    /// enum's raw value (`"public"` / `"internal"` / `"fileprivate"` /
-    /// `"private"`). SARIF 2.1.0 admits arbitrary property bags on
-    /// `result` (§3.27.16), so consumers ignoring the field experience
-    /// no change in schema conformance.
     static func result(for finding: Lint.Finding) -> JSON {
         let record = finding.record
         let pathOrID = record.location.filePath ?? record.location.fileID
@@ -151,11 +101,7 @@ extension Lint.Reporter.SARIF {
             ),
         ]
         if let visibility = finding.visibility {
-            // swift-linter:disable:next raw value access
-            // REASON: `Lint.Visibility` is a `String`-backed `RawRepresentable` enum
-            // (`case public`/`internal`/…), NOT a Tagged newtype; `.rawValue` is the
-            // canonical access for its wire token at this SARIF serialization boundary.
-            // The rule's display/serialization disposition ([PATTERN-017]).
+
             let token: Swift.String = visibility.rawValue
             fields.append(
                 (
@@ -167,10 +113,6 @@ extension Lint.Reporter.SARIF {
         return JSON.object(fields)
     }
 
-    /// SARIF maps `.remark → "note"` (SARIF's level vocabulary is
-    /// `error / warning / note / none`; remark has no SARIF analog).
-    ///
-    /// All other tokens defer to `Diagnostic.Severity.wire.token`.
     static func level(for severity: Diagnostic.Severity) -> Swift.String {
         switch severity {
         case .remark: "note"

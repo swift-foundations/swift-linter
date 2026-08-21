@@ -1,12 +1,3 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// ===----------------------------------------------------------------------===//
-
 import File_System
 import JSON
 import Linter_Primitives
@@ -94,18 +85,6 @@ extension Lint.Run.Outcome.Test.Integration {
         #expect(!Lint.Run.Policy.advisory.fails(for: outcome.findings))
     }
 
-    // MARK: - Count contract (swift-foundations/swift-linter#22)
-    //
-    // A mixed-severity package (error + warning + note + remark, one finding
-    // apiece) proving the two observable count surfaces agree with the
-    // engine's own `Outcome` counts: the SARIF result count equals the total
-    // findings count (SARIF never filters by severity), and the violation
-    // count equals the count of SARIF results whose `level` names a
-    // violation severity (error/warning) — a downstream consumer (the
-    // Workspace ledger parity guard, swift-institute/Workspace#104) can
-    // select that subset from SARIF alone, without calling back into the
-    // linter.
-
     @Test
     func `SARIF result count and violation-level subset match the engine's dual counts`() throws {
         let error = Self.rule(id: "count-contract error fixture", severity: .error)
@@ -124,10 +103,6 @@ extension Lint.Run.Outcome.Test.Integration {
             configuration: configuration
         )
 
-        // Four rules, one finding apiece against the fixture's single file:
-        // two violations (error + warning) and two non-violation prompts
-        // (note + remark) — the mixed-severity shape the count contract
-        // must reconcile.
         #expect(outcome.findings.count == 4)
         #expect(outcome.violations.count == 2)
 
@@ -144,20 +119,12 @@ extension Lint.Run.Outcome.Test.Integration {
             return
         }
 
-        // Property 1: summary total findings == SARIF result count.
         #expect(results.count == outcome.findings.count)
 
-        // Property 2: summary violations == count of SARIF results at
-        // violation levels. Every result carries a `level`
-        // (error/warning/note — `.remark` maps to SARIF's "note", SARIF
-        // having no analog), so the violation subset is selectable by level
-        // alone.
         let violationLevels: Swift.Set<Swift.String> = ["error", "warning"]
         let sarifViolations = results.filter { violationLevels.contains(Swift.String($0.level)) }
         #expect(sarifViolations.count == outcome.violations.count)
 
-        // The run summary's own formatter carries the identical two counts,
-        // independently machine-parseable.
         let line = Lint.Reporter.Text.Summary.line(
             package: "count-contract-fixture",
             activeRules: 4,

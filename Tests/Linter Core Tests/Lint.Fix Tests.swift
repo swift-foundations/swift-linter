@@ -1,14 +1,3 @@
-// ===----------------------------------------------------------------------===//
-//
-// This source file is part of the swift-linter open source project
-//
-// Copyright (c) 2026 Coen ten Thije Boonkkamp and the swift-linter project authors
-// Licensed under Apache License v2.0
-//
-// See LICENSE for license information
-//
-// ===----------------------------------------------------------------------===//
-
 import File_System
 import Linter_Primitives
 import SwiftSyntax
@@ -195,10 +184,6 @@ extension Lint.Fix.Test.`Fixture Scoping` {
         #expect(try Self.scoped("/pkg/Tests/fixtures/A.swift"))
     }
 
-    // The positive control this whole exemption class exists for. A
-    // path-scoped check written with `contains` or a prefix test passes
-    // every case above and fails exactly here — silently, on a real source
-    // file that would then never be fixed again.
     @Test
     func `a bare file named Fixtures is still fixable`() throws(Paths.Path.Error) {
         #expect(try !Self.scoped("/pkg/Sources/Thing/Fixtures.swift"))
@@ -229,8 +214,6 @@ extension Lint.Fix.Test.`Fixture Scoping` {
     }
 }
 
-// A rewriter that would rewrite absolutely any file, so that a run which
-// changes nothing can only be the scoping and never the rule.
 extension Lint.Rule {
     fileprivate static let `always rewrites fixture` = Lint.Rule(
         id: "always rewrites fixture",
@@ -248,17 +231,12 @@ extension Lint.Fix.Test.`Fixture Scoping` {
             testFile
             .split(separator: "/", omittingEmptySubsequences: false)
             .map(Swift.String.init)
-        _ = components.popLast()  // "Lint.Fix Tests.swift"
-        _ = components.popLast()  // "Linter Core Tests"
+        _ = components.popLast()
+        _ = components.popLast()
         components.append("Fixtures")
         return try File.Path(components.joined(separator: "/"))
     }
 
-    // End to end, over this package's own fixtures tree — the very tree a
-    // fleet fix run rewrote. The rewriter above fires on every file, so a
-    // run reporting no changes while still counting the files proves
-    // detection remains visible and the gate sits ahead of the rewriter
-    // rather than discarding its output afterwards.
     @Test
     func `a fix run over a fixtures tree rewrites nothing`() throws {
         let root = try Self.fixturesRoot()
@@ -585,18 +563,6 @@ extension Lint.Fix.Test.Application {
     }
 }
 
-// MARK: - Manifest Scope (swift-foundations/swift-linter#32)
-//
-// A single source of truth for the fixture manifest text, shared between
-// what a test writes to disk and what each fileprivate rule below compares
-// against, so the two can never drift out of byte-for-byte agreement — the
-// same discipline the file's other synthetic rules already rely on
-// (`"struct Original {}\n"` compared verbatim). Both spawn a REAL
-// `swift package dump-package` subprocess via
-// `Lint.Fix.Scope.Manifest.evaluates(_:)`, precedented by this same test
-// target's `Lint.File.Single.Runner Tests.swift`, which already spawns a
-// real prebuilt-runner process.
-
 private let manifestScopeOriginal = """
     // swift-tools-version: 6.4
     import PackageDescription
@@ -617,11 +583,6 @@ private let manifestScopeRewritten = """
 
     """
 
-// Re-parses cleanly (a bare identifier is syntactically a valid
-// expression) but fails SwiftPM's manifest evaluation: `swiftc` cannot
-// resolve `undefinedIdentifierReference`, so `dump-package` exits
-// non-zero. Verified against the installed toolchain before being chosen
-// as the fixture — the concrete class re-parse structurally cannot catch.
 private let manifestScopeCorrupted = """
     // swift-tools-version: 6.4
     import PackageDescription
@@ -682,10 +643,7 @@ extension Lint.Fix.Test.`Manifest Scope` {
 }
 
 extension Lint.Fix.Test.`Manifest Scope` {
-    // Fixture required by #32: a manifest finding whose fix applies end to
-    // end. `manifest:` admits the exact `Package.swift` path even though it
-    // sits outside every declared target root; the rewrite re-parses AND
-    // evaluates, so it publishes exactly like an ordinary target-scoped fix.
+
     @Test
     func `a manifest fix applies end to end`() throws {
         let root = try Self.root()
@@ -710,14 +668,6 @@ extension Lint.Fix.Test.`Manifest Scope` {
         #expect(try Self.contents(manifest) == manifestScopeRewritten)
     }
 
-    // Fixture required by #32: a corrupted-rewrite fixture that must refuse
-    // rather than write. The rewrite re-parses (SwiftParser has no semantic
-    // phase) but fails `swift package dump-package` evaluation, so the
-    // manifest-scope guard — strictly stronger than the ordinary re-parse
-    // guard — refuses it. The refusal blocks the WHOLE plan, the same
-    // discipline an ordinary unparseable-rewrite refusal already has: an
-    // otherwise-valid, co-planned change to an unrelated target file in the
-    // SAME run is also left unpublished.
     @Test
     func `a manifest rewrite that fails evaluation is refused rather than written`() throws {
         let root = try Self.root()
@@ -747,9 +697,6 @@ extension Lint.Fix.Test.`Manifest Scope` {
         #expect(try Self.contents(sibling) == "struct First {}\n")
     }
 
-    // A manifest path that is never supplied as `manifest:` stays excluded
-    // exactly as it always has (the pre-#32, `targets`-only behavior) — the
-    // positive control this whole scope exists to extend, not replace.
     @Test
     func `an unsupplied manifest scope leaves Package_swift untouched`() throws {
         let root = try Self.root()
