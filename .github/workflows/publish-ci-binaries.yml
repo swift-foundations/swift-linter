@@ -15,9 +15,8 @@
 #   the tag's commit is not meaningful). Marked prerelease, never `latest`.
 #   Non-semver → invisible to SwiftPM version resolution and SPI; the package
 #   remains untagged in the release sense.
-# - Assets, replaced in place on every publish: `swift-linter` (dispatcher),
-#   `swift-linter-runner` (standard runner), `SHA256SUMS`, `MANIFEST.txt`
-#   (composite digest + the 6 source HEADs baked into this build).
+# - Assets, replaced in place on every publish: one baked `swift-linter`,
+#   `RULE-INVENTORY.json`, `MANIFEST.json`, and `SHA256SUMS` covering them all.
 # - Binaries are built inside `swift:6.3` — the same container image the
 #   consumer swift-linter job runs in — for ABI/runtime compatibility. Bump
 #   in lockstep with the universal reusable's swift-version default.
@@ -75,8 +74,8 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update -qq
-          apt-get install -qq -y curl ca-certificates gnupg uuid-dev git
-          mkdir -p -m 755 /etc/apt/keyrings
+          apt-get install -qq -y curl ca-certificates gnupg uuid-dev git jq
+          install -d -m 755 /etc/apt/keyrings
           curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /tmp/gh-keyring.gpg
           echo "${GH_KEYRING_SHA256}  /tmp/gh-keyring.gpg" | sha256sum -c -
           mv /tmp/gh-keyring.gpg /etc/apt/keyrings/githubcli-archive-keyring.gpg
@@ -134,7 +133,7 @@ jobs:
           set -euo pipefail
           stale=true
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
-            published=$(gh release download ci-binaries --pattern MANIFEST.txt --output - 2>/dev/null | sed -n 's/^digest=//p' || true)
+            published=$(gh release download ci-binaries --pattern MANIFEST.json --output - 2>/dev/null | jq -r '.compositeDigest // empty' || true)
             if [ "$published" = "${{ steps.digest.outputs.digest }}" ]; then
               stale=false
               echo "Published digest is current; skipping rebuild."
@@ -142,21 +141,24 @@ jobs:
           fi
           echo "stale=$stale" >> "$GITHUB_OUTPUT"
 
-      - name: Build dispatcher
-        if: ${{ steps.fresh.outputs.stale == 'true' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          swift build --product swift-linter
-          install -m 0755 .build/debug/swift-linter /tmp/stage-swift-linter
-
-      - name: Build standard runner
+      - name: Build structured linter
         if: ${{ steps.fresh.outputs.stale == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
           swift build --package-path Runner --product runner
-          install -m 0755 Runner/.build/debug/runner /tmp/stage-swift-linter-runner
+          install -m 0755 Runner/.build/debug/runner /tmp/stage-swift-linter
+          /tmp/stage-swift-linter --inventory > /tmp/RULE-INVENTORY.json
+          jq -e '
+            .schema == 1
+            and .profileSchema == 1
+            and .structuredResultSchema == 1
+            and (.bundles | length > 0)
+            and ([.bundles[].bundle] | length == (unique | length))
+            and all(.bundles[]; .rules as $rules
+              | ($rules | length) > 0
+              and (($rules | length) == ($rules | unique | length)))
+          ' /tmp/RULE-INVENTORY.json >/dev/null
 
       - name: Publish rolling ci-binaries release
         if: ${{ steps.fresh.outputs.stale == 'true' }}
@@ -170,21 +172,37 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           stage=$(mktemp -d)
           cp /tmp/stage-swift-linter "$stage/swift-linter"
-          cp /tmp/stage-swift-linter-runner "$stage/swift-linter-runner"
-          cp /tmp/MANIFEST.txt "$stage/MANIFEST.txt"
-          (cd "$stage" && sha256sum swift-linter swift-linter-runner MANIFEST.txt > SHA256SUMS)
+          cp /tmp/RULE-INVENTORY.json "$stage/RULE-INVENTORY.json"
+          jq -n \
+            --arg platform "linux-x86_64" \
+            --arg toolchain "swift:6.3" \
+            --arg compositeDigest "${{ steps.digest.outputs.digest }}" \
+            --arg engine "$GITHUB_SHA" \
+            --arg primitiveRules "$(sed -n 's/^swift-primitives-linter-rules=//p' /tmp/MANIFEST.txt)" \
+            --arg standardRules "$(sed -n 's/^swift-standards-linter-rules=//p' /tmp/MANIFEST.txt)" \
+            --arg instituteRules "$(sed -n 's/^swift-institute-linter-rules=//p' /tmp/MANIFEST.txt)" \
+            --arg universalRules "$(sed -n 's/^swift-linter-rules=//p' /tmp/MANIFEST.txt)" \
+            --arg primitives "$(sed -n 's/^swift-linter-primitives=//p' /tmp/MANIFEST.txt)" \
+            '{schema:1, platform:$platform, toolchain:$toolchain,
+              compositeDigest:$compositeDigest, engineRevision:$engine,
+              packageRevisions:{"swift-primitives-linter-rules":$primitiveRules,
+                "swift-standards-linter-rules":$standardRules,
+                "swift-institute-linter-rules":$instituteRules,
+                "swift-linter-rules":$universalRules,
+                "swift-linter-primitives":$primitives}}' > "$stage/MANIFEST.json"
+          (cd "$stage" && sha256sum swift-linter RULE-INVENTORY.json MANIFEST.json > SHA256SUMS)
           if ! gh release view ci-binaries >/dev/null 2>&1; then
             # One-time tag+release creation; the tag is never moved afterwards
-            # (provenance lives in MANIFEST.txt, not the tag commit).
+            # (provenance lives in MANIFEST.json, not the tag commit).
             gh release create ci-binaries \
               --prerelease --latest=false \
               --title "CI binaries (rolling)" \
-              --notes "Rolling prebuilt linter binaries for the universal swift-ci.yml. Non-semver tag: not a package release. See MANIFEST.txt for the exact source HEADs of this build." \
+              --notes "Rolling prebuilt linter binaries for the universal swift-ci.yml. Non-semver tag: not a package release. See MANIFEST.json for the exact source revisions of this build." \
               --target "$GITHUB_SHA"
           fi
           gh release upload ci-binaries \
-            "$stage/swift-linter" "$stage/swift-linter-runner" \
-            "$stage/MANIFEST.txt" "$stage/SHA256SUMS" --clobber
+            "$stage/swift-linter" "$stage/RULE-INVENTORY.json" \
+            "$stage/MANIFEST.json" "$stage/SHA256SUMS" --clobber
           gh release edit ci-binaries \
             --notes "Rolling prebuilt linter binaries for the universal swift-ci.yml (updated $(date -u +%Y-%m-%dT%H:%M:%SZ)). Non-semver tag: not a package release. digest=${{ steps.digest.outputs.digest }}"
           echo "Published digest ${{ steps.digest.outputs.digest }}."
@@ -265,7 +283,7 @@ jobs:
           set -euo pipefail
           stale=true
           if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
-            published=$(gh release download ci-binaries --pattern MANIFEST-macos-arm64.txt --output - 2>/dev/null | sed -n 's/^digest=//p' || true)
+            published=$(gh release download ci-binaries --pattern MANIFEST-macos-arm64.json --output - 2>/dev/null | jq -r '.compositeDigest // empty' || true)
             if [ "$published" = "${{ steps.digest.outputs.digest }}" ]; then
               stale=false
               echo "Published macos-arm64 digest is current; skipping rebuild."
@@ -273,21 +291,24 @@ jobs:
           fi
           echo "stale=$stale" >> "$GITHUB_OUTPUT"
 
-      - name: Build dispatcher
-        if: ${{ steps.fresh.outputs.stale == 'true' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          swift build --product swift-linter
-          install -m 0755 .build/debug/swift-linter /tmp/stage-swift-linter-macos-arm64
-
-      - name: Build standard runner
+      - name: Build structured linter
         if: ${{ steps.fresh.outputs.stale == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
           swift build --package-path Runner --product runner
-          install -m 0755 Runner/.build/debug/runner /tmp/stage-swift-linter-runner-macos-arm64
+          install -m 0755 Runner/.build/debug/runner /tmp/stage-swift-linter-macos-arm64
+          /tmp/stage-swift-linter-macos-arm64 --inventory > /tmp/RULE-INVENTORY-macos-arm64.json
+          jq -e '
+            .schema == 1
+            and .profileSchema == 1
+            and .structuredResultSchema == 1
+            and (.bundles | length > 0)
+            and ([.bundles[].bundle] | length == (unique | length))
+            and all(.bundles[]; .rules as $rules
+              | ($rules | length) > 0
+              and (($rules | length) == ($rules | unique | length)))
+          ' /tmp/RULE-INVENTORY-macos-arm64.json >/dev/null
 
       - name: Publish macos-arm64 assets
         if: ${{ steps.fresh.outputs.stale == 'true' }}
@@ -298,9 +319,25 @@ jobs:
           set -euo pipefail
           stage=$(mktemp -d)
           cp /tmp/stage-swift-linter-macos-arm64 "$stage/swift-linter-macos-arm64"
-          cp /tmp/stage-swift-linter-runner-macos-arm64 "$stage/swift-linter-runner-macos-arm64"
-          cp /tmp/MANIFEST-macos-arm64.txt "$stage/MANIFEST-macos-arm64.txt"
-          (cd "$stage" && shasum -a 256 swift-linter-macos-arm64 swift-linter-runner-macos-arm64 MANIFEST-macos-arm64.txt > SHA256SUMS-macos-arm64)
+          cp /tmp/RULE-INVENTORY-macos-arm64.json "$stage/RULE-INVENTORY-macos-arm64.json"
+          jq -n \
+            --arg platform "macos-arm64" \
+            --arg toolchain "xcode:${XCODE_VERSION}" \
+            --arg compositeDigest "${{ steps.digest.outputs.digest }}" \
+            --arg engine "$GITHUB_SHA" \
+            --arg primitiveRules "$(sed -n 's/^swift-primitives-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)" \
+            --arg standardRules "$(sed -n 's/^swift-standards-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)" \
+            --arg instituteRules "$(sed -n 's/^swift-institute-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)" \
+            --arg universalRules "$(sed -n 's/^swift-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)" \
+            --arg primitives "$(sed -n 's/^swift-linter-primitives=//p' /tmp/MANIFEST-macos-arm64.txt)" \
+            '{schema:1, platform:$platform, toolchain:$toolchain,
+              compositeDigest:$compositeDigest, engineRevision:$engine,
+              packageRevisions:{"swift-primitives-linter-rules":$primitiveRules,
+                "swift-standards-linter-rules":$standardRules,
+                "swift-institute-linter-rules":$instituteRules,
+                "swift-linter-rules":$universalRules,
+                "swift-linter-primitives":$primitives}}' > "$stage/MANIFEST-macos-arm64.json"
+          (cd "$stage" && shasum -a 256 swift-linter-macos-arm64 RULE-INVENTORY-macos-arm64.json MANIFEST-macos-arm64.json > SHA256SUMS-macos-arm64)
           # The Linux job owns release creation; wait for it to exist rather
           # than racing a duplicate create on a first-ever run.
           attempt=0
@@ -313,6 +350,6 @@ jobs:
             sleep 10
           done
           gh release upload ci-binaries \
-            "$stage/swift-linter-macos-arm64" "$stage/swift-linter-runner-macos-arm64" \
-            "$stage/MANIFEST-macos-arm64.txt" "$stage/SHA256SUMS-macos-arm64" --clobber
+            "$stage/swift-linter-macos-arm64" "$stage/RULE-INVENTORY-macos-arm64.json" \
+            "$stage/MANIFEST-macos-arm64.json" "$stage/SHA256SUMS-macos-arm64" --clobber
           echo "Published macos-arm64 digest ${{ steps.digest.outputs.digest }}."
