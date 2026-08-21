@@ -14,7 +14,9 @@ extension Lint.Rule.Bundle {
 
 extension Lint.Rule.Bundle.Baked {
 
+    public var token: Swift.String { rawValue }
+
     public var expression: Swift.String {
-        "Lint.Rule.Bundle.\(self.rawValue)"
+        "Lint.Rule.Bundle.\(token)"
     }
 }

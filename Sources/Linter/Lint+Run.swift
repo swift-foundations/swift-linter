@@ -1,4 +1,5 @@
 internal import File_System
+internal import JSON
 public import Linter_Core
 public import Linter_Primitives
 internal import Process
@@ -35,6 +36,29 @@ extension Lint {
 
     public static func run(bundles: [Lint.Rule.Bundle.Baked: [Lint.Rule.Configuration]]) {
         let arguments = [Swift.String](Swift.CommandLine.arguments.dropFirst())
+        if arguments == ["--inventory"] {
+            let inventories = bundles.keys.sorted { $0.token < $1.token }.map { bundle in
+                JSON.object([
+                    ("bundle", JSON(stringLiteral: bundle.token)),
+                    (
+                        "rules",
+                        .array(
+                            (bundles[bundle] ?? []).map(\.rule.id.underlying).sorted().map(
+                                JSON.init(stringLiteral:)
+                            )
+                        )
+                    ),
+                ])
+            }
+            let document = JSON.object([
+                ("schema", 1),
+                ("profileSchema", Lint.Profile.schema),
+                ("structuredResultSchema", 1),
+                ("bundles", .array(inventories)),
+            ])
+            Swift.print(document.serialize(pretty: false))
+            return
+        }
         if arguments.first == "--profile" {
             guard arguments.count >= 3 else {
                 failLoud("profile invocation requires --profile <profile.json> <path> ...")
@@ -44,7 +68,7 @@ extension Lint {
                 failLoud("profile: \(error)")
             }
             guard let baked = bundles[profile.bundle] else {
-                failLoud("profile: this runner does not bake bundle '\(profile.bundle.rawValue)'")
+                failLoud("profile: this runner does not bake bundle '\(profile.bundle.token)'")
             }
             let selected: [Lint.Rule.Configuration]
             do throws(Lint.Profile.Error) { selected = try profile.select(from: baked) } catch {
@@ -70,12 +94,12 @@ extension Lint {
         }
         guard let bundle: [Lint.Rule.Configuration] = bundles[requested] else {
 
-            failLoud("bundle channel: this runner does not bake bundle '\(requested.rawValue)'")
+            failLoud("bundle channel: this runner does not bake bundle '\(requested.token)'")
         }
         guard !bundle.isEmpty else {
 
             failLoud(
-                "bundle channel: bundle '\(requested.rawValue)' bakes zero rules; "
+                "bundle channel: bundle '\(requested.token)' bakes zero rules; "
                     + "a zero-finding run from an empty rule set is not a clean result"
             )
         }

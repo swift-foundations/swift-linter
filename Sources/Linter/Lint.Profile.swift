@@ -4,8 +4,6 @@ public import Linter_Core
 
 extension Lint {
     public struct Profile: Sendable {
-        public static let schema = 1
-
         public let revision: Swift.String
         public let bundle: Lint.Rule.Bundle.Baked
         public let rules: [Lint.Rule.ID]
@@ -23,6 +21,10 @@ extension Lint {
             self.rules = rules
         }
     }
+}
+
+extension Lint.Profile {
+    public static let schema = 1
 }
 
 extension Lint.Profile {
@@ -76,6 +78,9 @@ extension Lint.Profile {
                 throw .rules("duplicate baked rule \(entry.rule.id.underlying)")
             }
             available[entry.rule.id] = entry
+        }
+        guard available.count == rules.count, Set(available.keys) == Set(rules) else {
+            throw .rules("profile does not equal the complete baked bundle inventory")
         }
         return try rules.map { rule in
             guard let configuration = available[rule] else {

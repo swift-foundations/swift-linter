@@ -67,7 +67,7 @@ extension Lint.File.Single.Runner {
     ) -> [Swift.String: Swift.String] {
         var environment = snapshot
 
-        environment.values[Lint.Rule.Bundle.Baked.Channel.variable] = bundle.rawValue
+        environment.values[Lint.Rule.Bundle.Baked.Channel.variable] = bundle.token
         if let selection {
             environment.values[Lint.File.Single.Channel.selection.variable] = selection.string
         }
