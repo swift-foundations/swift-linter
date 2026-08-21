@@ -17,9 +17,9 @@
 #   remains untagged in the release sense.
 # - Assets, replaced in place on every publish: one baked `swift-linter`,
 #   `RULE-INVENTORY.json`, `MANIFEST.json`, and `SHA256SUMS` covering them all.
-# - Binaries are built inside `swift:6.3` — the same container image the
-#   consumer swift-linter job runs in — for ABI/runtime compatibility. Bump
-#   in lockstep with the universal reusable's swift-version default.
+# - Binaries are built inside the exact Swift 6.4 release-floor image used by
+#   the universal swift-linter job — for ABI/runtime compatibility. Bump the
+#   digest in lockstep with the universal reusable's release-floor pin.
 #
 # FRESHNESS
 # push-to-main rebuilds always. Rule-pack pushes arrive as workflow_dispatch
@@ -43,6 +43,7 @@ permissions: {}
 # swift-institute/.github's submit-dep-graph-weekly.yml; re-lock on rotation).
 env:
   GH_KEYRING_SHA256: "6084d5d7bd8e288441e0e94fc6275570895da18e6751f70f057485dc2d1a811b"
+  SWIFT_RELEASE_FLOOR_IMAGE: "swiftlang/swift@sha256:8d614165059587ce9dcf6727a76aeff4cbf1cde41fde9a9281a43803be736224"
 
 on:
   push:
@@ -55,7 +56,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    container: swift:6.3
+    container: swiftlang/swift@sha256:8d614165059587ce9dcf6727a76aeff4cbf1cde41fde9a9281a43803be736224
     timeout-minutes: 45
     permissions:
       contents: write   # release asset upload on this repo
@@ -67,7 +68,7 @@ jobs:
 
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
 
-      # [CI-092]: swift:6.3 ships no curl/gh; libuuid needed by the dependency
+      # [CI-092]: the Swift image ships no curl/gh; libuuid is needed by the dependency
       # graph (swift-linux-standard's CLinuxKernelShim).
       - name: Install system dependencies (curl, gh, uuid-dev)
         shell: bash
@@ -118,7 +119,7 @@ jobs:
             echo "swift-linter-rules=$unirules"
             echo "swift-linter-primitives=$linterprim"
             echo "built-at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "swift-image=swift:6.3"
+            echo "swift-image=${SWIFT_RELEASE_FLOOR_IMAGE}"
           } > /tmp/MANIFEST.txt
           cat /tmp/MANIFEST.txt
 
@@ -175,7 +176,7 @@ jobs:
           cp /tmp/RULE-INVENTORY.json "$stage/RULE-INVENTORY.json"
           jq -n \
             --arg platform "linux-x86_64" \
-            --arg toolchain "swift:6.3" \
+            --arg toolchain "${SWIFT_RELEASE_FLOOR_IMAGE}" \
             --arg compositeDigest "${{ steps.digest.outputs.digest }}" \
             --arg engine "$GITHUB_SHA" \
             --arg primitiveRules "$(sed -n 's/^swift-primitives-linter-rules=//p' /tmp/MANIFEST.txt)" \
@@ -219,12 +220,12 @@ jobs:
   # swift-linter job is ubuntu-only and no CI leg lints on Windows, so a
   # Windows asset would have zero consumers (negative recorded 2026-07-23).
   publish-macos-arm64:
-    runs-on: macos-26
+    runs-on: ${{ 'xcode-27' }}
     timeout-minutes: 60
     permissions:
       contents: write   # release asset upload on this repo
     env:
-      XCODE_VERSION: "26.6"   # lockstep with the universal swift-ci.yml env
+      XCODE_VERSION: "27.0"   # lockstep with the universal swift-ci.yml env
     steps:
       - name: Harden runner (audit-mode egress logging)
         uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
