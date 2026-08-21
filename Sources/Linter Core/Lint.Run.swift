@@ -28,7 +28,9 @@ extension Lint.Run {
         var manager = Source.Manager()
         var findings: [Lint.Finding] = []
         var suppressed: [Lint.Finding] = []
-        var filesLinted = 0
+        var files: [File.Path] = []
+        var observations: [Observation] = []
+        var repairProposals: [Repair.Proposal] = []
 
         let declaredTypeNames = Self.runDeclaredTypeNames(under: paths)
         for root in paths {
@@ -40,14 +42,33 @@ extension Lint.Run {
                     manager: &manager,
                     declaredTypeNames: declaredTypeNames
                 )
-                filesLinted += 1
+                let filePath = try Self.resolve(root: root, relativePath: sourcePath)
+                files.append(filePath)
                 let suppression = Lint.Suppression.scan(
                     tree: parsed.tree,
                     converter: parsed.converter
                 )
                 for entry in effective {
                     let severity = entry.severity ?? entry.rule.severity.default
-                    let candidates = entry.rule.findings(parsed, severity)
+                    let observation = entry.rule.observe(parsed, severity)
+                    observations.append(
+                        Observation(
+                            file: filePath,
+                            rule: entry.rule.id,
+                            coverage: observation.coverage,
+                            applicable: observation.applicable
+                        )
+                    )
+                    if !observation.findings.isEmpty {
+                        repairProposals.append(
+                            Repair.Proposal(
+                                file: filePath,
+                                rule: entry.rule.id,
+                                proposal: entry.rule.repair(parsed)
+                            )
+                        )
+                    }
+                    let candidates = observation.findings
                     for record in candidates {
                         let ruleID = Lint.Rule.ID(_unchecked: record.identifier)
 
@@ -69,7 +90,26 @@ extension Lint.Run {
                 }
             }
         }
-        return Outcome(findings: findings, suppressed: suppressed, filesLinted: filesLinted)
+        return Outcome(
+            findings: findings,
+            suppressed: suppressed,
+            files: files,
+            activeRules: effective.map(\.rule.id),
+            observations: observations,
+            repairProposals: repairProposals
+        )
+    }
+
+    fileprivate static func resolve(
+        root: File.Path,
+        relativePath: Lint.Source.Path
+    ) throws(Error) -> File.Path {
+        guard !relativePath.underlying.isEmpty else { return root }
+        do throws(Paths.Path.Error) {
+            return root.appending(try File.Path(relativePath.underlying))
+        } catch {
+            throw .fileNotReadable(path: root)
+        }
     }
 
     fileprivate static func parsedSource(

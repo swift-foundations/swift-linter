@@ -24,6 +24,10 @@ let package = Package(
             name: "Linter Reporter SARIF",
             targets: ["Linter Reporter SARIF"]
         ),
+        .library(
+            name: "Linter Reporter Structured",
+            targets: ["Linter Reporter Structured"]
+        ),
         .executable(
             name: "swift-linter",
             targets: ["Linter CLI"]
@@ -120,6 +124,13 @@ let package = Package(
             ]
         ),
         .target(
+            name: "Linter Reporter Structured",
+            dependencies: [
+                "Linter Core",
+                .product(name: "JSON", package: "swift-json"),
+            ]
+        ),
+        .target(
             name: "Linter Core",
             dependencies: [
                 .product(name: "ASCII Primitives", package: "swift-ascii-primitives"),
@@ -156,6 +167,8 @@ let package = Package(
                 "Linter Core",
                 "Linter Reporter Text",
                 "Linter Reporter SARIF",
+                "Linter Reporter Structured",
+                "Linter Reporter Structured",
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "Package Primitives", package: "swift-package-primitives"),

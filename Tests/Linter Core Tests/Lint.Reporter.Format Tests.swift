@@ -1,6 +1,7 @@
 import Environment
 import JSON
 import Linter
+import Linter_Reporter_Structured
 import Testing
 
 extension Lint.Reporter.Format {
@@ -88,6 +89,24 @@ extension Lint.Reporter.Format.Test.`Edge Case` {
 }
 
 extension Lint.Reporter.Format.Test.Unit {
+    @Test
+    func `Structured selection emits one self-consistent document`() throws(JSON.Error) {
+        let findings = [Lint.Reporter.Format.Test.finding()]
+        let report = Lint.Reporter.Format.structured.report(for: findings)
+        let document = try JSON.parse(report)
+
+        #expect(Swift.String(document.schema) == "1")
+        #expect(document.files.array?.isEmpty == true)
+        #expect(document.activeRules.array?.isEmpty == true)
+        #expect(document.applicableRules.array?.isEmpty == true)
+        #expect(document.observations.array?.isEmpty == true)
+        #expect(document.findings.array?.count == 1)
+        #expect(Swift.String(document.summary.findings) == "1")
+        #expect(Swift.String(document.summary.files) == "0")
+        #expect(Swift.String(document.summary.activeRules) == "0")
+        #expect(Swift.String(document.summary.applicableRules) == "0")
+    }
+
     @Test
     func `Explicit text selection preserves the canonical text report`() {
         let findings = [Lint.Reporter.Format.Test.finding()]

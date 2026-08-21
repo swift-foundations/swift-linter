@@ -12,6 +12,14 @@ extension Lint.Reporter.Format {
 
         case .sarif:
             Lint.Reporter.SARIF.emit(findings: findings, to: write)
+
+        case .structured:
+            Lint.Reporter.Text.emit(
+                text: Lint.Reporter.Structured.report(
+                    for: Lint.Run.Outcome(findings: findings)
+                ),
+                to: write
+            )
         }
     }
 
@@ -22,6 +30,11 @@ extension Lint.Reporter.Format {
 
         case .sarif:
             Lint.Reporter.SARIF.report(for: findings)
+
+        case .structured:
+            Lint.Reporter.Structured.report(
+                for: Lint.Run.Outcome(findings: findings)
+            )
         }
     }
 }

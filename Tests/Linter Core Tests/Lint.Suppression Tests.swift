@@ -125,7 +125,7 @@ extension Lint.Rule {
     fileprivate static let `suppression fixture` = Lint.Rule(
         id: "suppression fixture",
         default: .warning,
-        findings: { source, severity in
+        observe: Lint.Rule.measured { source, severity in
 
             let visitor = LintSuppressionFixtureVisitor(
                 source: source.file,

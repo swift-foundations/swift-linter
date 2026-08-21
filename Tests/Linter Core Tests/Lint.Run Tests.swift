@@ -16,7 +16,7 @@ extension Lint.Rule {
     fileprivate static let `brand aware fixture` = Lint.Rule(
         id: "brand aware fixture",
         default: .warning,
-        findings: { source, severity in
+        observe: Lint.Rule.measured { source, severity in
             if Lint.Brand.owned(["Cardinal"], in: source) { return [] }
             return [
                 Diagnostic.Record(
@@ -78,7 +78,7 @@ extension Lint.Rule {
     fileprivate static let `test fixture` = Lint.Rule(
         id: "test fixture",
         default: .warning,
-        findings: { source, severity in
+        observe: Lint.Rule.measured { source, severity in
             [
                 Diagnostic.Record(
                     location: Source.Location(

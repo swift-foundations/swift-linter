@@ -4,7 +4,7 @@ extension Lint.Rule {
     fileprivate static let `bundle fixture primitives` = Lint.Rule(
         id: "bundle fixture primitives",
         default: .error,
-        findings: { source, severity in
+        observe: Lint.Rule.measured { source, severity in
             [
                 Diagnostic.Record(
                     location: Source.Location(
@@ -24,7 +24,7 @@ extension Lint.Rule {
     fileprivate static let `bundle fixture standards` = Lint.Rule(
         id: "bundle fixture standards",
         default: .error,
-        findings: { source, severity in
+        observe: Lint.Rule.measured { source, severity in
             [
                 Diagnostic.Record(
                     location: Source.Location(
@@ -44,7 +44,7 @@ extension Lint.Rule {
     fileprivate static let `bundle fixture institute` = Lint.Rule(
         id: "bundle fixture institute",
         default: .error,
-        findings: { source, severity in
+        observe: Lint.Rule.measured { source, severity in
             [
                 Diagnostic.Record(
                     location: Source.Location(

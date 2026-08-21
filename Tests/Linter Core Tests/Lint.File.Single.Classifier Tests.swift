@@ -188,7 +188,7 @@ extension Lint.File.Single.Classifier.Test {
                 static let `sli public carrier import` = Lint.Rule(
                     id: "sli public carrier import",
                     default: .warning,
-                    findings: { source, severity in [] }
+                    observe: Lint.Rule.measured { source, severity in [] }
                 )
             }
 

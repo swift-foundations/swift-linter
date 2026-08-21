@@ -18,7 +18,7 @@ extension Lint.Rule {
     fileprivate static let `test fixture` = Lint.Rule(
         id: "test fixture",
         default: .warning,
-        findings: { source, severity in
+        observe: Lint.Rule.measured { source, severity in
             [
                 Diagnostic.Record(
                     location: Source.Location(

@@ -4,7 +4,7 @@ extension Lint.Rule {
     fileprivate static let `report format fixture` = Lint.Rule(
         id: "report format fixture",
         default: .error,
-        findings: { source, severity in
+        observe: Lint.Rule.measured { source, severity in
             [
                 Diagnostic.Record(
                     location: Source.Location(

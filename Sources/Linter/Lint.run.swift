@@ -82,46 +82,6 @@ extension Lint {
             return
         }
 
-        let fixMode: Lint.Fix.Mode?
-        do throws(Lint.Fix.Mode.Channel.Error) {
-            fixMode = try Lint.Fix.Mode.Channel.read()
-        } catch {
-            failLoud("fix channel: \(error)")
-        }
-        if let fixMode {
-            let targets: [File_System.File.Path]
-            do throws(Lint.Fix.Scope.Channel.Error) {
-                guard let supplied = try Lint.Fix.Scope.Channel.read() else {
-                    failLoud(
-                        "fix target-root channel is unset; target membership must be supplied by the package manifest"
-                    )
-                }
-                targets = supplied
-            } catch {
-                failLoud("fix target-root channel: \(error)")
-            }
-            let exclusions: Set<Lint.Rule.ID>
-            do throws(Lint.Fix.Exclusion.Channel.Error) {
-                exclusions = try Lint.Fix.Exclusion.Channel.read() ?? []
-            } catch {
-                failLoud("fix exclusion channel: \(error)")
-            }
-            let manifest: File_System.File.Path?
-            do throws(Lint.Fix.Scope.Manifest.Channel.Error) {
-                manifest = try Lint.Fix.Scope.Manifest.Channel.read()
-            } catch {
-                failLoud("fix manifest channel: \(error)")
-            }
-            runFix(
-                mode: fixMode,
-                paths: consumerPaths,
-                targets: targets,
-                excluding: exclusions,
-                configuration: configuration,
-                manifest: manifest
-            )
-            return
-        }
         let format: Lint.Reporter.Format
         do throws(Lint.Reporter.Format.Channel.Error) {
             format = try Lint.Reporter.Format.Channel.read()
@@ -134,7 +94,15 @@ extension Lint {
                 capturing: .all,
                 configuration: configuration
             )
-            format.emit(findings: outcome.findings, to: Terminal.Stream.stdout.write)
+            switch format {
+            case .structured:
+                Self.Reporter.Text.emit(
+                    text: Self.Reporter.Structured.report(for: outcome) + "\n",
+                    to: Terminal.Stream.stdout.write
+                )
+            case .text, .sarif:
+                format.emit(findings: outcome.findings, to: Terminal.Stream.stdout.write)
+            }
 
             let package: Swift.String = consumerPaths.first?.components.last?.string ?? "."
 
@@ -154,83 +122,14 @@ extension Lint {
             } catch {
                 failLoud("exit-policy channel: \(error)")
             }
+            if outcome.summary.unmeasuredObservations > 0 {
+                Process.exit(2)
+            }
             if policy?.fails(for: outcome.findings) == true {
                 Process.exit(1)
             }
         } catch {
             print("[Lint] error: \(error)")
-        }
-    }
-
-    private static func runFix(
-        mode: Lint.Fix.Mode,
-        paths: [File_System.File.Path],
-        targets: [File_System.File.Path],
-        excluding exclusions: Set<Lint.Rule.ID>,
-        configuration: Lint.Configuration,
-        manifest: File_System.File.Path? = nil
-    ) {
-        let outcome: Lint.Fix.Outcome
-        do throws(Self.Run.Error) {
-            outcome = try Lint.Fix.apply(
-                paths: paths,
-                targets: targets,
-                configuration: configuration,
-                excluding: exclusions,
-                mode: mode,
-                manifest: manifest
-            )
-        } catch {
-            failLoud("fix: \(error)")
-        }
-        for change in outcome.changes {
-            Self.Reporter.Text.emit(text: change.diff, to: Terminal.Stream.stdout.write)
-        }
-        for rule in outcome.excludedRules {
-            Self.Reporter.Text.emit(
-                text: "[swift-linter] fix: withheld rule '\(rule)'\n",
-                to: Terminal.Stream.stderr.write
-            )
-        }
-        for rule in outcome.plannedRules {
-            let verb: Swift.String =
-                mode == .apply && outcome.refusals.isEmpty
-                ? "applied"
-                : "would apply"
-            Self.Reporter.Text.emit(
-                text: "[swift-linter] fix: \(verb) rule '\(rule)'\n",
-                to: Terminal.Stream.stderr.write
-            )
-        }
-        for refusal in outcome.refusals {
-            Self.Reporter.Text.emit(
-                error: "fix for rule '\(refusal.rule)' \(refusal.reason.summary) for "
-                    + "\(refusal.path); the complete fix plan was not published",
-                to: Terminal.Stream.stderr.write
-            )
-        }
-
-        let reportedChanges: Swift.Int =
-            mode == .apply ? outcome.published.count : outcome.paths.count
-        let package: Swift.String = paths.first?.components.last?.string ?? "."
-        Self.Reporter.Text.emit(
-            summaryFor: package,
-            activeRules: configuration.rules.effective.entries.count,
-            excludedRules: configuration.rules.effective.disabled.count,
-            filesLinted: outcome.filesScanned,
-            violations: reportedChanges,
-            findings: reportedChanges,
-            to: Terminal.Stream.stderr.write
-        )
-        let verb: Swift.String = (mode == .apply) ? "rewrote" : "would rewrite"
-        Self.Reporter.Text.emit(
-            text: "[swift-linter] fix: \(verb) \(reportedChanges) of "
-                + "\(outcome.filesScanned) files · \(outcome.fixableRules) "
-                + "fix-capable rules active\n",
-            to: Terminal.Stream.stderr.write
-        )
-        if !outcome.refusals.isEmpty {
-            Process.exit(1)
         }
     }
 

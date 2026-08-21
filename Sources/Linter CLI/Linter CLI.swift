@@ -36,7 +36,7 @@ extension Lint {
         @Option(
             name: .long,
             help:
-                "Output format. Choices: text (default; SwiftLint-compatible textual lines), sarif (SARIF 2.1.0 JSON for CI artifact upload)."
+                "Output format. Choices: text, sarif, or structured."
         )
         var format: Lint.Reporter.Format = .text
 
@@ -55,48 +55,6 @@ extension Lint {
         )
         var policy: Lint.Run.Policy = .advisory
 
-        @Flag(
-            name: .long,
-            help: """
-                Apply the canonical fix for every activated rule that declares one, in place. \
-                Only rewriter-backed rules participate; a fix run reports no findings, so it \
-                is never a substitute for a lint run.
-                """
-        )
-        var fix: Swift.Bool = false
-
-        @Flag(
-            name: .long,
-            help: """
-                With --fix, compute the rewrites and print them as unified diffs without \
-                writing anything. Ignored without --fix.
-                """
-        )
-        var dryRun: Swift.Bool = false
-
-        @Option(
-            name: .customLong("target-root"),
-            help: "Exact declared target root eligible for --fix. Repeat for each SwiftPM target."
-        )
-        var targets: [File_System.File.Path] = []
-
-        @Option(
-            name: .customLong("fix-excluding"),
-            help:
-                "Canonical rule ID excluded from --fix application. Repeat for each withheld rule."
-        )
-        var fixExclusions: [Swift.String] = []
-
-        @Option(
-            name: .customLong("fix-manifest"),
-            help: """
-                Exact declared package-manifest path (Package.swift) eligible for --fix. A fix \
-                planned for this exact file additionally must evaluate under the installed \
-                SwiftPM toolchain (swift package dump-package) before it is applied — a \
-                stronger guard than the re-parse check every other file gets.
-                """
-        )
-        var manifest: File_System.File.Path?
     }
 }
 
@@ -179,43 +137,6 @@ extension Lint.CLI {
 
         let consumerRoot: File_System.File.Path = try File_System.File.Path(consumerRootString)
 
-        let fixMode: Lint.Fix.Mode? = fix ? (dryRun ? .dryRun : .apply) : nil
-        if let fixMode {
-            guard !targets.isEmpty else {
-                Lint.Reporter.Text.emit(
-                    error:
-                        "--fix requires at least one --target-root; target membership must be supplied from the package manifest",
-                    to: Terminal.Stream.stderr.write
-                )
-                throw ExitCode.failure
-            }
-            try Environment.write(Lint.Fix.Mode.Channel.variable, to: fixMode.rawValue)
-            try Environment.write(
-                Lint.Fix.Scope.Channel.variable,
-                to: Lint.Fix.Scope.Channel.value(targets)
-            )
-            let exclusions: Set<Lint.Rule.ID> = Set(
-                fixExclusions.map { Lint.Rule.ID(_unchecked: $0) }
-            )
-            try Environment.write(
-                Lint.Fix.Exclusion.Channel.variable,
-                to: Lint.Fix.Exclusion.Channel.value(exclusions)
-            )
-            if let manifest {
-                try Environment.write(
-                    Lint.Fix.Scope.Manifest.Channel.variable,
-                    to: Lint.Fix.Scope.Manifest.Channel.value(manifest)
-                )
-            }
-        } else if !targets.isEmpty || !fixExclusions.isEmpty || manifest != nil {
-            Lint.Reporter.Text.emit(
-                error:
-                    "--target-root, --fix-excluding, and --fix-manifest are valid only with --fix",
-                to: Terminal.Stream.stderr.write
-            )
-            throw ExitCode.failure
-        }
-
         try Environment.write(
             Lint.Reporter.Format.Channel.variable,
             to: Lint.Reporter.Format.Channel.value(format)
@@ -284,61 +205,20 @@ extension Lint.CLI {
             (raw: Swift.String) throws(Paths.Path.Error) in
             try File_System.File.Path(raw)
         }
-        if let fixMode {
-            let outcome: Lint.Fix.Outcome = try Lint.Fix.apply(
-                paths: typedPaths,
-                targets: targets,
-                configuration: configuration,
-                excluding: Set(fixExclusions.map { Lint.Rule.ID(_unchecked: $0) }),
-                mode: fixMode,
-                manifest: manifest
-            )
-            for change in outcome.changes {
-                Lint.Reporter.Text.emit(text: change.diff, to: Terminal.Stream.stdout.write)
-            }
-            for rule in outcome.excludedRules {
-                Lint.Reporter.Text.emit(
-                    text: "[swift-linter] fix: withheld rule '\(rule)'\n",
-                    to: Terminal.Stream.stderr.write
-                )
-            }
-            for rule in outcome.plannedRules {
-                let verb: Swift.String =
-                    fixMode == .apply && outcome.refusals.isEmpty
-                    ? "applied"
-                    : "would apply"
-                Lint.Reporter.Text.emit(
-                    text: "[swift-linter] fix: \(verb) rule '\(rule)'\n",
-                    to: Terminal.Stream.stderr.write
-                )
-            }
-            for refusal in outcome.refusals {
-                Lint.Reporter.Text.emit(
-                    error: "fix for rule '\(refusal.rule)' \(refusal.reason.summary) for "
-                        + "\(refusal.path); the complete fix plan was not published",
-                    to: Terminal.Stream.stderr.write
-                )
-            }
-            let verb: Swift.String = (fixMode == .apply) ? "rewrote" : "would rewrite"
-            let reportedChanges: Swift.Int =
-                fixMode == .apply ? outcome.published.count : outcome.paths.count
-            Lint.Reporter.Text.emit(
-                text: "[swift-linter] fix: \(verb) \(reportedChanges) of "
-                    + "\(outcome.filesScanned) files · \(outcome.fixableRules) "
-                    + "fix-capable rules active\n",
-                to: Terminal.Stream.stderr.write
-            )
-            if !outcome.refusals.isEmpty {
-                throw ExitCode.failure
-            }
-            return
-        }
         let outcome: Lint.Run.Outcome = try Lint.Run.run(
             paths: typedPaths,
             capturing: .all,
             configuration: configuration
         )
-        emit(outcome.findings)
+        switch format {
+        case .structured:
+            Lint.Reporter.Text.emit(
+                text: Lint.Reporter.Structured.report(for: outcome) + "\n",
+                to: Terminal.Stream.stdout.write
+            )
+        case .text, .sarif:
+            emit(outcome.findings)
+        }
         Lint.Reporter.Text.emit(
             summaryFor: consumerRoot.components.last?.string ?? ".",
             activeRules: configuration.rules.effective.entries.count,
@@ -348,6 +228,9 @@ extension Lint.CLI {
             findings: outcome.findings.count,
             to: Terminal.Stream.stderr.write
         )
+        if outcome.summary.unmeasuredObservations > 0 {
+            throw ExitCode(2)
+        }
         if policy.fails(for: outcome.findings) {
             throw ExitCode.failure
         }

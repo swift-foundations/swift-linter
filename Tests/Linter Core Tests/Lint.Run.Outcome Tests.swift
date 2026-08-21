@@ -2,6 +2,7 @@ import File_System
 import JSON
 import Linter_Primitives
 import Linter_Reporter_SARIF
+import Linter_Reporter_Structured
 import Linter_Reporter_Text
 import Testing
 
@@ -15,6 +16,50 @@ extension Lint.Run.Outcome {
 }
 
 extension Lint.Run.Outcome.Test.Integration {
+    @Test
+    func `Structured report carries exact engine counts and repair evidence`() throws {
+        let measured = Self.rule(id: "measured fixture", severity: .warning)
+        let unmeasured = Lint.Rule(
+            id: "unmeasured fixture",
+            default: .warning,
+            observe: { _, _ in
+                Lint.Rule.Observation(
+                    findings: [],
+                    coverage: .unmeasured(.unsupportedSourceShape("fixture"))
+                )
+            }
+        )
+        let configuration = Lint.Configuration {
+            Lint.Rule.Configuration.enable(measured)
+            Lint.Rule.Configuration.enable(unmeasured)
+        }
+        let outcome = try Lint.Run.run(
+            paths: [try Self.fixtureRoot()],
+            capturing: .all,
+            configuration: configuration
+        )
+        let document = try JSON.parse(Lint.Reporter.Structured.report(for: outcome))
+
+        #expect(document.files.array?.count == outcome.files.count)
+        #expect(document.activeRules.array?.count == 2)
+        #expect(document.applicableRules.array?.count == 2)
+        #expect(document.observations.array?.count == outcome.observations.count)
+        #expect(document.findings.array?.count == outcome.findings.count)
+        #expect(document.repairProposals.array?.count == outcome.repairProposals.count)
+        #expect(Swift.String(document.summary.files) == Swift.String(outcome.summary.files))
+        #expect(
+            Swift.String(document.summary.activeRules)
+                == Swift.String(outcome.summary.activeRules)
+        )
+        #expect(
+            Swift.String(document.summary.unmeasuredObservations)
+                == Swift.String(outcome.summary.unmeasuredObservations)
+        )
+        #expect(
+            Swift.String(document.summary.findings) == Swift.String(outcome.summary.findings)
+        )
+    }
+
     private static func fixtureRoot(
         testFile: Swift.String = #filePath
     ) throws(Paths.Path.Error) -> File.Path {
@@ -36,7 +81,7 @@ extension Lint.Run.Outcome.Test.Integration {
         Lint.Rule(
             id: Lint.Rule.ID(_unchecked: id),
             default: severity,
-            findings: { source, severity in
+            observe: Lint.Rule.measured { source, severity in
                 [
                     Diagnostic.Record(
                         location: Source.Location(
