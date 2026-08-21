@@ -90,6 +90,7 @@ let package = Package(
         .target(
             name: "Linter Reporter Text",
             dependencies: [
+                .target(name: "Linter Core"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
                 .product(
@@ -107,7 +108,7 @@ let package = Package(
         .target(
             name: "Linter Reporter SARIF",
             dependencies: [
-                "Linter Reporter Text",
+                .target(name: "Linter Reporter Text"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
                 .product(name: "JSON", package: "swift-json"),
@@ -126,7 +127,7 @@ let package = Package(
         .target(
             name: "Linter Reporter Structured",
             dependencies: [
-                "Linter Core",
+                .target(name: "Linter Core"),
                 .product(name: "JSON", package: "swift-json"),
             ]
         ),
@@ -164,11 +165,10 @@ let package = Package(
         .target(
             name: "Linter",
             dependencies: [
-                "Linter Core",
-                "Linter Reporter Text",
-                "Linter Reporter SARIF",
-                "Linter Reporter Structured",
-                "Linter Reporter Structured",
+                .target(name: "Linter Core"),
+                .target(name: "Linter Reporter Text"),
+                .target(name: "Linter Reporter SARIF"),
+                .target(name: "Linter Reporter Structured"),
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "File System", package: "swift-file-system"),
                 .product(name: "JSON", package: "swift-json"),
@@ -189,7 +189,7 @@ let package = Package(
         .executableTarget(
             name: "Linter CLI",
             dependencies: [
-                "Linter",
+                .target(name: "Linter"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "Kernel", package: "swift-kernel"),
@@ -230,9 +230,9 @@ let package = Package(
             name: "Linter Core Tests",
             dependencies: [
                 .target(name: "Linter"),
-                "Linter Core",
-                "Linter Reporter Text",
-                "Linter Reporter SARIF",
+                .target(name: "Linter Core"),
+                .target(name: "Linter Reporter Text"),
+                .target(name: "Linter Reporter SARIF"),
                 .product(name: "Environment", package: "swift-environment"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "File System", package: "swift-file-system"),
