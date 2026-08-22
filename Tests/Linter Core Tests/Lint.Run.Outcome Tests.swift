@@ -47,15 +47,15 @@ extension Lint.Run.Outcome.Test.Integration {
         #expect(document.applicableRules.array?.count == 2)
         #expect(document.observations.array?.count == outcome.observations.count)
         #expect(document.findings.array?.count == outcome.findings.count)
-        #expect(document.repairProposals.array?.count == outcome.repairProposals.count)
+        #expect(document.repairProposals.array?.count == outcome.repairs.count)
         #expect(Swift.String(document.summary.files) == Swift.String(outcome.summary.files))
         #expect(
             Swift.String(document.summary.activeRules)
-                == Swift.String(outcome.summary.activeRules)
+                == Swift.String(outcome.summary.rules)
         )
         #expect(
             Swift.String(document.summary.unmeasuredObservations)
-                == Swift.String(outcome.summary.unmeasuredObservations)
+                == Swift.String(outcome.summary.unmeasured)
         )
         #expect(
             Swift.String(document.summary.findings) == Swift.String(outcome.summary.findings)
@@ -176,7 +176,7 @@ extension Lint.Run.Outcome.Test.Integration {
             package: "count-contract-fixture",
             activeRules: Cardinal(4),
             excludedRules: .zero,
-            filesLinted: Cardinal(UInt(outcome.filesLinted)),
+            filesLinted: Cardinal(UInt(outcome.files.count)),
             violations: Cardinal(UInt(outcome.violations.count)),
             findings: Cardinal(UInt(outcome.findings.count))
         )

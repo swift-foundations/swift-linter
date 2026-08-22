@@ -30,7 +30,7 @@ extension Lint.Run {
         var suppressed: [Lint.Finding] = []
         var files: [File.Path] = []
         var observations: [Observation] = []
-        var repairProposals: [Repair.Proposal] = []
+        var repairs: [Repair.Proposal] = []
 
         let declaredTypeNames = Self.runDeclaredTypeNames(under: paths)
         for root in paths {
@@ -56,11 +56,11 @@ extension Lint.Run {
                             file: filePath,
                             rule: entry.rule.id,
                             coverage: observation.coverage,
-                            applicable: observation.applicable
+                            applicability: observation.applicable ? .applicable : .inapplicable
                         )
                     )
                     if !observation.findings.isEmpty {
-                        repairProposals.append(
+                        repairs.append(
                             Repair.Proposal(
                                 file: filePath,
                                 rule: entry.rule.id,
@@ -94,9 +94,9 @@ extension Lint.Run {
             findings: findings,
             suppressed: suppressed,
             files: files,
-            activeRules: effective.map(\.rule.id),
+            rules: effective.map(\.rule.id),
             observations: observations,
-            repairProposals: repairProposals
+            repairs: repairs
         )
     }
 

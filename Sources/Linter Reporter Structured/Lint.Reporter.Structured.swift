@@ -22,34 +22,34 @@ extension Lint.Reporter.Structured {
             ("files", .array(outcome.files.map { JSON(stringLiteral: $0.description) })),
             (
                 "activeRules",
-                .array(outcome.activeRules.map { JSON(stringLiteral: $0.underlying) })
+                .array(outcome.rules.map { JSON(stringLiteral: $0.underlying) })
             ),
             (
                 "applicableRules",
-                .array(outcome.applicableRules.map { JSON(stringLiteral: $0.underlying) })
+                .array(outcome.applicable.map { JSON(stringLiteral: $0.underlying) })
             ),
             ("observations", .array(outcome.observations.map(observation))),
             ("findings", .array(outcome.findings.map(finding))),
             ("suppressions", .array(outcome.suppressed.map(finding))),
-            ("repairProposals", .array(outcome.repairProposals.map(repairProposal))),
+            ("repairProposals", .array(outcome.repairs.map(repairProposal))),
             (
                 "summary",
                 JSON.object([
                     ("files", JSON(integerLiteral: summary.files)),
-                    ("activeRules", JSON(integerLiteral: summary.activeRules)),
-                    ("applicableRules", JSON(integerLiteral: summary.applicableRules)),
+                    ("activeRules", JSON(integerLiteral: summary.rules)),
+                    ("applicableRules", JSON(integerLiteral: summary.applicable)),
                     (
                         "applicableObservations",
-                        JSON(integerLiteral: summary.applicableObservations)
+                        JSON(integerLiteral: summary.observations)
                     ),
-                    ("measuredObservations", JSON(integerLiteral: summary.measuredObservations)),
+                    ("measuredObservations", JSON(integerLiteral: summary.measured)),
                     (
                         "unmeasuredObservations",
-                        JSON(integerLiteral: summary.unmeasuredObservations)
+                        JSON(integerLiteral: summary.unmeasured)
                     ),
                     ("findings", JSON(integerLiteral: summary.findings)),
                     ("suppressions", JSON(integerLiteral: summary.suppressed)),
-                    ("repairProposals", JSON(integerLiteral: summary.repairProposals)),
+                    ("repairProposals", JSON(integerLiteral: summary.repairs)),
                 ])
             ),
         ])
@@ -59,7 +59,7 @@ extension Lint.Reporter.Structured {
         JSON.object([
             ("file", JSON(stringLiteral: observation.file.description)),
             ("rule", JSON(stringLiteral: observation.rule.underlying)),
-            ("applicable", JSON(booleanLiteral: observation.applicable)),
+            ("applicable", JSON(booleanLiteral: observation.applicability.isApplicable)),
             ("coverage", coverage(observation.coverage)),
         ])
     }

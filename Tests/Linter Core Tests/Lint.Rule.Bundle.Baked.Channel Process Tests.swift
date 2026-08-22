@@ -12,7 +12,12 @@ import Testing
 #if canImport(Darwin) || canImport(Glibc)
 
     extension Lint.Rule.Bundle.Baked.Channel.Test {
-        @Suite struct Process {}
+        @Suite
+        struct Process {
+            @Suite struct Unit {}
+            @Suite struct `Edge Case` {}
+            @Suite struct Integration {}
+        }
     }
 
     extension Lint.Rule.Bundle.Baked.Channel.Test.Process {
@@ -48,7 +53,11 @@ import Testing
                 return unsafe Swift.String(cString: name)
             #elseif canImport(Glibc)
                 var buffer = [CChar](repeating: 0, count: 4096)
-                let written = unsafe readlink("/proc/self/exe", &buffer, buffer.count - 1)
+                let written = unsafe readlink(
+                    "/proc/self/exe",
+                    &buffer,
+                    buffer.indices.dropLast().count
+                )
                 guard written > 0 else { return nil }
                 buffer[written] = 0
                 return Self.string(fromNulTerminated: buffer)
@@ -191,8 +200,7 @@ import Testing
         }
 
         @Test
-        func `A valid token absent from this runner's catalogue exits nonzero and names the token`()
-        {
+        func `A valid token absent from this runner's catalogue exits nonzero and names the token`() {
             guard
                 let runner = Executable.product(
                     Executable.singleBundle,

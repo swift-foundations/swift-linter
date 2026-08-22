@@ -34,7 +34,7 @@ extension Lint.File.Single.Test.Eval.Unit {
         )
         #expect(File(resolvedManifestPath).stat.exists)
 
-        try Lint.File.Single.Eval.invalidateStaleResolution(evalRoot: evalRoot)
+        try Lint.File.Single.Eval.invalidate(resolutionAt: evalRoot)
 
         #expect(!File(resolvedManifestPath).stat.exists)
     }
@@ -55,7 +55,7 @@ extension Lint.File.Single.Test.Eval.Unit {
         )
         #expect(File(workspaceStatePath).stat.exists)
 
-        try Lint.File.Single.Eval.invalidateStaleResolution(evalRoot: evalRoot)
+        try Lint.File.Single.Eval.invalidate(resolutionAt: evalRoot)
 
         #expect(!File(resolvedManifestPath).stat.exists)
         #expect(!File(workspaceStatePath).stat.exists)
@@ -72,7 +72,7 @@ extension Lint.File.Single.Test.Eval.Unit {
         let unrelatedArtifact: File.Path = buildDirectory / "build.db"
         try File(unrelatedArtifact).write.atomic("unrelated compiled-artifact cache\n")
 
-        try Lint.File.Single.Eval.invalidateStaleResolution(evalRoot: evalRoot)
+        try Lint.File.Single.Eval.invalidate(resolutionAt: evalRoot)
 
         #expect(File(unrelatedArtifact).stat.exists)
     }
@@ -93,7 +93,7 @@ extension Lint.File.Single.Test.Eval.`Edge Case` {
 
         let evalRoot: File.Path = Self.freshEvalRoot(key: "never-materialized")
 
-        try Lint.File.Single.Eval.invalidateStaleResolution(evalRoot: evalRoot)
+        try Lint.File.Single.Eval.invalidate(resolutionAt: evalRoot)
     }
 
     @Test
@@ -106,8 +106,8 @@ extension Lint.File.Single.Test.Eval.`Edge Case` {
         try File(resolvedManifestPath).write.atomic("{ }")
         try File(workspaceStatePath).write.atomic("{ }")
 
-        try Lint.File.Single.Eval.invalidateStaleResolution(evalRoot: evalRoot)
-        try Lint.File.Single.Eval.invalidateStaleResolution(evalRoot: evalRoot)
+        try Lint.File.Single.Eval.invalidate(resolutionAt: evalRoot)
+        try Lint.File.Single.Eval.invalidate(resolutionAt: evalRoot)
 
         #expect(!File(resolvedManifestPath).stat.exists)
         #expect(!File(workspaceStatePath).stat.exists)

@@ -7,6 +7,9 @@ import Testing
 extension Lint.Driver {
     @Suite
     struct Test {
+        @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
+        @Suite struct Integration {}
         @Suite struct `Configuration From Manifest` {}
     }
 }

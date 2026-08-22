@@ -7,6 +7,9 @@ import Testing
 extension Lint.File.Single.Extractor {
     @Suite
     struct Test {
+        @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
+        @Suite struct Integration {}
         @Suite struct Name {}
     }
 }
@@ -14,6 +17,9 @@ extension Lint.File.Single.Extractor {
 extension Lint.File.Single {
     @Suite
     struct Test {
+        @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
+        @Suite struct Integration {}
         @Suite struct Canonicalize {}
     }
 }

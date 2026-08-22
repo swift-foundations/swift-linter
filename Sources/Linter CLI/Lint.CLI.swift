@@ -237,12 +237,12 @@ extension Lint.CLI {
             summaryFor: consumerRoot.components.last?.string ?? ".",
             activeRules: Cardinal(UInt(configuration.rules.effective.entries.count)),
             excludedRules: Cardinal(UInt(configuration.rules.effective.disabled.count)),
-            filesLinted: Cardinal(UInt(outcome.filesLinted)),
+            filesLinted: Cardinal(UInt(outcome.files.count)),
             violations: Cardinal(UInt(outcome.violations.count)),
             findings: Cardinal(UInt(outcome.findings.count)),
             to: Terminal.Stream.stderr.write
         )
-        if outcome.summary.unmeasuredObservations > 0 {
+        if outcome.summary.unmeasured > 0 {
             throw ExitCode(2)
         }
         if policy.fails(for: outcome.findings) {

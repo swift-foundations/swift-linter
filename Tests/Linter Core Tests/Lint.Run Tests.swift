@@ -7,6 +7,8 @@ import Testing
 extension Lint.Run {
     @Suite
     struct Test {
+        @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
         @Suite struct Integration {}
         @Suite struct `Brand Pre-Pass` {}
     }

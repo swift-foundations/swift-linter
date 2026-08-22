@@ -10,6 +10,9 @@ import Testing
 extension Lint.Suppression {
     @Suite
     struct Test {
+        @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
+        @Suite struct Integration {}
         @Suite struct Scanner {}
         @Suite struct `Engine Integration` {}
     }

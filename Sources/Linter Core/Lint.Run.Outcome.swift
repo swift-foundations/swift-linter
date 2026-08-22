@@ -11,61 +11,55 @@ extension Lint.Run {
 
         public let files: [File.Path]
 
-        public let activeRules: [Lint.Rule.ID]
+        public let rules: [Lint.Rule.ID]
 
         public let observations: [Observation]
 
-        public let repairProposals: [Repair.Proposal]
+        public let repairs: [Repair.Proposal]
 
         @inlinable
         public init(
             findings: [Lint.Finding] = [],
             suppressed: [Lint.Finding] = [],
             files: [File.Path] = [],
-            activeRules: [Lint.Rule.ID] = [],
+            rules: [Lint.Rule.ID] = [],
             observations: [Observation] = [],
-            repairProposals: [Repair.Proposal] = []
+            repairs: [Repair.Proposal] = []
         ) {
             self.findings = findings
             self.suppressed = suppressed
             self.files = files
-            self.activeRules = activeRules
+            self.rules = rules
             self.observations = observations
-            self.repairProposals = repairProposals
-        }
-
-        @inlinable
-        public var filesLinted: Swift.Int { files.count }
-
-        @inlinable
-        public var applicableRules: [Lint.Rule.ID] {
-            activeRules.filter { rule in
-                observations.contains { $0.rule == rule && $0.applicable }
-            }
-        }
-
-        @inlinable
-        public var summary: Summary {
-            Summary(
-                files: files.count,
-                activeRules: activeRules.count,
-                applicableRules: applicableRules.count,
-                applicableObservations: observations.count { $0.applicable },
-                measuredObservations: observations.count {
-                    $0.coverage == .measured
-                },
-                unmeasuredObservations: observations.count {
-                    if case .unmeasured = $0.coverage { true } else { false }
-                },
-                findings: findings.count,
-                suppressed: suppressed.count,
-                repairProposals: repairProposals.count
-            )
+            self.repairs = repairs
         }
     }
 }
 
 extension Lint.Run.Outcome {
+    @inlinable
+    public var applicable: [Lint.Rule.ID] {
+        rules.filter { rule in
+            observations.contains { $0.rule == rule && $0.applicability.isApplicable }
+        }
+    }
+
+    @inlinable
+    public var summary: Lint.Run.Summary {
+        Lint.Run.Summary(
+            files: files.count,
+            rules: rules.count,
+            applicable: applicable.count,
+            observations: observations.count { $0.applicability.isApplicable },
+            measured: observations.count { $0.coverage == .measured },
+            unmeasured: observations.count {
+                if case .unmeasured = $0.coverage { true } else { false }
+            },
+            findings: findings.count,
+            suppressed: suppressed.count,
+            repairs: repairs.count
+        )
+    }
 
     public var violations: [Lint.Finding] {
         findings.filter { finding in

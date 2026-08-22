@@ -5,7 +5,11 @@ import Testing
 
 extension Lint.Run.Policy.Channel {
     @Suite(.serialized)
-    struct Test {}
+    struct Test {
+        @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
+        @Suite struct Integration {}
+    }
 }
 
 extension Lint.Run.Policy.Channel.Test {

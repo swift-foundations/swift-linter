@@ -11,19 +11,19 @@ extension Lint.Run {
 
         public let coverage: Lint.Rule.Coverage
 
-        public let applicable: Swift.Bool
+        public let applicability: Applicability
 
         @inlinable
         public init(
             file: File.Path,
             rule: Lint.Rule.ID,
             coverage: Lint.Rule.Coverage,
-            applicable: Swift.Bool
+            applicability: Applicability
         ) {
             self.file = file
             self.rule = rule
             self.coverage = coverage
-            self.applicable = applicable
+            self.applicability = applicability
         }
     }
 }

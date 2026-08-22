@@ -74,7 +74,7 @@ extension Lint.File.Single.Eval {
         }
         let evalRoot: File.Path = stateRoot / "eval"
 
-        try Self.invalidateStaleResolution(evalRoot: evalRoot)
+        try Self.invalidate(resolutionAt: evalRoot)
         let configuration = Manifest.Executable.Configuration(
             consumerPackageRoot: consumerPackageRoot,
             consumerSourcePath: consumerLintSwiftPath,
@@ -113,8 +113,8 @@ extension Lint.File.Single.Eval {
         }
     }
 
-    internal static func invalidateStaleResolution(
-        evalRoot: File.Path
+    internal static func invalidate(
+        resolutionAt evalRoot: File.Path
     ) throws(Lint.File.Single.Error) {
         let staleStatePaths: [File.Path] = [
             evalRoot / "Package.resolved",

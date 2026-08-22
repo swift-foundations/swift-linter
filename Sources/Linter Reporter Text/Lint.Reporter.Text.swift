@@ -92,14 +92,19 @@ extension Lint.Reporter.Text {
 }
 
 extension Lint.Reporter.Text {
-    fileprivate static func write(
-        _ bytes: [Byte],
-        to write: Terminal.Stream.Write
-    ) {
-        #if !os(Windows)
+    #if !os(Windows)
+        fileprivate static func write(
+            _ bytes: [Byte],
+            to write: Terminal.Stream.Write
+        ) {
             do throws(ISO_9945.Kernel.IO.Write.Error) { _ = try write(bytes) } catch {}
-        #else
+        }
+    #else
+        fileprivate static func write(
+            _ bytes: [Swift.UInt8],
+            to write: Terminal.Stream.Write
+        ) {
             do throws(Windows.`32`.Kernel.IO.Write.Error) { _ = try write(bytes) } catch {}
-        #endif
-    }
+        }
+    #endif
 }

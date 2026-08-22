@@ -6,6 +6,9 @@ import Testing
 extension Lint.Reporter {
     @Suite
     struct Test {
+        @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
+        @Suite struct Integration {}
         @Suite struct Text {}
         @Suite struct SARIF {}
     }

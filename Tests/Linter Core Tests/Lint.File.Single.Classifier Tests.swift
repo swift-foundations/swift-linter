@@ -5,7 +5,11 @@ import Testing
 
 extension Lint.File.Single.Classifier {
     @Suite
-    struct Test {}
+    struct Test {
+        @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
+        @Suite struct Integration {}
+    }
 }
 
 extension Lint.File.Single.Classifier.Test {

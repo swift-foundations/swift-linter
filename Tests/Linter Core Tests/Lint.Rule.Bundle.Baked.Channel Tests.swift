@@ -5,7 +5,11 @@ import Testing
 
 extension Lint.Rule.Bundle.Baked.Channel {
     @Suite(.serialized)
-    struct Test {}
+    struct Test {
+        @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
+        @Suite struct Integration {}
+    }
 }
 
 extension Lint.Rule.Bundle.Baked.Channel.Test {

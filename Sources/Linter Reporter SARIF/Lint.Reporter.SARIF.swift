@@ -17,15 +17,6 @@ extension Lint.Reporter {
 extension Lint.Reporter.SARIF {
 
     #if !os(Windows)
-        fileprivate typealias Kernel = ISO_9945.Kernel.IO.Write.Error
-    #else
-        fileprivate typealias Kernel = Windows.`32`.Kernel.IO.Write.Error
-    #endif
-}
-
-extension Lint.Reporter.SARIF {
-
-    #if !os(Windows)
         fileprivate static func bytes(of text: Swift.String) -> [Byte] {
             text.utf8.map(Byte.init)
         }
@@ -42,11 +33,7 @@ extension Lint.Reporter.SARIF {
         findings: [Lint.Finding],
         to write: Terminal.Stream.Write
     ) {
-        do throws(Kernel) {
-            _ = try write(bytes(of: report(for: findings) + "\n"))
-        } catch {
-
-        }
+        Self.write(bytes(of: report(for: findings) + "\n"), to: write)
     }
 
     public static func report(for findings: [Lint.Finding]) -> Swift.String {
@@ -119,4 +106,22 @@ extension Lint.Reporter.SARIF {
         default: severity.wire.token
         }
     }
+}
+
+extension Lint.Reporter.SARIF {
+    #if !os(Windows)
+        fileprivate static func write(
+            _ bytes: [Byte],
+            to write: Terminal.Stream.Write
+        ) {
+            do throws(ISO_9945.Kernel.IO.Write.Error) { _ = try write(bytes) } catch {}
+        }
+    #else
+        fileprivate static func write(
+            _ bytes: [Swift.UInt8],
+            to write: Terminal.Stream.Write
+        ) {
+            do throws(Windows.`32`.Kernel.IO.Write.Error) { _ = try write(bytes) } catch {}
+        }
+    #endif
 }

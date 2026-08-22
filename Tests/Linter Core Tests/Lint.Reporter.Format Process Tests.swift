@@ -43,7 +43,11 @@ import Testing
                 return unsafe Swift.String(cString: name)
             #elseif canImport(Glibc)
                 var buffer = [CChar](repeating: 0, count: 4096)
-                let written = unsafe readlink("/proc/self/exe", &buffer, buffer.count - 1)
+                let written = unsafe readlink(
+                    "/proc/self/exe",
+                    &buffer,
+                    buffer.indices.dropLast().count
+                )
                 guard written > 0 else { return nil }
                 buffer[written] = 0
                 return Self.string(fromNulTerminated: buffer)
