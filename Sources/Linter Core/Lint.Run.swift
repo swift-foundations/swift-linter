@@ -31,6 +31,7 @@ extension Lint.Run {
     var files: [File.Path] = []
     var observations: [Observation] = []
     var repairs: [Repair.Proposal] = []
+    let controls = try Self.controls(for: effective)
 
     let types = Self.types(under: paths)
     for root in paths {
@@ -96,8 +97,71 @@ extension Lint.Run {
       files: files,
       rules: effective.map(\.rule.id),
       observations: observations,
-      repairs: repairs
+      repairs: repairs,
+      controls: controls
     )
+  }
+
+  fileprivate static func controls(
+    for entries: [Lint.Rule.Configuration]
+  ) throws(Error) -> [Control.Evidence] {
+    var identities: Swift.Set<Lint.Rule.Control.ID> = []
+    var evidence: [Control.Evidence] = []
+    for entry in entries {
+      guard !entry.rule.controls.isEmpty else {
+        throw .invalidControlCatalog("rule '\(entry.rule.id.underlying)' has zero controls")
+      }
+      for control in entry.rule.controls {
+        guard !control.id.underlying.isEmpty, identities.insert(control.id).inserted else {
+          throw .invalidControlCatalog("duplicate or empty control identity")
+        }
+        switch control.expectation {
+        case .clean:
+          break
+        case .findings(let count):
+          guard count > 0 else {
+            throw .invalidControlCatalog("control '\(control.id.underlying)' has invalid count")
+          }
+        }
+        var manager = Source.Manager()
+        let bytes = control.source.utf8.map(Byte.init)
+        let path = control.path.underlying
+        let fileID = manager.register(fileID: path, filePath: path, content: bytes)
+        let file = manager.file(for: fileID)
+        let tree = Parser.parse(source: control.source)
+        let converter = SourceLocationConverter(fileName: path, tree: tree)
+        let parsed = Lint.Source.Parsed(
+          file: file,
+          path: control.path,
+          tree: tree,
+          converter: converter,
+          types: Lint.Brand.types(in: tree)
+        )
+        let severity = entry.severity ?? entry.rule.severity.default
+        let observation = entry.rule.observe(parsed, severity)
+        let coverage: Lint.Rule.Coverage
+        if observation.applicability.isApplicable {
+          coverage = observation.coverage
+        } else {
+          coverage = .unmeasured(
+            .other(
+              code: "control-inapplicable",
+              detail: control.id.underlying
+            )
+          )
+        }
+        evidence.append(
+          .init(
+            identity: control.id,
+            rule: entry.rule.id,
+            expectation: control.expectation,
+            actualFindings: observation.findings.count,
+            coverage: coverage
+          )
+        )
+      }
+    }
+    return evidence
   }
 
   fileprivate static func resolve(
@@ -141,7 +205,7 @@ extension Lint.Run {
       bytes = try file.read.full { (span: Swift.Span<Byte>) in
         var copy: [Byte] = []
         copy.reserveCapacity(span.count)
-        span.indices.forEach { copy.append(span[$0]) }
+        for index in span.indices { copy.append(span[index]) }
         return copy
       }
     } catch {
@@ -187,7 +251,7 @@ extension Lint.Run {
           bytes = try file.read.full { (span: Swift.Span<Byte>) in
             var copy: [Byte] = []
             copy.reserveCapacity(span.count)
-            span.indices.forEach { copy.append(span[$0]) }
+            for index in span.indices { copy.append(span[index]) }
             return copy
           }
         } catch {

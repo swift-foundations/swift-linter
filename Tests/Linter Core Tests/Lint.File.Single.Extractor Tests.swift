@@ -5,146 +5,146 @@ import Testing
 @testable import Linter_Core
 
 extension Lint.File.Single.Extractor {
-    @Suite
-    struct Test {
-        @Suite struct Unit {}
-        @Suite struct `Edge Case` {}
-        @Suite struct Integration {}
-        @Suite struct Name {}
-    }
+  @Suite
+  struct Test {
+    @Suite struct Unit {}
+    @Suite struct `Edge Case` {}
+    @Suite struct Integration {}
+    @Suite struct Name {}
+  }
 }
 
 extension Lint.File.Single {
-    @Suite
-    struct Test {
-        @Suite struct Unit {}
-        @Suite struct `Edge Case` {}
-        @Suite struct Integration {}
-        @Suite struct Canonicalize {}
-    }
+  @Suite
+  struct Test {
+    @Suite struct Unit {}
+    @Suite struct `Edge Case` {}
+    @Suite struct Integration {}
+    @Suite struct Canonicalize {}
+  }
 }
 
 extension Lint.File.Single.Test.Canonicalize {
-    @Test
-    func `Dot consumerRoot resolves via cwd closure`() {
-        let resolved = Lint.File.Single.canonicalize(
-            consumerRoot: ".",
-            currentWorkingDirectory: { "/Users/coen/Developer/swift-cardinal-primitives" }
-        )
-        #expect(resolved == "/Users/coen/Developer/swift-cardinal-primitives")
-    }
+  @Test
+  func `Dot consumerRoot resolves via cwd closure`() {
+    let resolved = Lint.File.Single.canonicalize(
+      consumerRoot: ".",
+      currentWorkingDirectory: { "/Users/coen/Developer/swift-cardinal-primitives" }
+    )
+    #expect(resolved == "/Users/coen/Developer/swift-cardinal-primitives")
+  }
 
-    @Test
-    func `Empty consumerRoot resolves via cwd closure`() {
-        let resolved = Lint.File.Single.canonicalize(
-            consumerRoot: "",
-            currentWorkingDirectory: { "/Users/coen/Developer/swift-cardinal-primitives" }
-        )
-        #expect(resolved == "/Users/coen/Developer/swift-cardinal-primitives")
-    }
+  @Test
+  func `Empty consumerRoot resolves via cwd closure`() {
+    let resolved = Lint.File.Single.canonicalize(
+      consumerRoot: "",
+      currentWorkingDirectory: { "/Users/coen/Developer/swift-cardinal-primitives" }
+    )
+    #expect(resolved == "/Users/coen/Developer/swift-cardinal-primitives")
+  }
 
-    @Test
-    func `Absolute path is returned unchanged`() {
-        let resolved = Lint.File.Single.canonicalize(
-            consumerRoot: "/Users/coen/Developer/swift-cardinal-primitives",
-            currentWorkingDirectory: { "/Users/elsewhere" }
-        )
-        #expect(resolved == "/Users/coen/Developer/swift-cardinal-primitives")
-    }
+  @Test
+  func `Absolute path is returned unchanged`() {
+    let resolved = Lint.File.Single.canonicalize(
+      consumerRoot: "/Users/coen/Developer/swift-cardinal-primitives",
+      currentWorkingDirectory: { "/Users/elsewhere" }
+    )
+    #expect(resolved == "/Users/coen/Developer/swift-cardinal-primitives")
+  }
 
-    @Test
-    func `Relative non-self path is returned unchanged`() {
-        let resolved = Lint.File.Single.canonicalize(
-            consumerRoot: "./Sources",
-            currentWorkingDirectory: { "/Users/elsewhere" }
-        )
-        #expect(resolved == "./Sources")
-    }
+  @Test
+  func `Relative non-self path is returned unchanged`() {
+    let resolved = Lint.File.Single.canonicalize(
+      consumerRoot: "./Sources",
+      currentWorkingDirectory: { "/Users/elsewhere" }
+    )
+    #expect(resolved == "./Sources")
+  }
 
-    @Test
-    func `Dot consumerRoot with cwd unavailable falls back to dot`() {
+  @Test
+  func `Dot consumerRoot with cwd unavailable falls back to dot`() {
 
-        let resolved = Lint.File.Single.canonicalize(
-            consumerRoot: ".",
-            currentWorkingDirectory: { nil }
-        )
-        #expect(resolved == ".")
-    }
+    let resolved = Lint.File.Single.canonicalize(
+      consumerRoot: ".",
+      currentWorkingDirectory: { nil }
+    )
+    #expect(resolved == ".")
+  }
 }
 
 extension Lint.File.Single.Extractor.Test.Name {
-    @Test
-    func `Sibling-package relative path uses path's own basename`() {
-        let name = Lint.File.Single.Extractor.name(
-            at: "../swift-primitives-linter-rules",
-            consumerPackageRoot: File.Path(
-                stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
-            )
-        )
-        #expect(name == "swift-primitives-linter-rules")
-    }
+  @Test
+  func `Sibling-package relative path uses path's own basename`() {
+    let name = Lint.File.Single.Extractor.name(
+      at: "../swift-primitives-linter-rules",
+      consumerPackageRoot: File.Path(
+        stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+      )
+    )
+    #expect(name == "swift-primitives-linter-rules")
+  }
 
-    @Test
-    func `Absolute path uses path's own basename`() {
-        let name = Lint.File.Single.Extractor.name(
-            at: "/Users/coen/Developer/swift-foundations/swift-linter-rules",
-            consumerPackageRoot: File.Path(
-                stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
-            )
-        )
-        #expect(name == "swift-linter-rules")
-    }
+  @Test
+  func `Absolute path uses path's own basename`() {
+    let name = Lint.File.Single.Extractor.name(
+      at: "/Users/coen/Developer/swift-foundations/swift-linter-rules",
+      consumerPackageRoot: File.Path(
+        stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+      )
+    )
+    #expect(name == "swift-linter-rules")
+  }
 
-    @Test
-    func `Self-reference dot derives package name from consumer-root basename`() {
-        let name = Lint.File.Single.Extractor.name(
-            at: ".",
-            consumerPackageRoot: File.Path(
-                stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
-            )
-        )
-        #expect(name == "swift-cardinal-primitives")
-    }
+  @Test
+  func `Self-reference dot derives package name from consumer-root basename`() {
+    let name = Lint.File.Single.Extractor.name(
+      at: ".",
+      consumerPackageRoot: File.Path(
+        stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+      )
+    )
+    #expect(name == "swift-cardinal-primitives")
+  }
 
-    @Test
-    func `Self-reference empty string derives package name from consumer-root basename`() {
-        let name = Lint.File.Single.Extractor.name(
-            at: "",
-            consumerPackageRoot: File.Path(
-                stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
-            )
-        )
-        #expect(name == "swift-cardinal-primitives")
-    }
+  @Test
+  func `Self-reference empty string derives package name from consumer-root basename`() {
+    let name = Lint.File.Single.Extractor.name(
+      at: "",
+      consumerPackageRoot: File.Path(
+        stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+      )
+    )
+    #expect(name == "swift-cardinal-primitives")
+  }
 
-    @Test
-    func `Self-reference dot strips trailing slash from consumer-root`() {
-        let name = Lint.File.Single.Extractor.name(
-            at: ".",
-            consumerPackageRoot: File.Path(
-                stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives/"
-            )
-        )
-        #expect(name == "swift-cardinal-primitives")
-    }
+  @Test
+  func `Self-reference dot strips trailing slash from consumer-root`() {
+    let name = Lint.File.Single.Extractor.name(
+      at: ".",
+      consumerPackageRoot: File.Path(
+        stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives/"
+      )
+    )
+    #expect(name == "swift-cardinal-primitives")
+  }
 }
 
 extension Lint.File.Single.Extractor.Test {
-    @Test
-    func `path dependency preserves SwiftPM path string`() throws(Lint.File.Single.Error) {
-        let dependencies = try Lint.File.Single.Extractor.dependencies(
-            from: """
-                Lint.run(
-                    dependencies: [
-                        .package(path: "../swift-linter-rules", products: ["Linter Rules"]),
-                    ]
-                ) {}
-                """,
-            sourcePath: File.Path(stringLiteral: "/tmp/Lint.swift"),
-            consumerPackageRoot: File.Path(stringLiteral: "/tmp/consumer")
-        )
+  @Test
+  func `path dependency preserves SwiftPM path string`() throws(Lint.File.Single.Error) {
+    let dependencies = try Lint.File.Single.Extractor.dependencies(
+      from: """
+        Lint.run(
+            dependencies: [
+                .package(path: "../swift-linter-rules", products: ["Linter Rules"]),
+            ]
+        ) {}
+        """,
+      sourcePath: File.Path(stringLiteral: "/tmp/Lint.swift"),
+      consumerPackageRoot: File.Path(stringLiteral: "/tmp/consumer")
+    )
 
-        #expect(dependencies.count == 1)
-        #expect(dependencies.first?.source == .path("../swift-linter-rules"))
-    }
+    #expect(dependencies.count == 1)
+    #expect(dependencies.first?.source == .path("../swift-linter-rules"))
+  }
 }

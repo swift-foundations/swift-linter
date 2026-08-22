@@ -1,5 +1,5 @@
 import Linter
 
 Lint.run(dependencies: []) {
-    Lint.Rule.Bundle.primitives
+  Lint.Rule.Bundle.primitives
 }

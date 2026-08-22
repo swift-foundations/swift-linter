@@ -1,3 +1,3 @@
 public struct Cardinal {
-    public let rawValue: UInt
+  public let rawValue: UInt
 }

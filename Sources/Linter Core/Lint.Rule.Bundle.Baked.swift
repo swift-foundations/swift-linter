@@ -2,21 +2,21 @@ public import Linter_Primitives
 
 extension Lint.Rule.Bundle {
 
-    public enum Baked: Swift.String, Swift.CaseIterable, Swift.Sendable {
+  public enum Baked: Swift.String, Swift.CaseIterable, Swift.Sendable {
 
-        case primitives
+    case primitives
 
-        case standards
+    case standards
 
-        case institute
-    }
+    case institute
+  }
 }
 
 extension Lint.Rule.Bundle.Baked {
 
-    public var token: Swift.String { rawValue }
+  public var token: Swift.String { rawValue }
 
-    public var expression: Swift.String {
-        "Lint.Rule.Bundle.\(token)"
-    }
+  public var expression: Swift.String {
+    "Lint.Rule.Bundle.\(token)"
+  }
 }

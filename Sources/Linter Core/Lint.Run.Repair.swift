@@ -1,4 +1,4 @@
 extension Lint.Run {
 
-    public enum Repair {}
+  public enum Repair {}
 }

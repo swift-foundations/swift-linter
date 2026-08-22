@@ -3,8 +3,8 @@ public import Linter_Primitives
 
 extension Lint.Source.Path {
 
-    @inlinable
-    public init(_ filePath: File.Path) {
-        self = Self(filePath.description)
-    }
+  @inlinable
+  public init(_ filePath: File.Path) {
+    self = Self(filePath.description)
+  }
 }

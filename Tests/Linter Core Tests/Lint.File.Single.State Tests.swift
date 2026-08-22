@@ -4,63 +4,63 @@ import Testing
 @testable import Linter_Core
 
 extension Lint.File.Single.State {
-    @Suite
-    struct Test {
-        @Suite struct Unit {}
-        @Suite struct `Edge Case` {}
-        @Suite struct Integration {}
-    }
+  @Suite
+  struct Test {
+    @Suite struct Unit {}
+    @Suite struct `Edge Case` {}
+    @Suite struct Integration {}
+  }
 }
 
 extension Lint.File.Single.State.Test {
-    private static func freshRoot(key: Swift.String) -> File.Path {
+  private static func freshRoot(key: Swift.String) -> File.Path {
 
-        try! File.Path.Temporary.deterministic(prefix: "lint-state-root-", key: key, suffix: "")
-    }
+    try! File.Path.Temporary.deterministic(prefix: "lint-state-root-", key: key, suffix: "")
+  }
 
-    @Test
-    func `Creating the state directory stamps it self-ignoring`() throws {
-        let root: File.Path = Self.freshRoot(key: "stamp")
-        let directory: File.Path = try Lint.File.Single.State.create(consumerPackageRoot: root)
+  @Test
+  func `Creating the state directory stamps it self-ignoring`() throws {
+    let root: File.Path = Self.freshRoot(key: "stamp")
+    let directory: File.Path = try Lint.File.Single.State.create(consumerPackageRoot: root)
 
-        #expect(directory == Lint.File.Single.State.directory(consumerPackageRoot: root))
-        let marker: Swift.String = try Lint.File.Single.contents(of: directory / ".gitignore")
-        #expect(marker == "*\n")
-    }
+    #expect(directory == Lint.File.Single.State.directory(consumerPackageRoot: root))
+    let marker: Swift.String = try Lint.File.Single.contents(of: directory / ".gitignore")
+    #expect(marker == "*\n")
+  }
 
-    @Test
-    func `Creation is idempotent, so a directory predating the stamp acquires it`() throws {
-        let root: File.Path = Self.freshRoot(key: "idempotent")
+  @Test
+  func `Creation is idempotent, so a directory predating the stamp acquires it`() throws {
+    let root: File.Path = Self.freshRoot(key: "idempotent")
 
-        let directory: File.Path = Lint.File.Single.State.directory(consumerPackageRoot: root)
-        try File.Directory(directory).create.recursive()
+    let directory: File.Path = Lint.File.Single.State.directory(consumerPackageRoot: root)
+    try File.Directory(directory).create.recursive()
 
-        _ = try Lint.File.Single.State.create(consumerPackageRoot: root)
-        _ = try Lint.File.Single.State.create(consumerPackageRoot: root)
+    _ = try Lint.File.Single.State.create(consumerPackageRoot: root)
+    _ = try Lint.File.Single.State.create(consumerPackageRoot: root)
 
-        let marker: Swift.String = try Lint.File.Single.contents(of: directory / ".gitignore")
-        #expect(marker == "*\n")
-    }
+    let marker: Swift.String = try Lint.File.Single.contents(of: directory / ".gitignore")
+    #expect(marker == "*\n")
+  }
 
-    @Test
-    func `A channel write stamps the directory it writes into`() throws {
-        let root: File.Path = Self.freshRoot(key: "channel")
-        let channel: Lint.File.Single.Channel = .selection
+  @Test
+  func `A channel write stamps the directory it writes into`() throws {
+    let root: File.Path = Self.freshRoot(key: "channel")
+    let channel: Lint.File.Single.Channel = .selection
 
-        let target: File.Path = try channel.write(
-            Lint.Manifest(),
-            consumerPackageRoot: root,
-            nonce: ""
-        )
+    let target: File.Path = try channel.write(
+      Lint.Manifest(),
+      consumerPackageRoot: root,
+      nonce: ""
+    )
 
-        #expect(
-            target.string.hasPrefix(
-                Lint.File.Single.State.directory(consumerPackageRoot: root).string
-            )
-        )
-        let marker: Swift.String = try Lint.File.Single.contents(
-            of: Lint.File.Single.State.directory(consumerPackageRoot: root) / ".gitignore"
-        )
-        #expect(marker == "*\n")
-    }
+    #expect(
+      target.string.hasPrefix(
+        Lint.File.Single.State.directory(consumerPackageRoot: root).string
+      )
+    )
+    let marker: Swift.String = try Lint.File.Single.contents(
+      of: Lint.File.Single.State.directory(consumerPackageRoot: root) / ".gitignore"
+    )
+    #expect(marker == "*\n")
+  }
 }
