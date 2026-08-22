@@ -39,6 +39,10 @@ let package = Package(
             branch: "main"
         ),
         .package(
+            url: "https://github.com/swift-primitives/swift-cardinal-primitives.git",
+            branch: "main"
+        ),
+        .package(
             url: "https://github.com/swift-primitives/swift-glob-primitives.git",
             branch: "main"
         ),
@@ -91,6 +95,7 @@ let package = Package(
             name: "Linter Reporter Text",
             dependencies: [
                 .target(name: "Linter Core"),
+                .product(name: "Cardinal Primitives", package: "swift-cardinal-primitives"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
                 .product(

@@ -1,3 +1,4 @@
+public import Cardinal_Primitives
 public import Linter_Core
 
 extension Lint.Reporter.Text {
@@ -9,11 +10,11 @@ extension Lint.Reporter.Text.Summary {
 
     public static func line(
         package: Swift.String,
-        activeRules: Swift.Int,
-        excludedRules: Swift.Int,
-        filesLinted: Swift.Int,
-        violations: Swift.Int,
-        findings: Swift.Int
+        activeRules: Cardinal,
+        excludedRules: Cardinal,
+        filesLinted: Cardinal,
+        violations: Cardinal,
+        findings: Cardinal
     ) -> Swift.String {
         let ruleSet: Swift.String =
             excludedRules > 0

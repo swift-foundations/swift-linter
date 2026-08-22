@@ -1,3 +1,4 @@
+public import Cardinal_Primitives
 public import Linter_Core
 public import Terminal_Primitives
 
@@ -10,15 +11,6 @@ public import Terminal_Primitives
 extension Lint.Reporter {
 
     public enum Text {}
-}
-
-extension Lint.Reporter.Text {
-
-    #if !os(Windows)
-        fileprivate typealias Kernel = ISO_9945.Kernel.IO.Write.Error
-    #else
-        fileprivate typealias Kernel = Windows.`32`.Kernel.IO.Write.Error
-    #endif
 }
 
 extension Lint.Reporter.Text {
@@ -41,21 +33,17 @@ extension Lint.Reporter.Text {
         to write: Terminal.Stream.Write
     ) {
         for finding in findings {
-            do throws(Kernel) {
-                _ = try write(bytes(of: line(for: finding) + "\n"))
-            } catch {
-
-            }
+            Self.write(bytes(of: line(for: finding) + "\n"), to: write)
         }
     }
 
     public static func emit(
         summaryFor package: Swift.String,
-        activeRules: Swift.Int,
-        excludedRules: Swift.Int,
-        filesLinted: Swift.Int,
-        violations: Swift.Int,
-        findings: Swift.Int,
+        activeRules: Cardinal,
+        excludedRules: Cardinal,
+        filesLinted: Cardinal,
+        violations: Cardinal,
+        findings: Cardinal,
         to write: Terminal.Stream.Write
     ) {
         let line: Swift.String = Summary.line(
@@ -66,33 +54,21 @@ extension Lint.Reporter.Text {
             violations: violations,
             findings: findings
         )
-        do throws(Kernel) {
-            _ = try write(bytes(of: line + "\n"))
-        } catch {
-
-        }
+        Self.write(bytes(of: line + "\n"), to: write)
     }
 
     public static func emit(
         text: Swift.String,
         to write: Terminal.Stream.Write
     ) {
-        do throws(Kernel) {
-            _ = try write(bytes(of: text))
-        } catch {
-
-        }
+        Self.write(bytes(of: text), to: write)
     }
 
     public static func emit(
         error message: Swift.String,
         to write: Terminal.Stream.Write
     ) {
-        do throws(Kernel) {
-            _ = try write(bytes(of: "[Lint] error: " + message + "\n"))
-        } catch {
-
-        }
+        Self.write(bytes(of: "[Lint] error: " + message + "\n"), to: write)
     }
 
     public static func report(for findings: [Lint.Finding]) -> Swift.String {
@@ -111,7 +87,19 @@ extension Lint.Reporter.Text {
         let line = prefix + severity + body
         guard let visibility = finding.visibility else { return line }
 
-        let token: Swift.String = visibility.rawValue
-        return line + " [visibility: \(token)]"
+        return line + " [visibility: \(visibility.token)]"
+    }
+}
+
+extension Lint.Reporter.Text {
+    fileprivate static func write(
+        _ bytes: [Byte],
+        to write: Terminal.Stream.Write
+    ) {
+        #if !os(Windows)
+            do throws(ISO_9945.Kernel.IO.Write.Error) { _ = try write(bytes) } catch {}
+        #else
+            do throws(Windows.`32`.Kernel.IO.Write.Error) { _ = try write(bytes) } catch {}
+        #endif
     }
 }

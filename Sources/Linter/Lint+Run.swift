@@ -160,11 +160,11 @@ extension Lint {
 
             Self.Reporter.Text.emit(
                 summaryFor: package,
-                activeRules: configuration.rules.effective.entries.count,
-                excludedRules: configuration.rules.effective.disabled.count,
-                filesLinted: outcome.filesLinted,
-                violations: outcome.violations.count,
-                findings: outcome.findings.count,
+                activeRules: Cardinal(UInt(configuration.rules.effective.entries.count)),
+                excludedRules: Cardinal(UInt(configuration.rules.effective.disabled.count)),
+                filesLinted: Cardinal(UInt(outcome.filesLinted)),
+                violations: Cardinal(UInt(outcome.violations.count)),
+                findings: Cardinal(UInt(outcome.findings.count)),
                 to: Terminal.Stream.stderr.write
             )
 

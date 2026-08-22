@@ -11,6 +11,8 @@ import Testing
 extension Lint.Run.Outcome {
     @Suite
     struct Test {
+        @Suite struct Unit {}
+        @Suite struct `Edge Case` {}
         @Suite struct Integration {}
     }
 }
@@ -172,11 +174,11 @@ extension Lint.Run.Outcome.Test.Integration {
 
         let line = Lint.Reporter.Text.Summary.line(
             package: "count-contract-fixture",
-            activeRules: 4,
-            excludedRules: 0,
-            filesLinted: outcome.filesLinted,
-            violations: outcome.violations.count,
-            findings: outcome.findings.count
+            activeRules: Cardinal(4),
+            excludedRules: .zero,
+            filesLinted: Cardinal(UInt(outcome.filesLinted)),
+            violations: Cardinal(UInt(outcome.violations.count)),
+            findings: Cardinal(UInt(outcome.findings.count))
         )
         #expect(line.contains("2 violations"))
         #expect(line.contains("4 findings"))

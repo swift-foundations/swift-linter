@@ -10,6 +10,13 @@ extension Lint.Run {
 
 extension Lint.Run.Policy {
 
+    public var token: Swift.String {
+        switch self {
+        case .advisory: "advisory"
+        case .strict: "strict"
+        }
+    }
+
     public func fails(for findings: [Lint.Finding]) -> Swift.Bool {
         switch self {
         case .advisory: false

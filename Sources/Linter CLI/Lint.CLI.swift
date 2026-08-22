@@ -81,13 +81,6 @@ extension Lint.CLI {
 }
 
 extension Lint.CLI {
-
-    #if !os(Windows)
-        fileprivate typealias KernelWrite = ISO_9945.Kernel.IO.Write.Error
-    #else
-        fileprivate typealias KernelWrite = Windows.`32`.Kernel.IO.Write.Error
-    #endif
-
     #if !os(Windows)
         fileprivate static func bytes(of text: Swift.String) -> [Byte] {
             text.utf8.map(Byte.init)
@@ -97,6 +90,18 @@ extension Lint.CLI {
             Swift.Array(text.utf8)
         }
     #endif
+
+    fileprivate static func writeError(_ text: Swift.String) {
+        #if !os(Windows)
+            do throws(ISO_9945.Kernel.IO.Write.Error) {
+                _ = try Terminal.Stream.stderr.write(bytes(of: text))
+            } catch {}
+        #else
+            do throws(Windows.`32`.Kernel.IO.Write.Error) {
+                _ = try Terminal.Stream.stderr.write(bytes(of: text))
+            } catch {}
+        #endif
+    }
 
     fileprivate static func currentWorkingDirectory() -> Swift.String? {
         let result: Swift.String?
@@ -128,22 +133,32 @@ extension Lint.CLI {
 
 extension Lint.CLI {
 
-    func run() throws {
+    func run() throws(ExitCode) {
 
         let consumerRootString: Swift.String = Lint.File.Single.canonicalize(
             consumerRoot: paths.first ?? ".",
             currentWorkingDirectory: { Lint.CLI.currentWorkingDirectory() }
         )
 
-        let consumerRoot: File_System.File.Path = try File_System.File.Path(consumerRootString)
+        let consumerRoot: File_System.File.Path
+        do throws(Paths.Path.Error) {
+            consumerRoot = try File_System.File.Path(consumerRootString)
+        } catch {
+            Lint.CLI.writeError("[swift-linter] error: invalid consumer root: \(error)\n")
+            throw .failure
+        }
 
-        try Environment.write(
-            Lint.Reporter.Format.Channel.variable,
-            to: Lint.Reporter.Format.Channel.value(format)
-        )
-
-        if policy != .advisory {
-            try Environment.write(Lint.Run.Policy.Channel.variable, to: policy.rawValue)
+        do throws(Kernel.Environment.Error) {
+            try Environment.write(
+                Lint.Reporter.Format.Channel.variable,
+                to: Lint.Reporter.Format.Channel.value(format)
+            )
+            if policy != .advisory {
+                try Environment.write(Lint.Run.Policy.Channel.variable, to: policy.token)
+            }
+        } catch {
+            Lint.CLI.writeError("[swift-linter] error: cannot configure process: \(error)\n")
+            throw .failure
         }
 
         if Lint.File.Single.Detection.detect(at: consumerRoot) != nil {
@@ -160,15 +175,9 @@ extension Lint.CLI {
                     nonce: runNonce
                 )
             } catch {
-                do throws(KernelWrite) {
-                    _ = try Terminal.Stream.stderr.write(
-                        Lint.CLI.bytes(
-                            of: "[swift-linter] error: single-file dispatch failed: \(error)\n"
-                        )
-                    )
-                } catch {
-
-                }
+                Lint.CLI.writeError(
+                    "[swift-linter] error: single-file dispatch failed: \(error)\n"
+                )
                 throw ExitCode.failure
             }
             if dispatchedExitCode != 0 {
@@ -181,16 +190,9 @@ extension Lint.CLI {
             at: consumerRoot,
             arguments: paths,
             onDispatchError: { description in
-                do throws(KernelWrite) {
-                    _ = try Terminal.Stream.stderr.write(
-                        Lint.CLI.bytes(
-                            of: "[swift-linter] error: nested-package dispatch failed: "
-                                + "\(description)\n"
-                        )
-                    )
-                } catch {
-
-                }
+                Lint.CLI.writeError(
+                    "[swift-linter] error: nested-package dispatch failed: \(description)\n"
+                )
             }
         ) {
             if dispatchedExitCode != 0 {
@@ -201,15 +203,27 @@ extension Lint.CLI {
 
         let configuration: Lint.Configuration = resolveConfiguration(consumerRoot: consumerRoot)
 
-        let typedPaths: [File_System.File.Path] = try paths.map {
-            (raw: Swift.String) throws(Paths.Path.Error) in
-            try File_System.File.Path(raw)
+        let typedPaths: [File_System.File.Path]
+        do throws(Paths.Path.Error) {
+            typedPaths = try paths.map {
+                (raw: Swift.String) throws(Paths.Path.Error) in
+                try File_System.File.Path(raw)
+            }
+        } catch {
+            Lint.CLI.writeError("[swift-linter] error: invalid source path: \(error)\n")
+            throw .failure
         }
-        let outcome: Lint.Run.Outcome = try Lint.Run.run(
-            paths: typedPaths,
-            capturing: .all,
-            configuration: configuration
-        )
+        let outcome: Lint.Run.Outcome
+        do throws(Lint.Run.Error) {
+            outcome = try Lint.Run.run(
+                paths: typedPaths,
+                capturing: .all,
+                configuration: configuration
+            )
+        } catch {
+            Lint.CLI.writeError("[swift-linter] error: source measurement failed: \(error)\n")
+            throw .failure
+        }
         switch format {
         case .structured:
             Lint.Reporter.Text.emit(
@@ -221,11 +235,11 @@ extension Lint.CLI {
         }
         Lint.Reporter.Text.emit(
             summaryFor: consumerRoot.components.last?.string ?? ".",
-            activeRules: configuration.rules.effective.entries.count,
-            excludedRules: configuration.rules.effective.disabled.count,
-            filesLinted: outcome.filesLinted,
-            violations: outcome.violations.count,
-            findings: outcome.findings.count,
+            activeRules: Cardinal(UInt(configuration.rules.effective.entries.count)),
+            excludedRules: Cardinal(UInt(configuration.rules.effective.disabled.count)),
+            filesLinted: Cardinal(UInt(outcome.filesLinted)),
+            violations: Cardinal(UInt(outcome.violations.count)),
+            findings: Cardinal(UInt(outcome.findings.count)),
             to: Terminal.Stream.stderr.write
         )
         if outcome.summary.unmeasuredObservations > 0 {
@@ -236,23 +250,16 @@ extension Lint.CLI {
         }
     }
 
-    fileprivate func resolveConfiguration(consumerRoot: File_System.File.Path) -> Lint.Configuration
-    {
+    fileprivate func resolveConfiguration(consumerRoot: File_System.File.Path) -> Lint.Configuration {
         return Lint.Driver.configuration(
             at: consumerRoot,
             manifestOverride: linter,
             onMissingLinterPath: {
-                do throws(KernelWrite) {
-                    _ = try Terminal.Stream.stderr.write(
-                        Lint.CLI.bytes(
-                            of: "[swift-linter] error: SWIFT_LINTER_PATH environment variable "
-                                + "not set; cannot resolve manifest dependencies. Falling back "
-                                + "to default (zero-rules) configuration.\n"
-                        )
-                    )
-                } catch {
-
-                }
+                Lint.CLI.writeError(
+                    "[swift-linter] error: SWIFT_LINTER_PATH environment variable "
+                        + "not set; cannot resolve manifest dependencies. Falling back "
+                        + "to default (zero-rules) configuration.\n"
+                )
             }
         )
     }
