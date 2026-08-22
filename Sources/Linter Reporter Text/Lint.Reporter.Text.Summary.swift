@@ -1,4 +1,4 @@
-public import Linter_Primitives
+public import Linter_Core
 
 extension Lint.Reporter.Text {
 
