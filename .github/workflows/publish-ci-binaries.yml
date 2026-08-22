@@ -148,6 +148,21 @@ jobs:
         run: |
           set -euo pipefail
           swift build --package-path Runner --product runner
+          resolved=Runner/Package.resolved
+          require_revision() {
+            identity="$1"
+            expected="$2"
+            actual=$(jq -r --arg identity "$identity" '.pins[] | select(.identity == $identity) | .state.revision' "$resolved")
+            if [ "$actual" != "$expected" ]; then
+              echo "$identity resolved to $actual, expected $expected" >&2
+              exit 1
+            fi
+          }
+          require_revision swift-linter-primitives "$(sed -n 's/^swift-linter-primitives=//p' /tmp/MANIFEST.txt)"
+          require_revision swift-primitives-linter-rules "$(sed -n 's/^swift-primitives-linter-rules=//p' /tmp/MANIFEST.txt)"
+          require_revision swift-standards-linter-rules "$(sed -n 's/^swift-standards-linter-rules=//p' /tmp/MANIFEST.txt)"
+          require_revision swift-institute-linter-rules "$(sed -n 's/^swift-institute-linter-rules=//p' /tmp/MANIFEST.txt)"
+          require_revision swift-linter-rules "$(sed -n 's/^swift-linter-rules=//p' /tmp/MANIFEST.txt)"
           install -m 0755 Runner/.build/debug/runner /tmp/stage-swift-linter
           /tmp/stage-swift-linter --inventory > /tmp/RULE-INVENTORY.json
           jq -e '
@@ -298,6 +313,21 @@ jobs:
         run: |
           set -euo pipefail
           swift build --package-path Runner --product runner
+          resolved=Runner/Package.resolved
+          require_revision() {
+            identity="$1"
+            expected="$2"
+            actual=$(jq -r --arg identity "$identity" '.pins[] | select(.identity == $identity) | .state.revision' "$resolved")
+            if [ "$actual" != "$expected" ]; then
+              echo "$identity resolved to $actual, expected $expected" >&2
+              exit 1
+            fi
+          }
+          require_revision swift-linter-primitives "$(sed -n 's/^swift-linter-primitives=//p' /tmp/MANIFEST-macos-arm64.txt)"
+          require_revision swift-primitives-linter-rules "$(sed -n 's/^swift-primitives-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)"
+          require_revision swift-standards-linter-rules "$(sed -n 's/^swift-standards-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)"
+          require_revision swift-institute-linter-rules "$(sed -n 's/^swift-institute-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)"
+          require_revision swift-linter-rules "$(sed -n 's/^swift-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)"
           install -m 0755 Runner/.build/debug/runner /tmp/stage-swift-linter-macos-arm64
           /tmp/stage-swift-linter-macos-arm64 --inventory > /tmp/RULE-INVENTORY-macos-arm64.json
           jq -e '
@@ -323,7 +353,7 @@ jobs:
           cp /tmp/RULE-INVENTORY-macos-arm64.json "$stage/RULE-INVENTORY-macos-arm64.json"
           jq -n \
             --arg platform "macos-arm64" \
-            --arg toolchain "xcode:${XCODE_VERSION}" \
+            --arg toolchain "$(/usr/bin/xcodebuild -version | tr '\n' ';')" \
             --arg compositeDigest "${{ steps.digest.outputs.digest }}" \
             --arg engine "$GITHUB_SHA" \
             --arg primitiveRules "$(sed -n 's/^swift-primitives-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)" \
