@@ -52,7 +52,7 @@ extension Lint {
       }
       let document = JSON.object([
         ("schema", 1),
-        ("profileSchema", Lint.Profile.schema),
+        ("profileSchema", JSON(integerLiteral: Lint.Profile.schema)),
         ("structuredResultSchema", 2),
         ("bundles", .array(inventories)),
       ])

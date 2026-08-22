@@ -1,3 +1,4 @@
+import Linter_Core
 import Linter_Primitives
 import Linter_Reporter_SARIF
 import Linter_Reporter_Text

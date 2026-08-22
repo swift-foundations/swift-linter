@@ -79,6 +79,7 @@ let package = Package(
         .package(url: "https://github.com/swift-foundations/swift-json.git", branch: "main"),
         .package(url: "https://github.com/swift-foundations/swift-kernel.git", branch: "main"),
         .package(url: "https://github.com/swift-foundations/swift-manifests.git", branch: "main"),
+        .package(url: "https://github.com/swift-foundations/swift-paths.git", branch: "main"),
         .package(
             url: "https://github.com/swift-foundations/swift-package-manager.git",
             branch: "main"
@@ -113,6 +114,7 @@ let package = Package(
         .target(
             name: "Linter Reporter SARIF",
             dependencies: [
+                .target(name: "Linter Core"),
                 .target(name: "Linter Reporter Text"),
                 .product(name: "Linter Primitives", package: "swift-linter-primitives"),
                 .product(name: "Terminal Primitives", package: "swift-terminal-primitives"),
@@ -134,6 +136,7 @@ let package = Package(
             dependencies: [
                 .target(name: "Linter Core"),
                 .product(name: "JSON", package: "swift-json"),
+                .product(name: "Paths", package: "swift-paths"),
             ]
         ),
         .target(

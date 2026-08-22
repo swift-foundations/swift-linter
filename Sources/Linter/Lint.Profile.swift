@@ -62,10 +62,13 @@ extension Lint.Profile {
     guard let baked = Lint.Rule.Bundle.Baked(rawValue: decodedBundle) else {
       throw .bundle(decodedBundle)
     }
+    var ruleIDs: [Lint.Rule.ID] = []
+    ruleIDs.reserveCapacity(decodedRules.count)
+    for rule in decodedRules { ruleIDs.append(Lint.Rule.ID(rule)) }
     return try Self(
       revision: decodedRevision,
       bundle: baked,
-      rules: decodedRules.map(Lint.Rule.ID.init)
+      rules: ruleIDs
     )
   }
 
@@ -82,11 +85,14 @@ extension Lint.Profile {
     guard available.count == rules.count, Set(available.keys) == Set(rules) else {
       throw .rules("profile does not equal the complete baked bundle inventory")
     }
-    return try rules.map { rule in
+    var selected: [Lint.Rule.Configuration] = []
+    selected.reserveCapacity(rules.count)
+    for rule in rules {
       guard let configuration = available[rule] else {
         throw .rules("unknown rule \(rule.underlying)")
       }
-      return configuration
+      selected.append(configuration)
     }
+    return selected
   }
 }

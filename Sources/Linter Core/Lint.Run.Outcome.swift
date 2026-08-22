@@ -75,7 +75,7 @@ extension Lint.Run.Outcome {
   }
 
   @inlinable
-  public var failedControls: [Control.Evidence] {
+  public var failedControls: [Lint.Run.Control.Evidence] {
     controls.filter { control in
       guard control.coverage == .measured else { return false }
       return control.actualFindings != control.expectation.count
@@ -83,7 +83,7 @@ extension Lint.Run.Outcome {
   }
 
   @inlinable
-  public var unmeasuredControls: [Control.Evidence] {
+  public var unmeasuredControls: [Lint.Run.Control.Evidence] {
     controls.filter {
       if case .unmeasured = $0.coverage { true } else { false }
     }
