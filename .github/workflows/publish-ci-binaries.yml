@@ -168,7 +168,7 @@ jobs:
           jq -e '
             .schema == 1
             and .profileSchema == 1
-            and .structuredResultSchema == 1
+            and .structuredResultSchema == 2
             and (.bundles | length > 0)
             and ([.bundles[].bundle] | length == (unique | length))
             and all(.bundles[]; .rules as $rules
@@ -235,6 +235,7 @@ jobs:
   # swift-linter job is ubuntu-only and no CI leg lints on Windows, so a
   # Windows asset would have zero consumers (negative recorded 2026-07-23).
   publish-macos-arm64:
+    needs: publish
     runs-on: ${{ 'xcode-27' }}
     timeout-minutes: 60
     permissions:
@@ -329,17 +330,6 @@ jobs:
           require_revision swift-institute-linter-rules "$(sed -n 's/^swift-institute-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)"
           require_revision swift-linter-rules "$(sed -n 's/^swift-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)"
           install -m 0755 Runner/.build/debug/runner /tmp/stage-swift-linter-macos-arm64
-          /tmp/stage-swift-linter-macos-arm64 --inventory > /tmp/RULE-INVENTORY-macos-arm64.json
-          jq -e '
-            .schema == 1
-            and .profileSchema == 1
-            and .structuredResultSchema == 1
-            and (.bundles | length > 0)
-            and ([.bundles[].bundle] | length == (unique | length))
-            and all(.bundles[]; .rules as $rules
-              | ($rules | length) > 0
-              and (($rules | length) == ($rules | unique | length)))
-          ' /tmp/RULE-INVENTORY-macos-arm64.json >/dev/null
 
       - name: Publish macos-arm64 assets
         if: ${{ steps.fresh.outputs.stale == 'true' }}
@@ -350,7 +340,19 @@ jobs:
           set -euo pipefail
           stage=$(mktemp -d)
           cp /tmp/stage-swift-linter-macos-arm64 "$stage/swift-linter-macos-arm64"
-          cp /tmp/RULE-INVENTORY-macos-arm64.json "$stage/RULE-INVENTORY-macos-arm64.json"
+          gh release download ci-binaries \
+            --pattern RULE-INVENTORY.json \
+            --output "$stage/RULE-INVENTORY-macos-arm64.json"
+          jq -e '
+            .schema == 1
+            and .profileSchema == 1
+            and .structuredResultSchema == 2
+            and (.bundles | length > 0)
+            and ([.bundles[].bundle] | length == (unique | length))
+            and all(.bundles[]; .rules as $rules
+              | ($rules | length) > 0
+              and (($rules | length) == ($rules | unique | length)))
+          ' "$stage/RULE-INVENTORY-macos-arm64.json" >/dev/null
           jq -n \
             --arg platform "macos-arm64" \
             --arg toolchain "$(/usr/bin/xcodebuild -version | tr '\n' ';')" \
