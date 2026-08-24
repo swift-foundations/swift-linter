@@ -181,7 +181,7 @@ extension Lint {
         Process.exit(1)
       }
     } catch {
-      print("[Lint] error: \(error)")
+      failLoud("source measurement failed: \(error)")
     }
   }
 

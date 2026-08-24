@@ -4,6 +4,14 @@ extension Lint.Rule {
   fileprivate static let `report format fixture` = Lint.Rule(
     id: "report format fixture",
     default: .error,
+    controls: [
+      .init(
+        id: "report format fixture positive",
+        source: "let value = 0",
+        path: "Controls/ReportFormat.swift",
+        expectation: .findings(1)
+      )
+    ],
     observe: Lint.Rule.measured { source, severity in
       [
         Diagnostic.Record(

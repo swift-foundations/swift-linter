@@ -19,6 +19,7 @@ import Testing
   extension Lint.Reporter.Format.Test.Executable {
     fileprivate static let cli = "swift-linter"
     fileprivate static let runner = "swift-linter-report-fixture"
+    fileprivate static let invalidRunner = "swift-linter-invalid-control-fixture"
 
     #if canImport(Darwin)
       fileprivate static let imageMarker: @convention(c) () -> Void = {}
@@ -435,6 +436,44 @@ import Testing
       #expect(
         Lint.Reporter.Format.Test.Executable.stderr(output).contains(
           "[Lint] error: output-format channel:"
+        )
+      )
+    }
+
+    @Test
+    func `Invalid control catalog exits nonzero with a visible stderr diagnostic and no stdout`() {
+      guard
+        let runner = Lint.Reporter.Format.Test.Executable.product(
+          Lint.Reporter.Format.Test.Executable.invalidRunner,
+          variable: "SWIFT_LINTER_TEST_INVALID_RUNNER"
+        )
+      else {
+        Issue.record(
+          Comment(
+            rawValue: Lint.Reporter.Format.Test.Executable.missing(
+              Lint.Reporter.Format.Test.Executable.invalidRunner
+            )
+          )
+        )
+        return
+      }
+      guard
+        let output = Lint.Reporter.Format.Test.Executable.run(
+          runner,
+          arguments: [
+            Lint.Reporter.Format.Test.Executable.fixture("report-format-direct")
+          ],
+          environment: Lint.Reporter.Format.Test.Executable.environment(
+            format: Lint.Reporter.Format.Channel.value(.structured),
+            bundle: Lint.Rule.Bundle.Baked.primitives.rawValue
+          )
+        )
+      else { return }
+      #expect(output.status == .exited(code: 1))
+      #expect(output.stdout?.isEmpty == true)
+      #expect(
+        Lint.Reporter.Format.Test.Executable.stderr(output).contains(
+          "[Lint] error: source measurement failed: invalidControlCatalog"
         )
       )
     }

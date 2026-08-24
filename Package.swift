@@ -221,6 +221,13 @@ let package = Package(
             path: "Tests/Fixtures/report-format-executable"
         ),
         .executableTarget(
+            name: "swift-linter-invalid-control-fixture",
+            dependencies: [
+                .target(name: "Linter")
+            ],
+            path: "Tests/Fixtures/report-format-invalid-executable"
+        ),
+        .executableTarget(
             name: "swift-linter-bundle-fixture",
             dependencies: [
                 .target(name: "Linter")
