@@ -140,12 +140,12 @@ extension Lint.Run {
         let severity = entry.severity ?? entry.rule.severity.default
         let observation = entry.rule.observe(parsed, severity)
         let coverage: Lint.Rule.Coverage
-        if observation.applicability.isApplicable {
+        if observation.applicability == control.applicability {
           coverage = observation.coverage
         } else {
           coverage = .unmeasured(
             .other(
-              code: "control-inapplicable",
+              code: "control-applicability-mismatch",
               detail: control.id.underlying
             )
           )
