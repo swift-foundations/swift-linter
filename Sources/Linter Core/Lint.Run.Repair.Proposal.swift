@@ -1,5 +1,5 @@
 public import File_System
-public import Linter_Primitives
+public import Linter
 
 extension Lint.Run.Repair {
 

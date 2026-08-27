@@ -1,4 +1,4 @@
-public import Cardinal_Primitives
+public import Cardinal
 public import Linter_Core
 
 extension Lint.Reporter.Text {

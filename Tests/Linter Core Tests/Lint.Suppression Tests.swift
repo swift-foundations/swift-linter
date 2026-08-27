@@ -1,6 +1,6 @@
 import File_System
 import Foundation
-import Linter_Primitives
+import Linter
 import SwiftParser
 import SwiftSyntax
 import Testing

@@ -1,5 +1,5 @@
 import Linter_Core
-import Linter_Primitives
+import Linter
 import Linter_Reporter_SARIF
 import Linter_Reporter_Text
 import Testing

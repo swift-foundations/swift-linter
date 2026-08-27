@@ -29,34 +29,34 @@ extension Lint.File.Single.Test.Canonicalize {
   func `Dot consumerRoot resolves via cwd closure`() {
     let resolved = Lint.File.Single.canonicalize(
       consumerRoot: ".",
-      currentWorkingDirectory: { "/Users/coen/Developer/swift-cardinal-primitives" }
+      currentWorkingDirectory: { "/workspace/swift-cardinal" }
     )
-    #expect(resolved == "/Users/coen/Developer/swift-cardinal-primitives")
+    #expect(resolved == "/workspace/swift-cardinal")
   }
 
   @Test
   func `Empty consumerRoot resolves via cwd closure`() {
     let resolved = Lint.File.Single.canonicalize(
       consumerRoot: "",
-      currentWorkingDirectory: { "/Users/coen/Developer/swift-cardinal-primitives" }
+      currentWorkingDirectory: { "/workspace/swift-cardinal" }
     )
-    #expect(resolved == "/Users/coen/Developer/swift-cardinal-primitives")
+    #expect(resolved == "/workspace/swift-cardinal")
   }
 
   @Test
   func `Absolute path is returned unchanged`() {
     let resolved = Lint.File.Single.canonicalize(
-      consumerRoot: "/Users/coen/Developer/swift-cardinal-primitives",
-      currentWorkingDirectory: { "/Users/elsewhere" }
+      consumerRoot: "/workspace/swift-cardinal",
+      currentWorkingDirectory: { "/workspace/elsewhere" }
     )
-    #expect(resolved == "/Users/coen/Developer/swift-cardinal-primitives")
+    #expect(resolved == "/workspace/swift-cardinal")
   }
 
   @Test
   func `Relative non-self path is returned unchanged`() {
     let resolved = Lint.File.Single.canonicalize(
       consumerRoot: "./Sources",
-      currentWorkingDirectory: { "/Users/elsewhere" }
+      currentWorkingDirectory: { "/workspace/elsewhere" }
     )
     #expect(resolved == "./Sources")
   }
@@ -78,7 +78,7 @@ extension Lint.File.Single.Extractor.Test.Name {
     let name = Lint.File.Single.Extractor.name(
       at: "../swift-primitives-linter-rules",
       consumerPackageRoot: File.Path(
-        stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+        stringLiteral: "/workspace/swift-molecules/swift-cardinal"
       )
     )
     #expect(name == "swift-primitives-linter-rules")
@@ -87,9 +87,9 @@ extension Lint.File.Single.Extractor.Test.Name {
   @Test
   func `Absolute path uses path's own basename`() {
     let name = Lint.File.Single.Extractor.name(
-      at: "/Users/coen/Developer/swift-foundations/swift-linter-rules",
+      at: "/workspace/swift-compositions/swift-linter-rules",
       consumerPackageRoot: File.Path(
-        stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+        stringLiteral: "/workspace/swift-molecules/swift-cardinal"
       )
     )
     #expect(name == "swift-linter-rules")
@@ -100,10 +100,10 @@ extension Lint.File.Single.Extractor.Test.Name {
     let name = Lint.File.Single.Extractor.name(
       at: ".",
       consumerPackageRoot: File.Path(
-        stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+        stringLiteral: "/workspace/swift-molecules/swift-cardinal"
       )
     )
-    #expect(name == "swift-cardinal-primitives")
+    #expect(name == "swift-cardinal")
   }
 
   @Test
@@ -111,10 +111,10 @@ extension Lint.File.Single.Extractor.Test.Name {
     let name = Lint.File.Single.Extractor.name(
       at: "",
       consumerPackageRoot: File.Path(
-        stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives"
+        stringLiteral: "/workspace/swift-molecules/swift-cardinal"
       )
     )
-    #expect(name == "swift-cardinal-primitives")
+    #expect(name == "swift-cardinal")
   }
 
   @Test
@@ -122,10 +122,10 @@ extension Lint.File.Single.Extractor.Test.Name {
     let name = Lint.File.Single.Extractor.name(
       at: ".",
       consumerPackageRoot: File.Path(
-        stringLiteral: "/Users/coen/Developer/swift-primitives/swift-cardinal-primitives/"
+        stringLiteral: "/workspace/swift-molecules/swift-cardinal/"
       )
     )
-    #expect(name == "swift-cardinal-primitives")
+    #expect(name == "swift-cardinal")
   }
 }
 

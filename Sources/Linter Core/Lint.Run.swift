@@ -1,5 +1,5 @@
 public import File_System
-internal import Linter_Primitives
+internal import Linter
 import SwiftParser
 import SwiftSyntax
 

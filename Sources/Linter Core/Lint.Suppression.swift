@@ -1,4 +1,4 @@
-public import Linter_Primitives
+public import Linter
 public import SwiftSyntax
 
 extension Lint {

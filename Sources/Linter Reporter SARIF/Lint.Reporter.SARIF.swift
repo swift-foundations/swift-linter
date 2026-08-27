@@ -1,8 +1,8 @@
 public import JSON
 public import Linter_Core
-public import Linter_Primitives
+public import Linter
 public import Linter_Reporter_Text
-public import Terminal_Primitives
+public import Terminal
 
 #if !os(Windows)
   public import ISO_9945_Kernel_Terminal

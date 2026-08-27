@@ -8,9 +8,9 @@ let package = Package(
         .executable(name: "runner", targets: ["runner"])
     ],
     dependencies: [
-        .package(url: "https://github.com/swift-foundations/swift-linter.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-linter.git", branch: "main"),
         .package(
-            url: "https://github.com/swift-primitives/swift-primitives-linter-rules.git",
+            url: "https://github.com/swift-molecules/swift-primitives-linter-rules.git",
             branch: "main"
         ),
         .package(
@@ -18,7 +18,7 @@ let package = Package(
             branch: "main"
         ),
         .package(
-            url: "https://github.com/swift-foundations/swift-institute-linter-rules.git",
+            url: "https://github.com/swift-compositions/swift-institute-linter-rules.git",
             branch: "main"
         ),
     ],

@@ -1,4 +1,4 @@
-import Linter_Primitives
+import Linter
 import Testing
 
 @testable import Linter_Core
@@ -234,7 +234,7 @@ extension Lint.File.Single.Classifier.Test {
       import Linter_Institute_Rules
 
       Lint.run(dependencies: [
-          .package(path: "../../swift-foundations/swift-institute-linter-rules", products: ["Linter Institute Rules"])
+          .package(path: "../../swift-compositions/swift-institute-linter-rules", products: ["Linter Institute Rules"])
       ]) {
           Lint.Rule.Bundle.institute
       }
@@ -273,7 +273,7 @@ extension Lint.File.Single.Classifier.Test {
       import Linter_Institute_Rules
 
       Lint.run(dependencies: [
-          .package(path: "../../swift-foundations/swift-institute-linter-rules", products: ["Linter Institute Rules"])
+          .package(path: "../../swift-compositions/swift-institute-linter-rules", products: ["Linter Institute Rules"])
       ]) {
           Lint.Rule.Bundle.institute.excluding(rules: [
               Lint.Rule.`raw value access`.id,
@@ -323,7 +323,7 @@ extension Lint.File.Single.Classifier.Test {
 
     let source = """
       // swift-linter-tools-version: 0.1
-      // parent: https://github.com/swift-primitives/swift-primitives-linter-rules.git
+      // parent: https://github.com/swift-molecules/swift-primitives-linter-rules.git
       import Linter
       import Linter_Primitives_Rules
 

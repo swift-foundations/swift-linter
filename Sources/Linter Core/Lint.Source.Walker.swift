@@ -1,7 +1,7 @@
 public import File_System
-public import Glob_Primitives
-import Glob_Primitives_Standard_Library_Integration
-public import Linter_Primitives
+public import Glob
+import Glob_Standard_Library_Integration
+public import Linter
 
 extension Lint.Source {
 

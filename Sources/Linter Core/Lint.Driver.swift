@@ -1,8 +1,8 @@
 internal import Environment
 public import File_System
-internal import Linter_Primitives
+internal import Linter
 internal import Manifest_Loader
-internal import Manifest_Primitives
+internal import Manifest
 internal import Manifest_Resolver
 
 extension Lint {
@@ -78,7 +78,7 @@ extension Lint.Driver {
     ) {}
   }
 
-  fileprivate static func manifestDependencies() -> [Manifest_Primitives.Manifest.Dependency]? {
+  fileprivate static func manifestDependencies() -> [Manifest.Manifest.Dependency]? {
 
     guard let linterPath = Environment.read("SWIFT_LINTER_PATH") else {
       return nil
@@ -94,19 +94,19 @@ extension Lint.Driver {
       return nil
     }
     return [
-      Manifest_Primitives.Manifest.Dependency(
+      Manifest.Manifest.Dependency(
         path: (workspace / "swift-json").string,
         name: "swift-json",
         product: "JSON",
         imports: ["JSON"]
       ),
-      Manifest_Primitives.Manifest.Dependency(
+      Manifest.Manifest.Dependency(
         path: (workspace / "swift-file-system").string,
         name: "swift-file-system",
         product: "File System",
         imports: ["File_System"]
       ),
-      Manifest_Primitives.Manifest.Dependency(
+      Manifest.Manifest.Dependency(
         path: linterPath,
         name: "swift-linter",
         product: "Linter",

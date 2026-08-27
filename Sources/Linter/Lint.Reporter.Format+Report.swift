@@ -1,4 +1,4 @@
-public import Terminal_Primitives
+public import Terminal
 
 extension Lint.Reporter.Format {
 

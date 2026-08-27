@@ -1,9 +1,9 @@
 public import File_System
-public import Package_Primitives
+public import Package
 public import SPM_Standard
 internal import SwiftParser
 internal import SwiftSyntax
-internal import Version_Primitives
+internal import Version
 
 extension Lint.File.Single {
 

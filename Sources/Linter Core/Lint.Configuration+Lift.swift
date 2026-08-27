@@ -1,4 +1,4 @@
-internal import Linter_Primitives
+internal import Linter
 
 extension Lint.Configuration {
 

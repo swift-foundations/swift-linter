@@ -1,6 +1,6 @@
 public import File_System
 public import JSON
-public import Linter_Primitives
+public import Linter
 
 extension Lint {
 

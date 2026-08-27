@@ -1,6 +1,6 @@
 import File_System
 import JSON
-import Linter_Primitives
+import Linter
 import Linter_Reporter_SARIF
 import Linter_Reporter_Structured
 import Linter_Reporter_Text

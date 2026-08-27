@@ -1,9 +1,9 @@
 internal import Environment
 internal import File_System
 internal import Manifest_Executable
-internal import Manifest_Primitives
+internal import Manifest
 internal import Manifest_Resolver
-internal import Package_Primitives
+internal import Package
 internal import SPM_Standard
 internal import SwiftSyntax
 internal import URI_Standard_Library_Integration
@@ -16,7 +16,7 @@ extension Lint.File.Single {
 extension Lint.File.Single.Eval {
 
   private static let engineDependencyURL: URI =
-    "https://github.com/swift-foundations/swift-linter.git"
+    "https://github.com/swift-compositions/swift-linter.git"
 
   private static let engineDependencyBranch: Swift.String = "main"
 

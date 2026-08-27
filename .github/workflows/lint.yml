@@ -28,7 +28,7 @@ name: swift-linter (reusable)
 #
 #   jobs:
 #     lint:
-#       uses: swift-foundations/swift-linter/.github/workflows/lint.yml@<sha>
+#       uses: swift-compositions/swift-linter/.github/workflows/lint.yml@<sha>
 #       with:
 #         swift-version: "6.3"
 #         advisory: true        # Phase 1 — drop after γ-flip
@@ -106,7 +106,7 @@ jobs:
       - name: Checkout swift-linter (sibling of consumer)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
-          repository: swift-foundations/swift-linter
+          repository: swift-compositions/swift-linter
           path: swift-linter
 
       - name: Print Swift version

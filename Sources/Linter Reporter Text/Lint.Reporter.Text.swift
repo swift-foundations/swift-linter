@@ -1,6 +1,6 @@
-public import Cardinal_Primitives
+public import Cardinal
 public import Linter_Core
-public import Terminal_Primitives
+public import Terminal
 
 #if !os(Windows)
   public import ISO_9945_Kernel_Terminal

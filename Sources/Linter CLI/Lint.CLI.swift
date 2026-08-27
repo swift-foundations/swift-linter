@@ -6,7 +6,7 @@ import Kernel
 import Linter
 import Linter_Reporter_SARIF
 import Linter_Reporter_Text
-import Terminal_Primitives
+import Terminal
 
 #if os(Windows)
   import Windows_32_Kernel_Directory
@@ -50,7 +50,7 @@ extension Lint {
 extension Lint.CLI {
   static let configuration = CommandConfiguration(
     commandName: "swift-linter",
-    abstract: "SwiftSyntax-based AST linter for the swift-primitives ecosystem.",
+    abstract: "SwiftSyntax-based AST linter for the swift-molecules ecosystem.",
     discussion: """
       Augments SwiftLint by hosting AST-shaped rules whose predicate cannot \
       be expressed as a regex on source text. The engine ships rule-pack-\

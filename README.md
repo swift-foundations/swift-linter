@@ -1,6 +1,6 @@
 # swift-linter
 
-![CI](https://github.com/swift-foundations/swift-linter/actions/workflows/ci.yml/badge.svg) ![Development Status](https://img.shields.io/badge/status-active--development-blue.svg)
+![CI](https://github.com/swift-compositions/swift-linter/actions/workflows/ci.yml/badge.svg) ![Development Status](https://img.shields.io/badge/status-active--development-blue.svg)
 
 > **Note**: swift-linter currently depends on a package that has not yet been published; it will become externally buildable when that dependency's repository goes public with the ongoing incremental release.
 
@@ -33,7 +33,7 @@ falling back to text.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/swift-foundations/swift-linter.git", branch: "main"),
+    .package(url: "https://github.com/swift-compositions/swift-linter.git", branch: "main"),
 ]
 ```
 
@@ -125,7 +125,7 @@ import Linter_Institute_Rules
 
 Lint.run(dependencies: [
     .package(
-        url: "https://github.com/swift-foundations/swift-institute-linter-rules.git",
+        url: "https://github.com/swift-compositions/swift-institute-linter-rules.git",
         branch: "main",
         products: ["Linter Institute Rules"]
     ),
@@ -139,9 +139,9 @@ be the first line — it informs the engine which DSL version the file
 targets, mirroring SwiftPM's `swift-tools-version` discipline.
 
 **Bundle selection**: activate the bundle matching your package's layer
-in the five-layer architecture — `Lint.Rule.Bundle.universal` for
-universal Swift code, `.institute` for L2/L3 standards and foundations,
-`.primitives` for L1 primitives. The bundles compose additively
+in the four-layer architecture — `Lint.Rule.Bundle.universal` for
+universal Swift code, `.institute` for L3/L4 standards and compositions,
+and `.primitives` for L1/L2 atoms and molecules. The bundles compose additively
 (`institute = universal + institute-pack`; `primitives = institute +
 primitives-pack`), so activating a higher-tier bundle transitively
 activates the lower tiers' rules.
@@ -196,8 +196,8 @@ let package = Package(
     name: "Lint",
     products: [.executable(name: "Lint", targets: ["Lint"])],
     dependencies: [
-        .package(url: "https://github.com/swift-foundations/swift-linter.git", branch: "main"),
-        .package(url: "https://github.com/swift-foundations/swift-linter-rules.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-linter.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-linter-rules.git", branch: "main"),
     ],
     targets: [
         .executableTarget(
@@ -294,7 +294,7 @@ import Linter_Institute_Rules
 
 Lint.run(dependencies: [
     .package(
-        url: "https://github.com/swift-foundations/swift-institute-linter-rules.git",
+        url: "https://github.com/swift-compositions/swift-institute-linter-rules.git",
         branch: "main",
         products: ["Linter Institute Rules"]
     ),
@@ -348,19 +348,19 @@ The implementation factors across five sibling packages:
 
 | Package | Layer | Role |
 |---------|-------|------|
-| **swift-linter** (this) | L3 (Foundations) | Engine, CLI, reporters |
-| swift-linter-rules | L3 | Default rule packs |
-| swift-manifests | L3 | Manifest loader + parent-chain resolver |
-| swift-manifest-primitives | L1 (Primitives) | `Manifest.Dependency`, `Manifest.NestedPackage` types |
-| swift-linter-primitives | L1 | `Lint.Configuration`, `Lint.Rule.Protocol`, `Lint.Filter`, the typed-DSL surface |
+| **swift-compositions/swift-linter** (this) | L4 (Compositions) | Engine, CLI, reporters |
+| swift-compositions/swift-linter-rules | L4 | Default rule packs |
+| swift-compositions/swift-manifests | L4 | Manifest loader + parent-chain resolver |
+| swift-molecules/swift-manifest | L2 (Molecules) | `Manifest.Dependency`, `Manifest.NestedPackage` types |
+| swift-molecules/swift-linter | L2 | `Lint.Configuration`, `Lint.Rule.Protocol`, `Lint.Filter`, the typed-DSL surface |
 
-The factorization reflects the institute's five-layer architecture: L1
-primitives provide atoms (typed DSL surface, dependency-shape types);
-L3 foundations compose them into running tools. A single-package
-collapse would conflate the L1 typed-DSL surface (consumer-facing
-type vocabulary) with the L3 engine (running orchestration), breaking
+The factorization reflects the institute's four-layer architecture: L2
+molecules provide the typed DSL surface and dependency-shape types;
+L4 compositions compose them into running tools. A single-package
+collapse would conflate the L2 typed-DSL surface (consumer-facing
+type vocabulary) with the L4 engine (running orchestration), breaking
 the layering. Consumers depend on `swift-linter` via the URL-form
-`.package(url:from:)` declaration; the cohort's primitives are pulled
+`.package(url:from:)` declaration; the cohort's molecules are pulled
 transitively.
 
 ## Documentation

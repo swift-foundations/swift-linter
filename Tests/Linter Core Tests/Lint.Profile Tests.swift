@@ -1,5 +1,5 @@
 import File_System
-import Linter_Primitives
+import Linter
 import Testing
 
 @testable import Linter

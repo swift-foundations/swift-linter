@@ -101,12 +101,12 @@ jobs:
         run: |
           set -euo pipefail
           engine="$GITHUB_SHA"
-          primrules=$(git ls-remote https://github.com/swift-primitives/swift-primitives-linter-rules.git main | cut -f1)
+          primrules=$(git ls-remote https://github.com/swift-molecules/swift-primitives-linter-rules.git main | cut -f1)
           stdrules=$(git ls-remote https://github.com/swift-standards/swift-standards-linter-rules.git main | cut -f1)
-          instrules=$(git ls-remote https://github.com/swift-foundations/swift-institute-linter-rules.git main | cut -f1)
-          unirules=$(git ls-remote https://github.com/swift-foundations/swift-linter-rules.git main | cut -f1)
-          linterprim=$(git ls-remote https://github.com/swift-primitives/swift-linter-primitives.git main | cut -f1)
-          digest=$(printf '%s\n' "$engine" "$primrules" "$stdrules" "$instrules" "$unirules" "$linterprim" | sort | sha256sum | cut -d' ' -f1)
+          instrules=$(git ls-remote https://github.com/swift-compositions/swift-institute-linter-rules.git main | cut -f1)
+          unirules=$(git ls-remote https://github.com/swift-compositions/swift-linter-rules.git main | cut -f1)
+          lintermolecule=$(git ls-remote https://github.com/swift-molecules/swift-linter.git main | cut -f1)
+          digest=$(printf '%s\n' "$engine" "$primrules" "$stdrules" "$instrules" "$unirules" "$lintermolecule" | sort | sha256sum | cut -d' ' -f1)
           {
             echo "digest=$digest"
           } >> "$GITHUB_OUTPUT"
@@ -117,7 +117,7 @@ jobs:
             echo "swift-standards-linter-rules=$stdrules"
             echo "swift-institute-linter-rules=$instrules"
             echo "swift-linter-rules=$unirules"
-            echo "swift-linter-primitives=$linterprim"
+            echo "swift-linter=$lintermolecule"
             echo "built-at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "swift-image=${SWIFT_RELEASE_FLOOR_IMAGE}"
           } > /tmp/MANIFEST.txt
@@ -158,7 +158,7 @@ jobs:
               exit 1
             fi
           }
-          require_revision swift-linter-primitives "$(sed -n 's/^swift-linter-primitives=//p' /tmp/MANIFEST.txt)"
+          require_revision swift-linter "$(sed -n 's/^swift-linter=//p' /tmp/MANIFEST.txt)"
           require_revision swift-primitives-linter-rules "$(sed -n 's/^swift-primitives-linter-rules=//p' /tmp/MANIFEST.txt)"
           require_revision swift-standards-linter-rules "$(sed -n 's/^swift-standards-linter-rules=//p' /tmp/MANIFEST.txt)"
           require_revision swift-institute-linter-rules "$(sed -n 's/^swift-institute-linter-rules=//p' /tmp/MANIFEST.txt)"
@@ -198,14 +198,14 @@ jobs:
             --arg standardRules "$(sed -n 's/^swift-standards-linter-rules=//p' /tmp/MANIFEST.txt)" \
             --arg instituteRules "$(sed -n 's/^swift-institute-linter-rules=//p' /tmp/MANIFEST.txt)" \
             --arg universalRules "$(sed -n 's/^swift-linter-rules=//p' /tmp/MANIFEST.txt)" \
-            --arg primitives "$(sed -n 's/^swift-linter-primitives=//p' /tmp/MANIFEST.txt)" \
+            --arg linter "$(sed -n 's/^swift-linter=//p' /tmp/MANIFEST.txt)" \
             '{schema:1, platform:$platform, toolchain:$toolchain,
               compositeDigest:$compositeDigest, engineRevision:$engine,
               packageRevisions:{"swift-primitives-linter-rules":$primitiveRules,
                 "swift-standards-linter-rules":$standardRules,
                 "swift-institute-linter-rules":$instituteRules,
                 "swift-linter-rules":$universalRules,
-                "swift-linter-primitives":$primitives}}' > "$stage/MANIFEST.json"
+                "swift-linter":$linter}}' > "$stage/MANIFEST.json"
           (cd "$stage" && sha256sum swift-linter RULE-INVENTORY.json MANIFEST.json > SHA256SUMS)
           if ! gh release view ci-binaries >/dev/null 2>&1; then
             # One-time tag+release creation; the tag is never moved afterwards
@@ -267,12 +267,12 @@ jobs:
         run: |
           set -euo pipefail
           engine="$GITHUB_SHA"
-          primrules=$(git ls-remote https://github.com/swift-primitives/swift-primitives-linter-rules.git main | cut -f1)
+          primrules=$(git ls-remote https://github.com/swift-molecules/swift-primitives-linter-rules.git main | cut -f1)
           stdrules=$(git ls-remote https://github.com/swift-standards/swift-standards-linter-rules.git main | cut -f1)
-          instrules=$(git ls-remote https://github.com/swift-foundations/swift-institute-linter-rules.git main | cut -f1)
-          unirules=$(git ls-remote https://github.com/swift-foundations/swift-linter-rules.git main | cut -f1)
-          linterprim=$(git ls-remote https://github.com/swift-primitives/swift-linter-primitives.git main | cut -f1)
-          digest=$(printf '%s\n' "$engine" "$primrules" "$stdrules" "$instrules" "$unirules" "$linterprim" | sort | shasum -a 256 | cut -d' ' -f1)
+          instrules=$(git ls-remote https://github.com/swift-compositions/swift-institute-linter-rules.git main | cut -f1)
+          unirules=$(git ls-remote https://github.com/swift-compositions/swift-linter-rules.git main | cut -f1)
+          lintermolecule=$(git ls-remote https://github.com/swift-molecules/swift-linter.git main | cut -f1)
+          digest=$(printf '%s\n' "$engine" "$primrules" "$stdrules" "$instrules" "$unirules" "$lintermolecule" | sort | shasum -a 256 | cut -d' ' -f1)
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
           {
             echo "digest=$digest"
@@ -281,7 +281,7 @@ jobs:
             echo "swift-standards-linter-rules=$stdrules"
             echo "swift-institute-linter-rules=$instrules"
             echo "swift-linter-rules=$unirules"
-            echo "swift-linter-primitives=$linterprim"
+            echo "swift-linter=$lintermolecule"
             echo "built-at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "platform=macos-arm64"
             echo "xcode=${XCODE_VERSION}"
@@ -324,7 +324,7 @@ jobs:
               exit 1
             fi
           }
-          require_revision swift-linter-primitives "$(sed -n 's/^swift-linter-primitives=//p' /tmp/MANIFEST-macos-arm64.txt)"
+          require_revision swift-linter "$(sed -n 's/^swift-linter=//p' /tmp/MANIFEST-macos-arm64.txt)"
           require_revision swift-primitives-linter-rules "$(sed -n 's/^swift-primitives-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)"
           require_revision swift-standards-linter-rules "$(sed -n 's/^swift-standards-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)"
           require_revision swift-institute-linter-rules "$(sed -n 's/^swift-institute-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)"
@@ -362,14 +362,14 @@ jobs:
             --arg standardRules "$(sed -n 's/^swift-standards-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)" \
             --arg instituteRules "$(sed -n 's/^swift-institute-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)" \
             --arg universalRules "$(sed -n 's/^swift-linter-rules=//p' /tmp/MANIFEST-macos-arm64.txt)" \
-            --arg primitives "$(sed -n 's/^swift-linter-primitives=//p' /tmp/MANIFEST-macos-arm64.txt)" \
+            --arg linter "$(sed -n 's/^swift-linter=//p' /tmp/MANIFEST-macos-arm64.txt)" \
             '{schema:1, platform:$platform, toolchain:$toolchain,
               compositeDigest:$compositeDigest, engineRevision:$engine,
               packageRevisions:{"swift-primitives-linter-rules":$primitiveRules,
                 "swift-standards-linter-rules":$standardRules,
                 "swift-institute-linter-rules":$instituteRules,
                 "swift-linter-rules":$universalRules,
-                "swift-linter-primitives":$primitives}}' > "$stage/MANIFEST-macos-arm64.json"
+                "swift-linter":$linter}}' > "$stage/MANIFEST-macos-arm64.json"
           (cd "$stage" && shasum -a 256 swift-linter-macos-arm64 RULE-INVENTORY-macos-arm64.json MANIFEST-macos-arm64.json > SHA256SUMS-macos-arm64)
           # The Linux job owns release creation; wait for it to exist rather
           # than racing a duplicate create on a first-ever run.

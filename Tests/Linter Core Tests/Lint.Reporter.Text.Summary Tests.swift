@@ -1,4 +1,4 @@
-import Linter_Primitives
+import Linter
 import Linter_Reporter_Text
 import Testing
 
@@ -13,7 +13,7 @@ extension `Run summary line`.Unit {
   @Test
   func `Clean bare run prints package, active rules, files, zero violations, zero findings`() {
     let line = Lint.Reporter.Text.Summary.line(
-      package: "swift-pair-primitives",
+      package: "swift-pair",
       activeRules: 90,
       excludedRules: 0,
       filesLinted: 48,
@@ -22,7 +22,7 @@ extension `Run summary line`.Unit {
     )
     #expect(
       line
-        == "swift-pair-primitives · 90 active rules · 48 files linted · 0 violations · 0 findings"
+        == "swift-pair · 90 active rules · 48 files linted · 0 violations · 0 findings"
     )
   }
 
@@ -30,7 +30,7 @@ extension `Run summary line`.Unit {
   func `Overlay exclusion case annotates the excluded count`() {
 
     let line = Lint.Reporter.Text.Summary.line(
-      package: "swift-cardinal-primitives",
+      package: "swift-cardinal",
       activeRules: 83,
       excludedRules: 7,
       filesLinted: 31,
@@ -39,7 +39,7 @@ extension `Run summary line`.Unit {
     )
     #expect(
       line
-        == "swift-cardinal-primitives · 83 active rules (−7 excluded) · 31 files linted · 2 violations · 2 findings"
+        == "swift-cardinal · 83 active rules (−7 excluded) · 31 files linted · 2 violations · 2 findings"
     )
   }
 

@@ -1,5 +1,5 @@
 public import File_System
-internal import Version_Primitives
+internal import Version
 
 extension Lint.File.Single {
 

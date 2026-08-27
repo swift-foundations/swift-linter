@@ -1,11 +1,11 @@
 internal import File_System
 internal import JSON
 public import Linter_Core
-public import Linter_Primitives
+public import Linter
 internal import Process
 public import SPM_Standard
 internal import Standard_Library_Extensions
-internal import Terminal_Primitives
+internal import Terminal
 
 extension Lint {
 
